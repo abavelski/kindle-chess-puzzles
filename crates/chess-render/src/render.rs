@@ -333,13 +333,7 @@ fn draw_promotion_modal(frame: &mut Gray8, layout: Layout, color: Color, scale: 
     draw_button(frame, layout.promotion_cancel, "CANCEL", false, scale);
 }
 
-fn draw_navigation_button(
-    frame: &mut Gray8,
-    rect: Rect,
-    label: &str,
-    enabled: bool,
-    scale: u32,
-) {
+fn draw_navigation_button(frame: &mut Gray8, rect: Rect, label: &str, enabled: bool, scale: u32) {
     if enabled {
         draw_button(frame, rect, label, false, scale);
     } else {
