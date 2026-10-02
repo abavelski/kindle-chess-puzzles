@@ -368,10 +368,10 @@ HUMAN CHECKPOINT A passed on 2026-10-02. Task 00 is **Implemented**; later-task 
 
 # Task 04 — HUMAN CHECKPOINT B
 
-**Status:** Pending physical validation  
-**Automated implementation:** complete; host and ARMv7 cross-build gates passed before this checkpoint.
+**Status:** Checkpoint completed, with documented lifecycle/refresh limitations
+**Automated implementation:** host gates and a glibc-2.35-compatible ARMv7 cross-build passed after the device-discovered correction.
 
-Task 04 deliberately stops here until the FBInk-linked Rust binary is exercised on the actual Scribe. Do not mark Task 04 Implemented from CI alone.
+The FBInk-linked Rust binary was exercised on the actual Scribe on 2026-10-02. See the observations and final checkpoint result below; the initial CI artifact could not launch on the device.
 
 ## Safety constraints
 
@@ -449,3 +449,65 @@ Send back:
 - `/mnt/us/kindle-chess-task04/checkpoint-b.log` if anything is ambiguous or fails.
 
 After those observations are recorded, this section will be updated with the measured result and Task 04 can be marked **Implemented**.
+
+## Task 04 launch attempt — 2026-10-02
+
+- SSH root login on port 2222 with an empty password succeeded while the user reported the stock blank notebook open.
+- Tested commit: `e8cd032cd02a6ff327fe8493f6874973ded239ab`, successful CI run 17 (`37040572579`), artifact `kindle-chess-task04-armv7` (`11241607301`).
+- Artifact ZIP SHA-256 matched GitHub: `25a381f8aa70ef861f67e133f18009e4b9f2779e70b817bc1c2e0fcd10891ed6`.
+- Binary staged at `/mnt/us/kindle-chess-task04/kindle-chess`; host/device SHA-256 both `e19756a148dc576472accb5fd4ebeb30d6afcd56020326d07371bbb19c0837cb`.
+- `fbset` reconfirmed visible 1860×2480, virtual 1872×4960, 8 bpp.
+- Launch failed in the dynamic loader before app initialization: `/lib/libc.so.6: version GLIBC_2.38 not found`. No app frame was drawn. The device's measured glibc is 2.35; a green cross-build alone did not ensure runtime compatibility.
+- Revised checkpoint plan: build against glibc 2.35 or earlier, verify that binary on the device, then proceed with HUMAN CHECKPOINT B. Keep all service/input/framebuffer safety constraints above. Physical observations remain pending.
+
+### Compatible build and touch-discovery correction
+
+- Rebuilt unchanged application source with Zig 0.13.0 (`zig cc -target arm-linux-gnueabihf.2.35`, `zig ar`, `zig ranlib`) through the existing `KINDLE_LINKER`, `KINDLE_AR`, and `KINDLE_RANLIB` overrides in `scripts/check-kindle.sh`. Local tools/wrappers and logs are under ignored `probe-output/task04/`.
+- The device loader successfully resolved that binary's dependencies. Startup then failed with `no unique finger touchscreen matched name/capabilities` before first presentation.
+- Read-only sysfs inspection measured `pt_mt` event mask `f` and ABS mask `ee18000 0`. The original parser discarded all but the last word, losing the upper 32-bit MT capability bits.
+- Added host regression tests for the measured 32-bit mask and 64-bit masks. Confirmed failure with the original parser, then corrected parsing to combine the low two words on the 32-bit Scribe. No fixed event-node selection was added.
+- `scripts/check.sh` passed after the correction (format, clippy, workspace tests, Python decoder tests); the glibc-2.35 cross-build passed.
+- Corrected local binary SHA-256: `ae69860f6ad79ebe9d34557ee089b8515b7271bc8460ab1dab37dfa6bf197e4a`. It includes the uncommitted parser correction over `e8cd032` and is staged as `/mnt/us/kindle-chess-task04/kindle-chess-glibc235`.
+- Launch command: `/mnt/us/kindle-chess-task04/kindle-chess-glibc235 2>/mnt/us/kindle-chess-task04/checkpoint-b-fixed.log` in a foreground SSH PTY. Ctrl-C in that PTY is the controlled termination route.
+- Startup log reports pinned FBInk `v1.25.0-520-g92e12700`, 1860×2480, stride 1872, 8 bpp, rotation 3. Discovery selects `pt_mt` by capabilities, rejecting `WacomDigitizer` and `stylus-custom`. The process remains running awaiting human checks; visible output and touch correctness are not yet confirmed.
+- CI currently still uses a toolchain that produced the incompatible artifact. Its build environment must target glibc 2.35 or earlier before future CI artifacts can be relied on for deployment.
+
+### HUMAN CHECKPOINT B observations
+
+- Initial frame geometry: **PASS**, user confirmed the board is upright, square, fully visible, and the controls readable. Corner/center touch mapping, controls, repeated moves, pen filtering, and exit/recovery checks remain pending.
+- Checkpoint interrupted while the user was away: user reported the Scribe slept and, after waking, showed the stock blank notebook. On reconnect, SSH worked and no `kindle-chess` process was listed; the cause of termination is unverified. Restarted the same corrected binary in a foreground SSH PTY with log `/mnt/us/kindle-chess-task04/checkpoint-b-restart.log`. No service, power-policy, or framebuffer-mode changes made. Human checks restart from the initial board.
+- After restart, user confirmed the initial board visible and visually correct, enabled Free Board, and moved the white king f4→a8 successfully. Log independently records `ToggleMode`, `Square(37)` (f4), and `Square(0)` (a8). Remaining corners, center, repeated interactions, other controls, pen filtering, and recovery remain pending.
+- Corner/center move mapping: **PASS**, user confirmed a8→h8→a1→h1→d4 all landed correctly. Log agrees: square indices 0→7→56→63→35 in white orientation.
+- Stock UI interference observed: user saw the native menu briefly after tapping a8, then it disappeared quickly. Input is deliberately not grabbed and stock services remain running; concurrent stock input handling is an inference consistent with this observation. This is a lifecycle limitation to preserve in the checkpoint findings, not grounds for an unverified service/grab change during Task 04.
+- Visible controls: **PASS**, user confirmed Note, Lock, Flip, Reset, Next, Previous, and mode toggle behave as requested. Logged targets match the instructed controls.
+- Stock UI interference is repeatable on the top board row, including e8, per user report. It is not limited to the first a8 tap. Correct hit mapping does not eliminate this concurrent stock-UI behavior; stock ownership/handoff remains unresolved for the later lifecycle task.
+- Repeated move stability: **PASS**, user confirmed all ten instructed king moves f4→e4→d4→c3→d3→e3→f3→g3→h3→h2→g2 landed correctly, king remained centered, and taps had no coordinate drift or misses.
+- Refresh artifact: user observed small residual traces on the previous square temporarily after moving the king, followed by a full flash/redraw that cleared them. This is a transient ghosting/refresh observation, not evidence of persistent missing pixels. Exact duration was not measured. Preserve for later refresh-policy investigation; no waveform changes made during Task 04.
+- Pen-only test: the restart log stayed at 53 accepted taps, with last target `Square(54)` (g2); no additional chess action was logged during the reported pen contacts. User reported the board disappeared on the first stylus tap and the underlying stock notebook took over. This demonstrates stock repaint/input contention; pen filtering has supporting log evidence, but must be repeated in the single-instance retest below.
+- Correction to the sleep/restart process observation: plain `ps` did not show the app's other PTYs. A later `ps -ef`/`pidof` check found both the pre-sleep instance (PID 19611) and the restarted instance (PID 21175). The earlier inference of termination was incorrect; sleep survival/stock redraw occurred with the original app still present. Thus the restarted touch/control observations were made with two app instances and refresh observations may be confounded by concurrent presentation. Preserve those observations, but repeat key checks with exactly one process before declaring checkpoint success.
+- Stopped restarted instance through Ctrl-C in its controlling SSH PTY; terminated original instance with SIGTERM after verifying its `/proc/19611/cmdline` matched the experiment binary. `pidof kindle-chess-glibc235` then returned no PIDs. No stock services or display modes changed. Normal stock-UI recovery confirmation and a single-instance retest remain pending.
+- Stock recovery after both app instances stopped: **PASS**, user confirmed native notebook finger/menu interaction and pen drawing work normally. No reboot was needed for this recovery. Single-instance retest follows to remove the concurrent-process uncertainty.
+- Single-instance retest launch: verified no existing binary PIDs with `pidof`, then launched the same compatible binary in one foreground SSH PTY, logging to `/mnt/us/kindle-chess-task04/checkpoint-b-single.log`. Post-launch `pidof` reported exactly one PID. Startup selected the finger touchscreen successfully.
+- Single-instance retest interrupted: user reported the underlying stock screen was Home, not the blank notebook. A pen tap at the overlay FREE control opened a stock Amazon book/purchase suggestion. The app log contains startup only, with no accepted taps, consistent with intentional pen filtering and stock input handling. No evidence of a purchase was reported. This confirms stock input/repaint contention with one instance, independent of the earlier duplicate-process issue.
+- Stopped the single instance with Ctrl-C; subsequent `pidof kindle-chess-glibc235` returned no PIDs. The app remains a finger-only foreground overlay experiment; it does not own input or suppress stock UI. Repeat only over a harmless blank notebook, with finger taps for app controls. The single-instance move/refresh retest remains pending.
+- User returned to a blank notebook through the normal UI. Verified no existing app PIDs before relaunch; launched one instance with log `/mnt/us/kindle-chess-task04/checkpoint-b-notebook-single.log` and confirmed exactly one PID afterward. Finger-only move/refresh retest requested.
+- Single-instance notebook retest: user confirmed f4→e4→d4→e4→f4 finger moves work. Temporary traces on previous squares still appear; user also sees the underlying stock UI while the board refreshes. These artifacts persist with one app instance and cannot be attributed solely to duplicate presentation. Record for later lifecycle/refresh-policy work; no service/grab/waveform changes made.
+
+
+### Final HUMAN CHECKPOINT B result — 2026-10-02
+
+The user confirmed the final single-instance corner/control checks worked and requested completion without further repeated finger tests. The single-instance log confirms corner targets and Note/Lock/Flip/Reset/Next/Previous; the final d4/f4 pair from the instructed sequence is not present in that log, so do not infer extra logged moves beyond the evidence. Earlier corner/center checks and the ten-move sequence were confirmed by both user observations and their logs; single-instance center/repeated moves were subsequently confirmed separately.
+
+- [x] shell launch and correct initial shared-renderer board geometry;
+- [x] corner/center mapping and all visible finger controls;
+- [x] at least ten aligned selections/moves, no coordinate drift;
+- [x] pen contacts produce no chess tap/actions; stock UI still responds to pen;
+- [x] Ctrl-C and SIGTERM terminate the experiment; native finger and pen functionality recovered normally;
+- [x] no persistent display/input changes observed; no reboot needed for normal recovery;
+- [x] host quality gates and compatible ARMv7 cross-build passed.
+
+Final single instance stopped with Ctrl-C at the user's request. `pidof kindle-chess-glibc235` returned no PIDs afterward. No app instances remain. Device logs retained locally under ignored `probe-output/task04/`.
+
+Known limitations: stock input/repaint contention on top-row taps and pen contacts, underlying stock UI visible during refresh, and temporary previous-square traces before the full flash. The overlay is finger-only and should be tested over a disposable blank notebook, not Home/store screens. These do not establish exclusive UI ownership or a production lifecycle solution. No destructive lifecycle commands were tried; later task files remain unchanged.
+
+CI remediation: the cross-build runner is pinned to Ubuntu 22.04 instead of `ubuntu-latest`, so the GNU cross-toolchain targets glibc 2.35. The deployed binary was independently built with Zig 0.13.0 against glibc 2.35. Task 04 is **Implemented** with the above limitations recorded.

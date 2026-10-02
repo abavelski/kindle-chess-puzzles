@@ -169,10 +169,28 @@ fn has_bit(bits: u64, code: u8) -> bool {
 }
 
 fn parse_low64_bitmap(value: &str) -> Option<u64> {
-    value
-        .split_whitespace()
-        .last()
-        .and_then(|word| u64::from_str_radix(word, 16).ok())
+    parse_bitmap_words(value, usize::BITS)
+}
+
+fn parse_bitmap_words(value: &str, word_bits: u32) -> Option<u64> {
+    // sysfs emits highest-word first, using the kernel's unsigned-long width.
+    // The Scribe kernel and userspace are both 32-bit; MT axes span two words.
+    let words_to_read = match word_bits {
+        32 => 2,
+        64 => 1,
+        _ => return None,
+    };
+    let mut words = value.split_whitespace().rev();
+    let low = u64::from_str_radix(words.next()?, 16).ok()?;
+    if words_to_read == 1 {
+        return Some(low);
+    }
+    let low = u64::from(u32::try_from(low).ok()?);
+    let high = match words.next() {
+        Some(word) => u64::from(u32::from_str_radix(word, 16).ok()?),
+        None => 0,
+    };
+    Some(low | (high << 32))
 }
 
 pub fn scan_input_candidates(root: &Path) -> io::Result<Vec<InputCandidate>> {
@@ -532,4 +550,38 @@ pub fn task04_scribe_transform(metrics: DisplayMetrics) -> Result<TouchTransform
 
 pub fn input_device_path(dev_root: &Path, candidate: &InputCandidate) -> PathBuf {
     dev_root.join(&candidate.event_name)
+}
+
+#[cfg(test)]
+mod bitmap_tests {
+    use super::*;
+
+    #[test]
+    fn measured_scribe_32bit_capability_words_identify_finger_touchscreen() {
+        let candidate = InputCandidate {
+            event_name: "event4".into(),
+            name: "pt_mt".into(),
+            capabilities: DeviceCapabilities {
+                event_types_low64: parse_bitmap_words("f\n", 32).unwrap(),
+                abs_low64: parse_bitmap_words("ee18000 0\n", 32).unwrap(),
+            },
+        };
+        assert_eq!(candidate.capabilities.abs_low64, 0x0ee1_8000_0000_0000);
+        assert!(is_finger_touchscreen_candidate(&candidate));
+    }
+
+    #[test]
+    fn bitmap_parser_keeps_low64_for_32bit_and_64bit_kernel_words() {
+        assert_eq!(
+            parse_bitmap_words("1 ee18000 0", 32),
+            Some(0x0ee1_8000_0000_0000)
+        );
+        assert_eq!(
+            parse_bitmap_words("1 ee1800000000000", 64),
+            Some(0x0ee1_8000_0000_0000)
+        );
+        assert_eq!(parse_bitmap_words("0", 32), Some(0));
+        assert_eq!(parse_bitmap_words("", 32), None);
+        assert_eq!(parse_bitmap_words("invalid 0", 32), None);
+    }
 }

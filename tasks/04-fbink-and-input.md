@@ -1,6 +1,6 @@
 # Task 04 — Bring up FBInk display and Kindle touch input
 
-**Status:** Awaiting HUMAN CHECKPOINT B  
+**Status:** Implemented
 **Depends on:** Tasks 00 and 03
 
 ## Outcome
@@ -23,7 +23,9 @@ The repository now contains:
 - a live bundled-puzzle loop that renders the shared frame, waits for a finger tap, uses the shared renderer hit map, dispatches the logical action, and renders again;
 - diagnostic logging for discovered input devices and every accepted normalized tap/hit target.
 
-Automated validation is green in GitHub Actions run 16 for both the full host gate and the ARMv7 FBInk-linked cross-build. The task is intentionally **not** marked Implemented until HUMAN CHECKPOINT B passes on the physical Scribe.
+HUMAN CHECKPOINT B completed on 2026-10-02. The physical test exposed and corrected 32-bit sysfs capability-mask parsing and a CI artifact libc mismatch. Host quality gates and the compatible ARMv7 cross-build passed; the corrected binary ran on the Scribe. The cross-build CI runner is now pinned to Ubuntu 22.04 to target the device's glibc 2.35.
+
+Finger geometry, corner/center mapping, controls, repeated moves, stylus filtering, and normal recovery after Ctrl-C/SIGTERM were verified. This remains a foreground overlay experiment: the stock UI also receives input and can repaint, especially on top-row/pen contacts; temporary previous-square traces and underlying UI are visible during refresh. Those limitations are recorded in `docs/device/ks1-barolo.md` for later lifecycle/refresh work. No input grabs, service changes, or waveform tuning were added.
 
 See `docs/FBINK.md` for the pin, license, build flags, and boundary details.
 

@@ -19,7 +19,9 @@ jobs:
         run: scripts/check.sh
 
   kindle-cross-smoke:
-    runs-on: ubuntu-latest
+    # Scribe firmware 5.19.6 has glibc 2.35; newer runners produced
+    # an artifact requiring GLIBC_2.38 that failed before app startup.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
