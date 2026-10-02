@@ -1,11 +1,24 @@
 # Task 06 — Add puzzle collection discovery and durable progress
 
-**Status:** Ready  
+**Status:** Awaiting HUMAN CHECKPOINT D  
 **Depends on:** Tasks 01-05
 
 ## Outcome
 
 Load/edit multiple v1 puzzle collections on Kindle and persist learning progress separately, matching reference semantics.
+
+## Automated implementation complete
+
+Task 06 now adds:
+
+- configurable Kindle storage defaults at `/mnt/us/kindle-chess/puzzles` and `/mnt/us/kindle-chess/state/progress.json`, with `KINDLE_CHESS_PUZZLE_DIR` and `KINDLE_CHESS_PROGRESS_FILE` overrides for host tests and alternate deployments;
+- deterministic collection discovery, title fallback, invalid-file error entries, bundled `puzzles.json` installation when no matching files exist, and in-memory bundled fallback without overwriting invalid user collections;
+- a touch-sized paged Scribe collection picker that activates a file only after successful parsing and leaves the current valid board unchanged on failure;
+- durable version-1 progress for active file, per-file current puzzle ID, and solved IDs, with protected corrupt/future records and same-directory temp + sync + rename writes;
+- dirty-save retry semantics that retain the newest in-memory progress after a write failure and surface a visible warning;
+- host coverage for discovery, fallbacks, collection switching/restoration, protected progress, write-failure retry, picker hit testing, and picker/error/warning render snapshots.
+
+The ARMv7 cross-build also publishes a `kindle-chess-task06-armv7` checkpoint artifact. The task remains **Awaiting HUMAN CHECKPOINT D** until the physical restart/persistence checklist below is completed on the Scribe.
 
 ## Storage interface
 
@@ -15,7 +28,12 @@ Core parser/progress model consumes bytes.
 
 Paths must be configurable so tests use temporary directories and a future Kobo adapter can choose another location.
 
-Use the path chosen/verified during Task 00. Document it once confirmed.
+The Task 06 Kindle defaults are:
+
+- puzzle collections: `/mnt/us/kindle-chess/puzzles`;
+- app-owned progress: `/mnt/us/kindle-chess/state/progress.json`.
+
+Earlier device work verified `/mnt/us` as usable for app staging. HUMAN CHECKPOINT D must still verify the exact Task 06 subdirectories and progress file survive the intended exit/relaunch workflow on-device. Environment overrides keep host tests and alternate deployments off these production defaults.
 
 ## Collection discovery
 

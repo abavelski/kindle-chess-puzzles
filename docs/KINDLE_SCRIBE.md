@@ -130,7 +130,16 @@ Never change framebuffer rotation underneath a running stock UI unless the lifec
 
 Keep paths configurable.
 
-The intended UX is that puzzle JSON files are easy to copy from a computer, while progress is app-owned and never mixed into puzzle source data. Task 00/08 should choose a Kindle path that is writable, survives reboot, and works with the user's actual MTP/USB workflow.
+Task 06 uses these Kindle defaults:
+
+- puzzle JSON directory: `/mnt/us/kindle-chess/puzzles`;
+- app-owned progress file: `/mnt/us/kindle-chess/state/progress.json`.
+
+They can be overridden with `KINDLE_CHESS_PUZZLE_DIR` and `KINDLE_CHESS_PROGRESS_FILE`, so host tests use temporary directories and a future platform adapter is not coupled to Kindle paths. The platform storage adapter creates the puzzle directory/default `puzzles.json` only when no matching collection exists. Matching invalid collections are preserved rather than overwritten. Progress uses a same-directory temporary file, file sync, atomic rename, and directory sync; malformed or future-version progress is protected from automatic replacement.
+
+Earlier device checkpoints verified `/mnt/us` is usable for application staging. HUMAN CHECKPOINT D must still confirm that these exact Task 06 locations persist through the intended Scribe exit/relaunch and computer-copy workflow before the task is marked Implemented.
+
+Puzzle JSON remains user/source data. Solved/current/active progress is app-owned and is never written back into a puzzle collection.
 
 Do not bake a Kobo path or Cobalt store path into shared code.
 

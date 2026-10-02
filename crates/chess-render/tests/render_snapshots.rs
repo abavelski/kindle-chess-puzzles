@@ -157,9 +157,9 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("promotion", 11_267_433_688_762_715_960),
         ("long-description", 7_122_248_525_340_359_484),
         ("number-difficulty", 14_071_113_336_766_925_544),
-        ("collection-picker", 0),
-        ("collection-picker-error", 0),
-        ("progress-warning", 0),
+        ("collection-picker", 9_453_437_579_279_166_955),
+        ("collection-picker-error", 12_176_237_901_934_808_507),
+        ("progress-warning", 16_909_000_665_135_762_906),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
