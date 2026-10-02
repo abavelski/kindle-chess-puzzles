@@ -81,7 +81,10 @@ fn one_move_solution_completes_marks_solved_once_and_ignores_more_board_taps() {
     assert_eq!(app.solution_ply(), 0);
     assert!(!app.description_visible());
     let repeat_effects = play(&mut app, "d7e8");
-    assert!(repeat_effects.is_empty(), "already-solved puzzle is not re-added");
+    assert!(
+        repeat_effects.is_empty(),
+        "already-solved puzzle is not re-added"
+    );
 }
 
 #[test]
@@ -275,7 +278,10 @@ fn orientation_lock_flip_unlock_and_navigation_follow_reference_rules() {
     app.dispatch(Action::PreviousPuzzle);
     assert!(app.flipped(), "black puzzle auto-orients to black");
     app.dispatch(Action::PreviousPuzzle);
-    assert!(!app.flipped(), "later navigation resumes white auto-orientation");
+    assert!(
+        !app.flipped(),
+        "later navigation resumes white auto-orientation"
+    );
 }
 
 #[test]
@@ -309,7 +315,10 @@ fn collection_activation_restores_remembered_id_updates_progress_and_respects_lo
     let second = parse_puzzle_file(second_bytes).expect("second collection");
     let mut progress = Progress::new();
     progress.remember_puzzle("second.json", "second-black");
-    let mut app = AppState::new(ActiveCollection::from_collection("first.json", first), progress);
+    let mut app = AppState::new(
+        ActiveCollection::from_collection("first.json", first),
+        progress,
+    );
 
     app.dispatch(Action::ToggleOrientationLock);
     app.dispatch(Action::Flip);

@@ -339,7 +339,11 @@ impl AppState {
         }
 
         self.solution_ply += 1;
-        let reply = self.active_puzzle().solution.get(self.solution_ply).cloned();
+        let reply = self
+            .active_puzzle()
+            .solution
+            .get(self.solution_ply)
+            .cloned();
         if let Some(reply) = reply {
             let Ok(parsed) = parse_uci_move(&reply) else {
                 self.restore_invalid_stored_move(before, original_ply, &reply);
