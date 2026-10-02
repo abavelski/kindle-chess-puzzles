@@ -67,7 +67,13 @@ fn task00_declared_ranges_normalize_directly_to_scribe_pixels() {
         (82, 2434),
         (1789, 2446),
     ] {
-        assert_eq!(transform.map(measured.0, measured.1), measured);
+        assert_eq!(
+            transform.map(measured.0, measured.1),
+            (
+                u32::try_from(measured.0).unwrap(),
+                u32::try_from(measured.1).unwrap(),
+            )
+        );
     }
 }
 
