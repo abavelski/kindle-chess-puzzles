@@ -360,3 +360,23 @@ fn invalid_stored_reply_restores_attempt_and_surfaces_transient_error() {
     app.dispatch(Action::SetTransientMessage(None));
     assert!(app.transient_message().is_none());
 }
+
+#[test]
+fn navigation_availability_matches_collection_ends_without_wrap() {
+    let mut app = state("puzzles.json", PUZZLES);
+
+    assert!(!app.can_previous_puzzle());
+    assert!(app.can_next_puzzle());
+    let first = app.board().clone();
+    app.dispatch(Action::PreviousPuzzle);
+    assert_eq!(app.active_puzzle_index(), 0);
+    assert_eq!(app.board(), &first);
+
+    app.dispatch(Action::NextPuzzle);
+    assert!(app.can_previous_puzzle());
+    assert!(!app.can_next_puzzle());
+    let last = app.board().clone();
+    app.dispatch(Action::NextPuzzle);
+    assert_eq!(app.active_puzzle_index(), 1);
+    assert_eq!(app.board(), &last);
+}
