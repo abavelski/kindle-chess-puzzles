@@ -47,7 +47,7 @@ Do not hardcode these before Task 00:
 - safe launch/return behavior for the installed jailbreak/homebrew stack;
 - writable locations that are convenient for puzzle files and safe for progress.
 
-Task 00 records these in `docs/device/ks1-barolo.md`.
+Task 00 completed on 2026-10-02 and records verified measurements in `docs/device/ks1-barolo.md`: firmware 5.19.6, 32-bit ARMv7 hard-float/glibc 2.35, visible 1860×2480 Y8 framebuffer with 1872-byte stride, direct portrait finger coordinates, separate physical/virtual pen streams, and a successful Kindle FBInk `92e1270` overlay restored with Home. Continuous rendering/lifecycle, other orientations, and production storage persistence remain later-task validation.
 
 ## Bring-up policy
 

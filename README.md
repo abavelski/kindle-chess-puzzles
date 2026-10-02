@@ -61,8 +61,8 @@ Start here:
 
 ## Current state
 
-Task 00 probe tooling is implemented and is **awaiting the physical Scribe checkpoint**. No chess application code has been implemented yet.
+Task 00 is **Implemented**: the physical Scribe checkpoint passed on 2026-10-02. Verified device measurements and remaining validation limits are recorded in [the device record](docs/device/ks1-barolo.md). Task 01 is next; no chess application code has been implemented yet.
 
-For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the measurements to return before Task 00 can be marked Implemented.
+For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
 
 The initial target is the Kindle Scribe first generation. Reuse for Kobo is an architectural constraint, not an active implementation target for the first milestone.

@@ -1,8 +1,8 @@
 # Kindle Scribe 1st generation (Barolo) — Task 00 device record
 
-**Task status:** Awaiting HUMAN CHECKPOINT A  
+**Task status:** Implemented
 **Target:** Kindle Scribe, first generation  
-**Record date:** 2026-10-02 (partial; precise calibration and FBInk verification pending)
+**Record date:** 2026-10-02; HUMAN CHECKPOINT A passed
 **Repository task:** `tasks/00-device-probe.md`
 
 This file is the checked-in summary of facts measured on the actual device. Do not paste unreviewed logs into Git: review them first even though the probe intentionally excludes common serial/network/account identifiers.
@@ -142,9 +142,9 @@ Write candidates here before capture:
 
 | Role | Candidate device | Kernel name | Why |
 | --- | --- | --- | --- |
-| Finger touchscreen | _pending_ | _pending_ | _pending_ |
-| Stylus/tablet | _pending_ | _pending_ | _pending_ |
-| Other relevant input | _pending_ | _pending_ | _pending_ |
+| Finger touchscreen | `/dev/input/event4` | `pt_mt` | multitouch axes; `/dev/input/touch` links here |
+| Stylus/tablet | `/dev/input/event3` | `WacomDigitizer` | pen buttons, position, pressure, distance, tilt |
+| Other relevant input | `/dev/input/event5` | `stylus-custom` | virtual pen stream; captured alongside physical pen |
 
 ### 4. Capture the finger five-point trace
 
@@ -202,7 +202,7 @@ python3 tools/decode_evdev.py /path/to/stylus-eventM.bin --summary-only --five-p
 
 The decoder auto-detects common 16-byte (32-bit timeval) and 24-byte (64-bit timeval) Linux `input_event` layouts. If auto-detection fails, retry explicitly with `--layout 32` or `--layout 64` and record which one works.
 
-After reading the framebuffer `virtual_size` from the main probe, rerun the finger trace with the exact screen size, for example (replace with measured numbers):
+After verifying the visible framebuffer size with `fbset`/FBInk, rerun the finger trace with that screen size. Do not use padded virtual dimensions as visible dimensions. For example (replace with measured numbers):
 
 ```sh
 python3 tools/decode_evdev.py /path/to/finger-eventN.bin \
@@ -217,7 +217,7 @@ The five-point section reports:
 - observed edge values;
 - an approximate raw-to-pixel formula when `--screen` is supplied.
 
-Corner taps are an **observed** range, not necessarily the kernel-declared ABS min/max. If `evtest` or another trusted input diagnostic is already available on the device, record its declared ABS min/max as well; do not install a random tool solely for this checkpoint.
+Corner taps are an **observed** range, not necessarily the kernel-declared ABS min/max. Inset/menu-displaced taps must not be treated as full-screen edges. If `evtest` or another trusted input diagnostic is already available on the device, record its declared ABS min/max as well; do not install a random tool solely for this checkpoint. The stock diagnostic on this Scribe uses `evtest info /dev/input/eventN`, which reports capabilities/ranges and exits without capturing or grabbing input; `--help` is interpreted as a device filename.
 
 ### 7. Verify normal recovery
 
@@ -276,38 +276,42 @@ Fill/update this section only from the actual checkpoint evidence.
 
 ## Framebuffer / FBInk
 
-- framebuffer node: sysfs `fb0`, driver name `hwtcon_v2`; `/dev/fb0` access not tested.
-- visible/virtual size: sysfs `modes` reports `U:1860x2480p-0`; `virtual_size` is `1872,4960`. Visible dimensions and padding/double-buffer interpretation need verification before using a screen transform.
-- bits per pixel: 8.
-- stride: sysfs reports 1872 bytes.
-- current rotation: sysfs `rotate=3`; its relationship to physical orientation is not yet verified.
-- FBInk binary/version/revision: `fbink` not found in SSH PATH; no other binary located or tested. `input_scan` also not found.
-- FBInk target reports Kindle: unknown; no CLI available in PATH.
-- smoke draw succeeds: skipped because no known compatible FBInk CLI was available in PATH; no pixels written by Task 00.
-- smoke text orientation: unknown; smoke test skipped.
-- stock UI repaint observation: unknown; smoke test skipped.
-- normal UI restored afterward: user confirmed normal stock UI and display/input after captures; FBInk-specific recovery was not tested.
+- framebuffer node: `fb0`, driver ID `hwtcon_v2`; FBInk successfully initialized and drew through the framebuffer.
+- visible size: **1860×2480**, independently reported by plain `fbset` and FBInk variable framebuffer info.
+- virtual size: **1872×4960**, reported by sysfs and `fbset`; these padded virtual dimensions are not the visible viewport.
+- bits per pixel / format: 8, FBInk reports `Y8` grayscale.
+- stride: 1872 bytes (sysfs and FBInk fixed framebuffer info).
+- framebuffer memory length: 9,285,120 bytes (FBInk fixed framebuffer info; no raw framebuffer read/copy performed).
+- current rotation: `3`, reported by FBInk as counterclockwise 270°. Text was physically upright in the tested stock notebook orientation.
+- FBInk binary/version/revision: existing `/mnt/us/koreader/fbink`, build identifier `92e1270`. It is outside the SSH PATH; the initial PATH-only probe therefore missed it. No FBInk binary was downloaded or installed.
+- FBInk target reports Kindle: yes; identifies Kindle Scribe / Barolo on Bellatrix3, 300 dpi. Help reports Draw/Bitmap/Fonts/OpenType enabled, Image/Input/ButtonScan disabled.
+- smoke command: `FBINK=/mnt/us/koreader/fbink sh scripts/kindle_fbink_smoke.sh` from `/mnt/us/kindle-chess-probe`; scripts unchanged from `c95f740`.
+- smoke draw succeeds: yes, exit status 0. Logged overlay region: left 546, top 1224, width 768, height 32; no full-screen clear requested.
+- smoke text orientation/position: user saw “Kindle Chess FBInk probe” upright and centered both horizontally and vertically over the open blank notebook page.
+- stock UI repaint observation: text stayed visible on the idle notebook page during the human observation; no timed persistence duration was measured. Normal Home action repainted the display and removed it.
+- normal UI restored afterward: yes; user confirmed Home restored the normal screen and the UI remained usable. Lock/unlock and reboot were unnecessary.
+- `input_scan`: not found in SSH PATH.
 
 ## Input devices
 
 | Role | Device | Kernel name | Important capabilities | Declared/observed ranges |
 | --- | --- | --- | --- | --- |
-| Finger | `/dev/input/event4` (`/dev/input/touch`) | `pt_mt` | multitouch position, tracking ID, pressure, touch-major; no button events observed | observed X 20–1792, Y 65–2446 across traces; declared ranges unknown |
-| Physical stylus | `/dev/input/event3` | `WacomDigitizer` | `BTN_TOOL_PEN`, `BTN_TOUCH`; `ABS_X/Y`, pressure, distance, tilt | observed X 306–15240, Y 498–20462; declared ranges unknown |
-| Virtual stylus stream | `/dev/input/event5` | `stylus-custom` | `BTN_TOOL_PEN`, `BTN_TOUCH`, `ABS_X/Y` observed | observed X 40–1814, Y 66–2435; declared ranges unknown |
+| Finger | `/dev/input/event4` (`/dev/input/touch`) | `pt_mt` | multitouch position, tracking ID, pressure, touch-major; no button events observed | declared X 0–1859, Y 0–2479; observed X 20–1792, Y 65–2446 across traces |
+| Physical stylus | `/dev/input/event3` | `WacomDigitizer` | `BTN_TOOL_PEN`, `BTN_TOUCH`; `ABS_X/Y`, pressure, distance, tilt | declared X 0–15624, Y 0–20832; observed X 306–15240, Y 498–20462 |
+| Virtual stylus stream | `/dev/input/event5` | `stylus-custom` | `BTN_TOOL_PEN`, `BTN_TOUCH`, `ABS_X/Y` observed | declared X 0–1860, Y 0–2480; observed X 40–1814, Y 66–2435 |
 
 ### Finger raw-to-screen transform
 
 - First finger capture: `finger-event4.bin` contained 0 bytes after 20 seconds while KOReader was open. User confirmed five taps during capture and KOReader responding. No transform can be inferred; exclusive input ownership is a hypothesis, not yet verified. `/dev/input/touch` was verified to link to `event4`. No capture process remained afterward.
-- Second finger capture: `finger-stock-event4.bin`, collected after normal KOReader exit via a detached delayed invocation of the unchanged script, contained 1,184 bytes (74 events, 32-bit timeval layout, no trailing bytes). Four contacts were extracted: `(67,68)`, `(1763,107)`, `(878,1155)`, `(89,2399)`. Five-point transform remains pending because the fifth contact is missing. Observed event codes: `ABS_MT_TOUCH_MAJOR`, `ABS_MT_POSITION_X/Y`, `ABS_MT_TRACKING_ID`, `ABS_MT_PRESSURE`, and `EV_SYN`; no key/button events.
+- Second finger capture: `finger-stock-event4.bin`, collected after normal KOReader exit via a detached delayed invocation of the unchanged script, contained 1,184 bytes (74 events, 32-bit timeval layout, no trailing bytes). Four contacts were extracted: `(67,68)`, `(1763,107)`, `(878,1155)`, `(89,2399)`. That trace alone could not establish a five-point transform because the fifth contact was missing. Observed event codes: `ABS_MT_TOUCH_MAJOR`, `ABS_MT_POSITION_X/Y`, `ABS_MT_TRACKING_ID`, `ABS_MT_PRESSURE`, and `EV_SYN`; no key/button events.
 - Third finger capture: `finger-stock-inset-event4.bin` contained 1,936 bytes (121 events; 32-bit timeval, no trailing bytes). Five ordered contacts: `(20,530)`, `(1785,578)`, `(942,1236)`, `(82,2434)`, `(1789,2446)`. User reported stock menu interference during the previous attempt; this retry requested inset points. Actual inset distances are not measured, so these are not calibrated edges.
 - axes swapped: no, based on the five ordered finger contacts.
 - raw horizontal source/direction: `ABS_MT_POSITION_X`, increasing left to right.
 - raw vertical source/direction: `ABS_MT_POSITION_Y`, increasing top to bottom.
 - observed horizontal edges: five-point decoder estimates 51 to 1787 for the inset retry; earlier contact centers reached 67 and 1763. Neither is a declared/calibrated screen-edge range.
 - observed vertical edges: five-point decoder estimates 554 to 2440 for the inset retry; earlier contact centers reached 68 and 2399. The retry upper points are substantially below the top screen edge.
-- kernel-declared ABS ranges, if available: _pending_
-- approximate pixel transform: axis assignment verified; scale/offset remain uncalibrated. Decoder was also run with the reported mode `1860x2480`, but treating inset tap positions as full-screen edges would produce an incorrect transform and must not be used.
+- kernel-declared ABS ranges: `evtest info /dev/input/event4` reports MT X 0–1859 and MT Y 0–2479. Slots 0–1, touch-major/pressure/distance 0–255, tool type 0–2, tracking IDs 0–65535. Traces use tracking ID -1 for contact release.
+- raw-to-visible-pixel transform for the tested orientation: `px = clamp(raw_x, 0, 1859)`, `py = clamp(raw_y, 0, 2479)`. Declared ranges match visible pixel bounds exactly, and ordered taps verify unswapped, increasing axes. This is sufficient for initial Task 04 mapping; other orientations and subpixel/physical-edge accuracy remain untested. Decoder was also run with `--screen 1860x2480`; its corner-fitted formula must not be used because the requested inset/menu-displaced tap positions are not screen-edge calibration points.
 
 ### Finger/stylus separation
 
@@ -322,8 +326,8 @@ Fill/update this section only from the actual checkpoint evidence.
 - `/mnt/us` available: yes; mounted via `fsp`. `/mnt/base-us` is present, backed by `/dev/loop/0`.
 - `/mnt/us` writable: yes; script deployment and report creation succeeded. Optional marker create/remove checks passed in `/mnt/us` and `/tmp`.
 - `/var/local` available/writable: present, readable and reported writable for SSH root; backed by `/dev/mmcblk0p9` mounted on `/var/base-local`. No writes performed there.
-- preliminary puzzle collection path: _pending_
-- preliminary progress path: _pending_
+- preliminary puzzle collection path: unknown; `/mnt/us` is a verified writable/transferable parent, but no production collection directory was created or selected.
+- preliminary progress path: unknown; `/mnt/us` is a verified writable parent, but no production progress directory was created or selected.
 - preliminary log path: Task 00 reports under `/mnt/us/kindle-chess-*`; local copies under ignored `probe-output/`.
 
 No production path is final until the actual transfer/persistence workflow is verified.
@@ -331,18 +335,19 @@ No production path is final until the actual transfer/persistence workflow is ve
 ## Lifecycle observations
 
 - SSH lifecycle: first normal KOReader exit was followed by an SSH timeout; after reopening/restarting SSH, a later normal KOReader exit left SSH reachable. Cause of the first timeout is unknown. Detached delayed capture using existing `nohup` and `setsid` completed while the stock UI was open.
-- stock UI repaints over direct FBInk output: unknown; smoke test skipped.
+- stock UI repaints over direct FBInk output: idle notebook retained the overlay during observation; pressing Home removed it and restored the normal Home screen. No stock service ownership changes were needed for this one-message test.
 - input grab appears necessary for a foreground experiment: unknown. Zero finger events while KOReader was open, followed by events after normal exit, suggests exclusive ownership by KOReader; Task 00 never requested a grab and does not establish stock-UI grab requirements.
 - service changes made during Task 00: **none by design**
 - persistent display/input changes after probe: none observed; user confirmed normal stock UI, working finger touch and pen, and normal orientation/contrast after captures. The Task 00 probe/capture scripts made no service, framebuffer-mode, power, or network-configuration changes. SSH was enabled by the user through KOReader as a prerequisite; its server configuration is separate from the probe scripts.
-- manual recovery used: normal KOReader exit/reopen through UI; no reboot or remote lifecycle/service commands used.
+- manual recovery used: normal KOReader exit/reopen for captures; normal Home action after FBInk smoke. No lock/unlock, reboot, or remote lifecycle/service commands used.
 
 ## Unresolved questions before Task 04
 
-- Finger and pen traces establish axis assignment and device separation. Precise finger scale/offset and visible framebuffer geometry remain unresolved; physical recovery was confirmed by the user. Stock UI repaint over FBInk remains untested because no FBInk CLI was available.
-- No compatible FBInk CLI has been tested; Task 04 needs a verified Kindle build/revision.
-- `evtest` is present at `/usr/bin/evtest` according to PATH lookup, but execution returns `No such file or directory`; declared ABS ranges are therefore unknown.
-- Rust hello-world execution and storage persistence across reboot/USB workflows remain unverified.
+- FBInk `92e1270` is verified for identification/text overlay only. Pin the full corresponding upstream revision for reproducible builds; the bundled CLI has Image/Input disabled, so project-owned Gray8 presentation still needs a configured library build and device verification in Task 04.
+- Continuous app refresh/input ownership and long-term stock repaint behavior remain untested; this checkpoint establishes only idle overlay persistence and normal Home recovery. Do not infer a safe service shutdown recipe.
+- Other display orientations, mixed finger/pen/palm input, and exact physical-edge accuracy remain untested. Initial portrait finger mapping is supported by declared ranges, framebuffer geometry, and ordered traces.
+- Rust target ABI is confirmed from the device; cross-toolchain/sysroot selection and Rust hello-world execution remain future build validation, not claims established by this probe.
+- Storage persistence across reboot and the Mac MTP workflow remain untested; production collection/progress paths will be chosen in the storage/deployment tasks. SSH/SCP and writable `/mnt/us` are verified.
 
 ## HUMAN CHECKPOINT A result
 
@@ -351,9 +356,9 @@ No production path is final until the actual transfer/persistence workflow is ve
 - [x] finger five-point trace captured/decoded;
 - [x] stylus trace captured/decoded;
 - [x] finger vs stylus device relationship identified;
-- [ ] raw-to-screen transform known well enough for Task 04;
+- [x] raw-to-screen transform known well enough for Task 04;
 - [x] normal stock display/input verified after probe;
 - [x] no persistent system state changed;
-- [ ] measured sections above filled from evidence.
+- [x] measured sections above filled from evidence, with remaining unknowns explicitly recorded.
 
-Task 00 must stay **Awaiting HUMAN CHECKPOINT A** until these boxes are complete.
+HUMAN CHECKPOINT A passed on 2026-10-02. Task 00 is **Implemented**; later-task validation limits are listed above.

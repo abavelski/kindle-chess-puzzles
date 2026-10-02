@@ -1,6 +1,6 @@
 # Task 00 — Probe the Kindle Scribe environment
 
-**Status:** Awaiting HUMAN CHECKPOINT A  
+**Status:** Implemented
 **Depends on:** nothing
 
 ## Outcome
@@ -30,7 +30,7 @@ sh -n scripts/kindle_fbink_smoke.sh
 sh -n scripts/kindle_capture_input.sh
 ```
 
-Task 00 is intentionally **not** marked Implemented until the physical Scribe checkpoint fills the measured sections in `docs/device/ks1-barolo.md`.
+HUMAN CHECKPOINT A passed on 2026-10-02. The measured device record includes architecture/ABI evidence, framebuffer geometry, declared touch ranges and decoded finger/pen traces, a successful FBInk overlay, and user-confirmed normal Home recovery. See `docs/device/ks1-barolo.md` for evidence and the limits of this checkpoint.
 
 ## Questions to answer
 
@@ -129,16 +129,16 @@ Automated/tooling side:
 - [x] non-trivial raw parser has automated tests;
 - [x] host syntax/parser tests pass.
 
-Physical side, still pending:
+Physical side, verified on 2026-10-02:
 
-- [ ] `docs/device/ks1-barolo.md` contains measured values;
-- [ ] Rust target/toolchain hypothesis is confirmed or corrected;
-- [ ] FBInk can identify/use the Scribe enough for Task 04, or the missing-binary/build requirement is precisely identified;
-- [ ] touchscreen mapping is known enough for Task 04;
-- [ ] finger and stylus input relationship is known;
-- [ ] stock UI repaint/lifecycle observation is recorded;
-- [ ] no stock service was permanently modified;
-- [ ] normal display/touch/pen behavior is confirmed after probing.
+- [x] `docs/device/ks1-barolo.md` contains measured values;
+- [x] Rust target/toolchain hypothesis is confirmed or corrected;
+- [x] FBInk can identify/use the Scribe enough for Task 04, or the missing-binary/build requirement is precisely identified;
+- [x] touchscreen mapping is known enough for Task 04;
+- [x] finger and stylus input relationship is known;
+- [x] stock UI repaint/lifecycle observation is recorded;
+- [x] no stock service was permanently modified;
+- [x] normal display/touch/pen behavior is confirmed after probing.
 
 ## Suggested final checkpoint commit
 
