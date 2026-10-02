@@ -2,6 +2,7 @@
 members = [
     "crates/chess-core",
     "crates/chess-render",
+    "crates/fbink-sys",
     "crates/kindle-platform",
     "app/kindle-chess",
 ]
