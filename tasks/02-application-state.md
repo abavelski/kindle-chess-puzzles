@@ -1,6 +1,6 @@
 # Task 02 — Build the pure application state machine
 
-**Status:** Ready  
+**Status:** Implemented  
 **Depends on:** Task 01
 
 ## Outcome
@@ -10,6 +10,30 @@ Make puzzle solving behavior deterministic and fully testable without rendering 
 The result should be an `AppState` + logical `Action` model that represents the current board, puzzle attempt, modes, orientation, feedback, transient UI state, and progress mutations.
 
 No FBInk, evdev, file paths, or shell commands belong here.
+
+## Implemented
+
+Task 02 adds a pure application state machine to `chess-core`:
+
+- `AppState` owns the active collection, current puzzle, physical board, solution cursor/feedback, mode, orientation/lock, description visibility, pending promotion, progress, and transient message state;
+- logical `Action` values cover board taps, promotion choice/cancel, puzzle navigation, reset/flip/mode/orientation/description controls, collection activation, and transient messages;
+- `Effect::ProgressChanged` is the only external effect, so storage remains an outer-runtime concern;
+- solver moves are compared through the existing UCI parser, wrong moves restore an exact pre-move board snapshot, and one stored opponent reply is auto-applied directly without chess-legality checks;
+- promotions are staged without mutating the board, support q/r/b/n choices for both colors, and use the same atomic board/UCI helpers as stored replies;
+- Free Board is ungraded, Solution -> Free preserves the visible position, Free -> Solution resets the attempt, and puzzle/reset transitions preserve the reference-mode rules;
+- automatic side-to-move orientation, orientation lock/manual flip behavior, description reveal/toggle behavior, remembered puzzle IDs, and solved-once progress semantics match the reference app.
+
+The implementation stays platform-neutral: no renderer, FBInk, evdev, filesystem, lifecycle, or Kindle dependency was added.
+
+## Validation
+
+GitHub Actions run 6 on the implementation commit chain verified:
+
+- `cargo fmt --all -- --check`;
+- `cargo clippy --workspace --all-targets -- -D warnings`;
+- `cargo test --workspace`, including 12 Task 02 state-machine tests plus the existing 17 core compatibility tests;
+- the existing Task 00 Python/tooling checks through `scripts/check.sh`;
+- the minimal `kindle-chess` ARMv7 hard-float cross-build smoke test.
 
 ## State to model
 
@@ -105,13 +129,13 @@ Keep progress mutation deterministic so the runtime can persist after a state ch
 
 ## Acceptance criteria
 
-- all behaviors above are host unit/state-machine tests;
-- no rendering/platform dependency in `chess-core`;
-- no mutable global state;
-- wrong moves cannot partially mutate the board;
-- auto replies and promotions use the same tested UCI helpers as the parser;
-- reference Kobo solution fixtures produce the same logical outcomes;
-- all workspace checks pass.
+- [x] all behaviors above are host unit/state-machine tests;
+- [x] no rendering/platform dependency in `chess-core`;
+- [x] no mutable global state;
+- [x] wrong moves cannot partially mutate the board;
+- [x] auto replies and promotions use the same tested UCI helpers as the parser;
+- [x] reference Kobo solution fixtures produce the same logical outcomes;
+- [x] all workspace checks pass.
 
 ## Suggested commits
 
