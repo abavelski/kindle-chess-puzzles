@@ -11,7 +11,5 @@ mod render;
 
 pub use canvas::{CanvasError, Gray8};
 pub use geometry::Rect;
-pub use layout::{
-    ControlTarget, DisplayMetrics, HitTarget, Layout, LayoutError, MIN_TOUCH_MM,
-};
+pub use layout::{ControlTarget, DisplayMetrics, HitTarget, Layout, LayoutError, MIN_TOUCH_MM};
 pub use render::{render, RenderOutput};

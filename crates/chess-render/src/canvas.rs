@@ -134,14 +134,7 @@ impl Gray8 {
         );
     }
 
-    pub fn draw_line(
-        &mut self,
-        mut x0: i32,
-        mut y0: i32,
-        x1: i32,
-        y1: i32,
-        tone: u8,
-    ) {
+    pub fn draw_line(&mut self, mut x0: i32, mut y0: i32, x1: i32, y1: i32, tone: u8) {
         let dx = (x1 - x0).abs();
         let sx = if x0 < x1 { 1 } else { -1 };
         let dy = -(y1 - y0).abs();
@@ -177,10 +170,11 @@ impl Gray8 {
         if stride < width {
             return;
         }
-        let Some(required) = usize::try_from(stride)
-            .ok()
-            .and_then(|stride| usize::try_from(height).ok().and_then(|h| stride.checked_mul(h)))
-        else {
+        let Some(required) = usize::try_from(stride).ok().and_then(|stride| {
+            usize::try_from(height)
+                .ok()
+                .and_then(|h| stride.checked_mul(h))
+        }) else {
             return;
         };
         if pixels.len() < required {
@@ -197,12 +191,9 @@ impl Gray8 {
                 if x >= self.width {
                     break;
                 }
-                let source = usize::try_from(
-                    source_y
-                        .saturating_mul(stride)
-                        .saturating_add(source_x),
-                )
-                .expect("source index fits");
+                let source =
+                    usize::try_from(source_y.saturating_mul(stride).saturating_add(source_x))
+                        .expect("source index fits");
                 if let Some(destination) = self.index(x, y) {
                     self.pixels[destination] = pixels[source];
                 }
@@ -223,10 +214,11 @@ impl Gray8 {
         if stride < width {
             return;
         }
-        let Some(required) = usize::try_from(stride)
-            .ok()
-            .and_then(|stride| usize::try_from(height).ok().and_then(|h| stride.checked_mul(h)))
-        else {
+        let Some(required) = usize::try_from(stride).ok().and_then(|stride| {
+            usize::try_from(height)
+                .ok()
+                .and_then(|h| stride.checked_mul(h))
+        }) else {
             return;
         };
         if alpha.len() < required {
@@ -243,22 +235,16 @@ impl Gray8 {
                 if x >= self.width {
                     break;
                 }
-                let source = usize::try_from(
-                    source_y
-                        .saturating_mul(stride)
-                        .saturating_add(source_x),
-                )
-                .expect("source index fits");
+                let source =
+                    usize::try_from(source_y.saturating_mul(stride).saturating_add(source_x))
+                        .expect("source index fits");
                 let opacity = u32::from(alpha[source]);
                 if opacity == 0 {
                     continue;
                 }
                 if let Some(destination) = self.index(x, y) {
                     let old = u32::from(self.pixels[destination]);
-                    let blended = (u32::from(tone) * opacity
-                        + old * (255 - opacity)
-                        + 127)
-                        / 255;
+                    let blended = (u32::from(tone) * opacity + old * (255 - opacity) + 127) / 255;
                     self.pixels[destination] = u8::try_from(blended).expect("blend stays in range");
                 }
             }

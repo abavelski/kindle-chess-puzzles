@@ -75,13 +75,10 @@ fn draw_header(
     draw_text(
         frame,
         layout.header.x.saturating_add(padding),
-        layout.header.y.saturating_add(
-            layout
-                .header
-                .height
-                .saturating_sub(7 * header_scale)
-                / 2,
-        ),
+        layout
+            .header
+            .y
+            .saturating_add(layout.header.height.saturating_sub(7 * header_scale) / 2),
         &title,
         header_scale,
         INK,
@@ -205,8 +202,15 @@ fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) 
     let body = Rect::new(
         layout.status.x.saturating_add(padding),
         body_y,
-        layout.status.width.saturating_sub(padding.saturating_mul(2)),
-        layout.status.bottom().saturating_sub(body_y).saturating_sub(padding),
+        layout
+            .status
+            .width
+            .saturating_sub(padding.saturating_mul(2)),
+        layout
+            .status
+            .bottom()
+            .saturating_sub(body_y)
+            .saturating_sub(padding),
     );
 
     if let Some(message) = state.transient_message() {
@@ -226,7 +230,10 @@ fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) 
 
     if state.feedback() == SolutionFeedback::Correct {
         let mark = Rect::new(
-            layout.status.right().saturating_sub(layout.minimum_touch_px()),
+            layout
+                .status
+                .right()
+                .saturating_sub(layout.minimum_touch_px()),
             layout.status.y,
             layout.minimum_touch_px(),
             line_height.saturating_add(padding.saturating_mul(2)),
@@ -277,12 +284,7 @@ fn feedback_rect(layout: Layout) -> Rect {
     )
 }
 
-fn draw_promotion_modal(
-    frame: &mut Gray8,
-    layout: Layout,
-    color: Color,
-    scale: u32,
-) {
+fn draw_promotion_modal(frame: &mut Gray8, layout: Layout, color: Color, scale: u32) {
     frame.fill_rect(layout.promotion_modal, WHITE);
     frame.stroke_rect(layout.promotion_modal, 6, INK);
     let title_height = layout.minimum_touch_px();
@@ -325,11 +327,7 @@ fn draw_promotion_modal(
 }
 
 fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
-    let (background, foreground) = if selected {
-        (INK, WHITE)
-    } else {
-        (WHITE, INK)
-    };
+    let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
     frame.fill_rect(rect, background);
     frame.stroke_rect(rect, 3, INK);
     if selected {

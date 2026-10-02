@@ -218,8 +218,7 @@ impl Layout {
         }
         let promotion_choices = std::array::from_fn(|index| {
             let x = promotion_modal.x
-                + u32::try_from(index).expect("choice index fits")
-                    * (choice_width + small_gap);
+                + u32::try_from(index).expect("choice index fits") * (choice_width + small_gap);
             Rect::new(x, choice_y, choice_width, minimum_touch_px)
         });
         let promotion_cancel = Rect::new(
