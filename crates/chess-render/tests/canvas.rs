@@ -17,7 +17,7 @@ fn canvas_clips_rectangle_operations_and_respects_stride() {
 fn alpha_blit_is_integer_deterministic_and_clipped() {
     let mut canvas = Gray8::new(3, 2, 200);
     let alpha = [0_u8, 128, 255, 255];
-    canvas.blit_alpha(2, 2, 2, &alpha, 1, 0, 0);
+    canvas.blit_alpha(2, 2, 2, &alpha, (1, 0), 0);
 
     assert_eq!(canvas.pixel(1, 0), Some(200));
     assert_eq!(canvas.pixel(2, 0), Some(100));

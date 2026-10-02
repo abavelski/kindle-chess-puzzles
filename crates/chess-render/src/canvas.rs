@@ -207,10 +207,10 @@ impl Gray8 {
         height: u32,
         stride: u32,
         alpha: &[u8],
-        dst_x: u32,
-        dst_y: u32,
+        destination: (u32, u32),
         tone: u8,
     ) {
+        let (dst_x, dst_y) = destination;
         if stride < width {
             return;
         }
