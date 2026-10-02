@@ -61,7 +61,9 @@ Start here:
 
 ## Current state
 
-Task 00 is **Implemented**: the physical Scribe checkpoint passed on 2026-10-02. Verified device measurements and remaining validation limits are recorded in [the device record](docs/device/ks1-barolo.md). Task 01 is next; no chess application code has been implemented yet.
+Tasks 00 and 01 are **Implemented**. The physical Scribe checkpoint passed on 2026-10-02, and the repository now has a Rust 1.85.1 workspace plus a platform-neutral `chess-core` covering board/FEN/UCI, promotions, version-1 puzzle collections, collection-name discovery, and progress serialization. Host formatting/clippy/tests and a minimal `armv7-unknown-linux-gnueabihf` cross-build are enforced in CI.
+
+Task 02 is next: the pure puzzle-solving application state machine. The renderer, FBInk runtime, touch adapter, real device persistence, and production deployment toolchain are intentionally not implemented yet.
 
 For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
 

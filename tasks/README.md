@@ -7,7 +7,7 @@ Implement one task at a time.
 | Task | Outcome | Status |
 | --- | --- | --- |
 | [00](00-device-probe.md) | Record Scribe/FBInk/input/lifecycle facts without app code | Implemented |
-| [01](01-bootstrap-and-core.md) | Rust workspace, CI/checks, board/FEN/UCI/puzzle/progress core | Ready |
+| [01](01-bootstrap-and-core.md) | Rust workspace, CI/checks, board/FEN/UCI/puzzle/progress core | Implemented |
 | [02](02-application-state.md) | Pure test-driven puzzle-solving application state machine | Ready |
 | [03](03-renderer-and-assets.md) | Shared deterministic e-ink renderer, layout, hit testing, Sashité assets | Ready |
 | [04](04-fbink-and-input.md) | Kindle FBInk display + touch input + minimal event loop | Ready |
@@ -27,7 +27,7 @@ No product implementation should depend on guessed event nodes, resolution, ABI,
 
 ### M1: host-complete application
 
-Tasks 01-03. At this point almost all behavior is executable in tests/snapshots without the Kindle.
+Task 01 is complete: the Rust workspace, compatibility core, fixtures, quality gate, and ARMv7 cross-compilation smoke test are in place. Tasks 02-03 add the pure application state machine and deterministic renderer; after those, almost all behavior is executable in tests/snapshots without the Kindle.
 
 ### M2: first usable Scribe build
 
