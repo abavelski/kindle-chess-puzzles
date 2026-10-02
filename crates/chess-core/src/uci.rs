@@ -11,11 +11,7 @@ pub struct UciMove {
 }
 
 impl UciMove {
-    pub fn new(
-        from: usize,
-        to: usize,
-        promotion: Option<PieceKind>,
-    ) -> Result<Self, UciError> {
+    pub fn new(from: usize, to: usize, promotion: Option<PieceKind>) -> Result<Self, UciError> {
         if from >= 64 || to >= 64 {
             return Err(UciError("UCI square is outside the board"));
         }
@@ -91,9 +87,7 @@ pub fn algebraic_to_square(square: &str) -> Option<usize> {
 }
 
 fn square_from_bytes(bytes: &[u8]) -> Option<usize> {
-    if bytes.len() != 2
-        || !(b'a'..=b'h').contains(&bytes[0])
-        || !(b'1'..=b'8').contains(&bytes[1])
+    if bytes.len() != 2 || !(b'a'..=b'h').contains(&bytes[0]) || !(b'1'..=b'8').contains(&bytes[1])
     {
         return None;
     }
@@ -110,8 +104,7 @@ pub fn parse_uci_move(value: &str) -> Result<UciMove, UciError> {
         ));
     }
 
-    let from =
-        square_from_bytes(&bytes[..2]).ok_or(UciError("UCI origin square is invalid"))?;
+    let from = square_from_bytes(&bytes[..2]).ok_or(UciError("UCI origin square is invalid"))?;
     let to =
         square_from_bytes(&bytes[2..4]).ok_or(UciError("UCI destination square is invalid"))?;
     let promotion = if bytes.len() == 5 {

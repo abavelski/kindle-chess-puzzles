@@ -1,7 +1,7 @@
 use chess_core::{
-    algebraic_to_square, parse_fen, parse_puzzle_file, parse_uci_move, square_to_algebraic,
-    sorted_puzzle_collection_filenames, Board, Color, Piece, PieceKind, Progress, TapResult, UciMove,
-    MAX_PUZZLE_FILE_BYTES,
+    algebraic_to_square, parse_fen, parse_puzzle_file, parse_uci_move,
+    sorted_puzzle_collection_filenames, square_to_algebraic, Board, Color, Piece, PieceKind,
+    Progress, TapResult, UciMove, MAX_PUZZLE_FILE_BYTES,
 };
 use serde_json::json;
 
@@ -90,10 +90,7 @@ fn taps_distinguish_selection_deselection_and_completed_move() {
     assert_eq!(board.tap(52), TapResult::SelectionChanged);
     assert_eq!(board.tap(36), TapResult::Moved { from: 52, to: 36 });
     assert_eq!(board.piece_at(52), None);
-    assert_eq!(
-        board.piece_at(36),
-        piece(Color::White, PieceKind::Pawn)
-    );
+    assert_eq!(board.piece_at(36), piece(Color::White, PieceKind::Pawn));
 }
 
 #[test]
@@ -117,10 +114,7 @@ fn white_and_black_promotions_are_staged_without_moving() {
             color: Color::White
         }
     );
-    assert_eq!(
-        white.piece_at(8),
-        piece(Color::White, PieceKind::Pawn)
-    );
+    assert_eq!(white.piece_at(8), piece(Color::White, PieceKind::Pawn));
     assert_eq!(white.piece_at(0), None);
 
     let mut black = Board::from_fen("k7/8/8/8/8/8/p7/7K b - - 0 1").expect("valid FEN");
@@ -133,10 +127,7 @@ fn white_and_black_promotions_are_staged_without_moving() {
             color: Color::Black
         }
     );
-    assert_eq!(
-        black.piece_at(48),
-        piece(Color::Black, PieceKind::Pawn)
-    );
+    assert_eq!(black.piece_at(48), piece(Color::Black, PieceKind::Pawn));
     assert_eq!(black.piece_at(56), None);
 }
 
@@ -148,21 +139,16 @@ fn atomic_promotion_supports_q_r_b_n_only() {
         PieceKind::Bishop,
         PieceKind::Knight,
     ] {
-        let mut board =
-            Board::from_fen("7k/P7/8/8/8/8/8/K7 w - - 0 1").expect("valid FEN");
+        let mut board = Board::from_fen("7k/P7/8/8/8/8/8/K7 w - - 0 1").expect("valid FEN");
         assert!(board.promote_pawn(8, 0, kind));
         assert_eq!(board.piece_at(8), None);
         assert_eq!(board.piece_at(0), piece(Color::White, kind));
     }
 
     for kind in [PieceKind::Pawn, PieceKind::King] {
-        let mut board =
-            Board::from_fen("7k/P7/8/8/8/8/8/K7 w - - 0 1").expect("valid FEN");
+        let mut board = Board::from_fen("7k/P7/8/8/8/8/8/K7 w - - 0 1").expect("valid FEN");
         assert!(!board.promote_pawn(8, 0, kind));
-        assert_eq!(
-            board.piece_at(8),
-            piece(Color::White, PieceKind::Pawn)
-        );
+        assert_eq!(board.piece_at(8), piece(Color::White, PieceKind::Pawn));
     }
 }
 
@@ -170,13 +156,9 @@ fn atomic_promotion_supports_q_r_b_n_only() {
 fn direct_stored_replies_apply_normal_moves_and_promotions() {
     let mut board = Board::default();
     assert!(board.apply_uci_move(parse_uci_move("f7f8").expect("valid UCI")));
-    assert_eq!(
-        board.piece_at(5),
-        piece(Color::Black, PieceKind::Pawn)
-    );
+    assert_eq!(board.piece_at(5), piece(Color::Black, PieceKind::Pawn));
 
-    let mut promotion =
-        Board::from_fen("k7/8/8/8/8/8/p7/7K b - - 0 1").expect("valid FEN");
+    let mut promotion = Board::from_fen("k7/8/8/8/8/8/p7/7K b - - 0 1").expect("valid FEN");
     assert!(promotion.apply_uci_move(parse_uci_move("a2a1q").expect("valid UCI")));
     assert_eq!(
         promotion.piece_at(56),
@@ -198,18 +180,13 @@ fn square_and_uci_round_trips_match_reference_indexing() {
     for notation in ["e2e4", "e1g1", "a7a8q", "b2b1n"] {
         let movement = parse_uci_move(notation).expect("valid UCI");
         assert_eq!(movement.to_string(), notation);
-        assert_eq!(
-            notation.parse::<UciMove>().expect("FromStr UCI"),
-            movement
-        );
+        assert_eq!(notation.parse::<UciMove>().expect("FromStr UCI"), movement);
     }
 }
 
 #[test]
 fn invalid_uci_is_rejected_without_panicking_on_unicode() {
-    for invalid in [
-        "", "e2e", "e2e2", "i2e4", "e0e4", "a7a8k", "A7A8Q", "aé4",
-    ] {
+    for invalid in ["", "e2e", "e2e2", "i2e4", "e0e4", "a7a8k", "A7A8Q", "aé4"] {
         assert!(
             parse_uci_move(invalid).is_err(),
             "unexpectedly accepted: {invalid}"
@@ -221,10 +198,7 @@ fn invalid_uci_is_rejected_without_panicking_on_unicode() {
 fn reference_v1_fixtures_parse_with_expected_ids_fens_and_solutions() {
     let collection = parse_puzzle_file(PUZZLES).expect("reference puzzles parse");
     assert_eq!(collection.version(), 1);
-    assert_eq!(
-        collection.title.as_deref(),
-        Some("Lichess sample puzzles")
-    );
+    assert_eq!(collection.title.as_deref(), Some("Lichess sample puzzles"));
     assert_eq!(collection.puzzles.len(), 2);
     assert_eq!(collection.puzzles[0].id, "lichess-001cr");
     assert_eq!(solution(&collection.puzzles[0]), vec!["d7e8"]);
@@ -309,11 +283,9 @@ fn puzzle_parser_rejects_duplicate_blank_ids_future_versions_and_bad_solutions()
 
     let mut future = sample_collection();
     future["version"] = json!(2);
-    assert!(
-        parse_json(future)
-            .expect_err("future version rejected")
-            .contains("version 2")
-    );
+    assert!(parse_json(future)
+        .expect_err("future version rejected")
+        .contains("version 2"));
 
     for solution in [
         json!([]),
@@ -331,11 +303,9 @@ fn puzzle_parser_rejects_duplicate_blank_ids_future_versions_and_bad_solutions()
 fn puzzle_parser_rejects_invalid_fen_empty_collection_and_oversize_file() {
     let mut invalid_fen = sample_collection();
     invalid_fen["puzzles"][0]["fen"] = json!("invalid");
-    assert!(
-        parse_json(invalid_fen)
-            .expect_err("bad FEN rejected")
-            .contains("FEN")
-    );
+    assert!(parse_json(invalid_fen)
+        .expect_err("bad FEN rejected")
+        .contains("FEN"));
     assert!(parse_json(json!({"version": 1, "puzzles": []})).is_err());
     assert!(parse_puzzle_file(&vec![b' '; MAX_PUZZLE_FILE_BYTES + 1]).is_err());
 }
@@ -352,23 +322,15 @@ fn collection_filename_filtering_is_sorted_deduplicated_and_platform_neutral() {
         "dir/puzzles-b.json",
         "puzzles-c.JSON",
     ]);
-    assert_eq!(
-        names,
-        ["puzzles-a.json", "puzzles-z.json", "puzzles.json"]
-    );
+    assert_eq!(names, ["puzzles-a.json", "puzzles-z.json", "puzzles.json"]);
 }
 
 #[test]
 fn progress_round_trips_ids_deduplicates_solved_and_uses_puzzle_ids() {
     let parsed = Progress::parse(PROGRESS).expect("v1 progress parses");
     assert_eq!(parsed.version(), 1);
-    assert_eq!(
-        parsed.active_file.as_deref(),
-        Some("puzzles-endgames.json")
-    );
-    let file = parsed
-        .file("puzzles-endgames.json")
-        .expect("file progress");
+    assert_eq!(parsed.active_file.as_deref(), Some("puzzles-endgames.json"));
+    let file = parsed.file("puzzles-endgames.json").expect("file progress");
     assert_eq!(file.current_puzzle_id.as_deref(), Some("end-2"));
     assert_eq!(
         file.solved_ids
@@ -393,9 +355,7 @@ fn progress_round_trips_ids_deduplicates_solved_and_uses_puzzle_ids() {
 fn progress_rejects_corrupt_and_future_versions() {
     assert!(Progress::parse(b"not json").is_err());
     let future = br#"{"version":2,"active_file":null,"files":{}}"#;
-    assert!(
-        Progress::parse(future)
-            .expect_err("future progress rejected")
-            .contains("Unsupported progress version 2")
-    );
+    assert!(Progress::parse(future)
+        .expect_err("future progress rejected")
+        .contains("Unsupported progress version 2"));
 }

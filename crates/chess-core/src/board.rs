@@ -28,7 +28,10 @@ pub struct Piece {
 pub enum TapResult {
     NoChange,
     SelectionChanged,
-    Moved { from: usize, to: usize },
+    Moved {
+        from: usize,
+        to: usize,
+    },
     Promotion {
         from: usize,
         to: usize,
@@ -143,10 +146,7 @@ impl Board {
 
     /// Promote a pawn atomically without applying other chess legality.
     pub fn promote_pawn(&mut self, from: usize, to: usize, kind: PieceKind) -> bool {
-        if from >= 64
-            || to >= 64
-            || from == to
-            || matches!(kind, PieceKind::Pawn | PieceKind::King)
+        if from >= 64 || to >= 64 || from == to || matches!(kind, PieceKind::Pawn | PieceKind::King)
         {
             return false;
         }
@@ -218,6 +218,6 @@ impl Board {
 const fn is_promotion_square(color: Color, square: usize) -> bool {
     match color {
         Color::White => square < 8,
-        Color::Black => square >= 56 && square < 64,
+        Color::Black => square >= 56,
     }
 }
