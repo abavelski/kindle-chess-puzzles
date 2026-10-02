@@ -33,10 +33,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf
       - name: Cross-build minimal Kindle binary
         run: scripts/check-kindle.sh
-      - name: Publish Task 05 checkpoint binary
+      - name: Publish Task 06 checkpoint binary
         uses: actions/upload-artifact@v4
         with:
-          name: kindle-chess-task05-armv7
+          name: kindle-chess-task06-armv7
           path: target/armv7-unknown-linux-gnueabihf/debug/kindle-chess
           if-no-files-found: error
           retention-days: 14

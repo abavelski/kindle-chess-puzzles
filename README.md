@@ -68,6 +68,8 @@ The physical Task 04 checkpoint verified board geometry, corner/center mapping, 
 
 Task 05 is **Implemented**, with HUMAN CHECKPOINT C passed on the physical Scribe on 2026-10-02. The live binary now bundles one six-puzzle parity collection covering one-move and three-ply solving, white/black/manual/automatic promotion, Free Board, navigation, orientation lock/flip, descriptions, feedback, difficulty, and solved display. Previous/Next are visibly disabled at collection ends, and host integration tests drive complete action→state→render flows through deterministic Scribe snapshots.
 
+Task 06's automated implementation is complete and awaits **HUMAN CHECKPOINT D**. The Kindle loop now discovers multiple version-1 collections, provides a paged FILES picker, preserves invalid source files, and stores app-owned progress separately with protected corrupt/future records and atomic dirty-retry writes. Defaults are `/mnt/us/kindle-chess/puzzles` for collections and `/mnt/us/kindle-chess/state/progress.json` for progress, with environment overrides for tests and alternate deployments.
+
 For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
 
 The initial target is the Kindle Scribe first generation. Reuse for Kobo is an architectural constraint, not an active implementation target for the first milestone.

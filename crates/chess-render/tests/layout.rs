@@ -1,3 +1,6 @@
+use chess_core::{
+    parse_puzzle_file, Action, ActiveCollection, AppState, CollectionEntry, Progress,
+};
 use chess_render::{DisplayMetrics, HitTarget, Layout, Rect, MIN_TOUCH_MM};
 
 const SCRIBE: DisplayMetrics = DisplayMetrics {
@@ -94,4 +97,67 @@ fn landscape_metrics_still_produce_valid_layout_without_magic_scribe_coordinates
     assert_eq!(layout.board.width, layout.board.height);
     assert!(layout.viewport.contains_rect(layout.board));
     assert!(layout.status.bottom() <= landscape.height);
+}
+
+#[test]
+fn collection_picker_targets_are_touch_sized_and_block_the_board() {
+    const PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/puzzles.json");
+    let layout = Layout::new(SCRIBE).expect("Scribe metrics fit");
+    let mut app = AppState::new(
+        ActiveCollection::from_collection(
+            "puzzles.json",
+            parse_puzzle_file(PUZZLES).expect("fixture parses"),
+        ),
+        Progress::new(),
+    );
+    app.set_collection_entries(
+        (0..7)
+            .map(|index| {
+                CollectionEntry::valid(
+                    format!("puzzles-{index}.json"),
+                    format!("Collection {index}"),
+                )
+            })
+            .collect(),
+    );
+
+    for rect in layout.collection_rows {
+        assert!(rect.width >= layout.minimum_touch_px());
+        assert!(rect.height >= layout.minimum_touch_px());
+    }
+    for rect in [
+        layout.collection_page_previous,
+        layout.collection_page_next,
+        layout.collection_close,
+    ] {
+        assert!(rect.width >= layout.minimum_touch_px());
+        assert!(rect.height >= layout.minimum_touch_px());
+    }
+
+    let (x, y) = center(layout.collection_button);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::OpenCollections)
+    );
+    app.dispatch(Action::OpenCollectionPicker);
+
+    let (x, y) = center(layout.collection_rows[0]);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::Collection(0))
+    );
+    let (board_x, board_y) = center(layout.square_rect(0));
+    assert_eq!(layout.hit_test_app(board_x, board_y, &app), None);
+
+    let (x, y) = center(layout.collection_page_next);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::CollectionNextPage)
+    );
+    app.dispatch(Action::CollectionPickerNextPage);
+    let (x, y) = center(layout.collection_rows[0]);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::Collection(6))
+    );
 }
