@@ -55,6 +55,7 @@ Start here:
 - [AGENTS.md](AGENTS.md) — rules for coding agents;
 - [Architecture](docs/ARCHITECTURE.md);
 - [Kindle Scribe notes](docs/KINDLE_SCRIBE.md);
+- [FBInk integration](docs/FBINK.md);
 - [Puzzle format compatibility](docs/PUZZLE_FORMAT.md);
 - [Testing strategy](docs/TESTING.md);
 - [Implementation tasks](tasks/README.md).
@@ -63,7 +64,7 @@ Start here:
 
 Tasks 00-03 are **Implemented**, completing the host-side M1 application foundation. The repository now has a Rust 1.85.1 workspace, platform-neutral `chess-core` application logic, and a deterministic `chess-render` layer with a project-owned Gray8 frame, DPI-aware layout/hit testing, renderer-owned text/feedback UI, reproducible Sashité Western assets, and Scribe-resolution snapshot coverage. Host formatting/clippy/tests, asset regeneration checks, and a minimal `armv7-unknown-linux-gnueabihf` cross-build are enforced in CI.
 
-Task 04 is next: connect the shared frame and logical hit targets to Kindle FBInk display and touch input in a minimal event loop. Real device persistence and the later lifecycle/deployment work remain intentionally unimplemented.
+Task 04's automated implementation is complete and is awaiting **HUMAN CHECKPOINT B** on the physical Scribe. The current binary pins and statically links the Task 00-known-good FBInk revision, presents the shared Gray8 renderer through a safe Kindle adapter, discovers the finger touchscreen by capabilities/name, decodes and normalizes multitouch input, and dispatches shared hit targets in a live bundled-puzzle loop. Real device persistence and the later lifecycle/deployment work remain intentionally unimplemented.
 
 For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
 

@@ -1,6 +1,6 @@
 # Task 04 — Bring up FBInk display and Kindle touch input
 
-**Status:** Ready  
+**Status:** Awaiting HUMAN CHECKPOINT B  
 **Depends on:** Tasks 00 and 03
 
 ## Outcome
@@ -8,6 +8,24 @@
 Run the shared renderer on the first-generation Kindle Scribe and translate real finger touches into logical actions.
 
 This is the first task that produces a live device app loop.
+
+## Automated implementation complete
+
+The repository now contains:
+
+- a pinned FBInk submodule at `92e127008145b2a22fba7c59815d810d716310dd`, matching the Task 00 known-good `92e1270` build;
+- a minimal `fbink-sys` C/Rust boundary that contains all unsafe FFI;
+- an ARMv7 hard-float build of FBInk with `KINDLE=1 MINIMAL=1 IMAGE=1`;
+- a safe `KindleDisplay` wrapper using FBInk state/query/raw Gray8 presentation and correctness-first full refreshes;
+- capability/name-based finger-touch discovery without a fixed `eventN`;
+- 32-bit evdev multitouch decoding, measured Scribe coordinate normalization, rotation transforms, and host-tested tap thresholds;
+- explicit stylus rejection for Wacom/stylus/pen-named input devices;
+- a live bundled-puzzle loop that renders the shared frame, waits for a finger tap, uses the shared renderer hit map, dispatches the logical action, and renders again;
+- diagnostic logging for discovered input devices and every accepted normalized tap/hit target.
+
+Automated validation is green in GitHub Actions run 16 for both the full host gate and the ARMv7 FBInk-linked cross-build. The task is intentionally **not** marked Implemented until HUMAN CHECKPOINT B passes on the physical Scribe.
+
+See `docs/FBINK.md` for the pin, license, build flags, and boundary details.
 
 ## FBInk pin and build
 

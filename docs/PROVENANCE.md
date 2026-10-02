@@ -31,3 +31,13 @@ Task 03 adds the same Sashité Western chess SVG source set used by the referenc
 The SVG files are preserved as source assets. `scripts/generate_sashite.py` deterministically converts their supported path/fill data into normalized grayscale vector layers in `crates/chess-render/src/pieces_generated.rs`. Runtime code rasterizes those generated layers into the project-owned Gray8 frame and does not parse SVG on the Kindle.
 
 `scripts/check.sh` runs `python3 scripts/generate_sashite.py --check` so CI fails if the generated Rust output no longer matches the checked-in SVG sources. Additional asset notes live in `assets/sashite-western/README.md`.
+
+## FBInk
+
+Task 04 vendors FBInk as a Git submodule from `https://github.com/NiLuJe/FBInk` at exact revision:
+
+`92e127008145b2a22fba7c59815d810d716310dd`
+
+That revision corresponds to the `92e1270` build identifier observed from the known-good KOReader FBInk binary during the Task 00 device checkpoint.
+
+At the pinned revision FBInk is licensed under GPL-3.0-or-later. The upstream license is available at `vendor/FBInk/LICENSE`. The project builds FBInk from the pinned source for the Kindle target; it does not copy a floating or prebuilt FBInk binary into the repository.

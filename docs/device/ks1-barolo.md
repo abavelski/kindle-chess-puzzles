@@ -362,3 +362,90 @@ No production path is final until the actual transfer/persistence workflow is ve
 - [x] measured sections above filled from evidence, with remaining unknowns explicitly recorded.
 
 HUMAN CHECKPOINT A passed on 2026-10-02. Task 00 is **Implemented**; later-task validation limits are listed above.
+
+
+---
+
+# Task 04 — HUMAN CHECKPOINT B
+
+**Status:** Pending physical validation  
+**Automated implementation:** complete; host and ARMv7 cross-build gates passed before this checkpoint.
+
+Task 04 deliberately stops here until the FBInk-linked Rust binary is exercised on the actual Scribe. Do not mark Task 04 Implemented from CI alone.
+
+## Safety constraints
+
+Use the same conservative rules as Task 00:
+
+- do not stop or disable Kindle services;
+- do not change framebuffer bit depth, rotation, waveform defaults, power, networking, or OTA settings;
+- do not use `EVIOCGRAB` or another exclusive input grab;
+- do not install the experiment into system directories;
+- keep the normal power-button/reboot recovery path available.
+
+The Task 04 binary opens FBInk and the selected finger event node only. It does not write puzzle/progress files and it does not open either stylus event stream.
+
+## Obtain and stage the checkpoint binary
+
+1. Open the latest green GitHub Actions run for the current Task 04 commit.
+2. Download the artifact named `kindle-chess-task04-armv7`.
+3. Extract the `kindle-chess` binary on the development machine.
+4. Transfer it with the same SSH/SCP path already verified in Task 00 to:
+
+   ```text
+   /mnt/us/kindle-chess-task04/kindle-chess
+   ```
+
+5. In the Kindle shell:
+
+   ```sh
+   mkdir -p /mnt/us/kindle-chess-task04
+   chmod 755 /mnt/us/kindle-chess-task04/kindle-chess
+   ```
+
+Do not copy the binary into `/usr`, `/opt`, or another system location.
+
+## Launch
+
+Task 00 observed that finger events were unavailable while KOReader itself was foreground, then became readable after a normal KOReader exit. Therefore:
+
+1. keep the existing jailbreak SSH shell open;
+2. exit KOReader through its normal UI so the stock UI is foreground;
+3. confirm the SSH shell still responds;
+4. start the app in that same shell:
+
+   ```sh
+   /mnt/us/kindle-chess-task04/kindle-chess 2>/mnt/us/kindle-chess-task04/checkpoint-b.log
+   ```
+
+The app runs in the foreground. **Ctrl-C** in that shell is the Task 04 controlled exit path.
+
+If the SSH connection does not survive the normal KOReader exit, stop here and report that result. Do not compensate by stopping Kindle services or adding an input grab; use the already-verified detached-launch technique only after the launch/exit path is adjusted deliberately.
+
+## What to verify
+
+While the app is running:
+
+1. Verify the board is upright, square, and fully visible with the toolbar/navigation/status regions on-screen.
+2. With a finger, tap near the four board corners and the center. The log records normalized coordinates and the renderer hit target as `Square(...)`; confirm the visible coordinate labels and logged target agree.
+3. Tap every visible control: Free Board, Note/description, orientation lock, Reset, Flip, Previous, and Next. Confirm the expected visible state changes.
+4. Make at least ten additional selections/moves across different parts of the board. Confirm there is no accumulating offset or coordinate drift.
+5. Use the stylus for several taps over the board and controls. Confirm the app does not react and no new `kindle-chess: tap ...` line is produced for those stylus contacts.
+6. Press Ctrl-C in the controlling SSH shell.
+7. Use a normal Home/back action or lock/unlock if needed to make the stock UI repaint. Confirm stock finger touch, pen input, orientation, and contrast are normal.
+
+Reboot only if normal UI recovery fails or the device behaves unexpectedly.
+
+## Evidence to report
+
+Send back:
+
+- whether the initial frame was upright and correctly fitted;
+- the observed result of corner/center finger taps;
+- whether every visible control responded correctly;
+- whether at least ten additional selections/moves remained aligned;
+- whether stylus taps caused any app action;
+- whether Ctrl-C exited cleanly enough for the stock UI to recover normally;
+- `/mnt/us/kindle-chess-task04/checkpoint-b.log` if anything is ambiguous or fails.
+
+After those observations are recorded, this section will be updated with the measured result and Task 04 can be marked **Implemented**.

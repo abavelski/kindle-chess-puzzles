@@ -62,7 +62,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let (x, y) = input.next_tap()?;
         let promotion_open = app.pending_promotion().is_some();
         if let Some(target) = output.layout.hit_test(x, y, app.flipped(), promotion_open) {
+            eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
             let _effects = app.dispatch(target.into_action());
+        } else {
+            eprintln!("kindle-chess: tap ({x},{y}) -> no target");
         }
     }
 }
