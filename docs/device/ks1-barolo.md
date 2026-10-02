@@ -511,3 +511,144 @@ Final single instance stopped with Ctrl-C at the user's request. `pidof kindle-c
 Known limitations: stock input/repaint contention on top-row taps and pen contacts, underlying stock UI visible during refresh, and temporary previous-square traces before the full flash. The overlay is finger-only and should be tested over a disposable blank notebook, not Home/store screens. These do not establish exclusive UI ownership or a production lifecycle solution. No destructive lifecycle commands were tried; later task files remain unchanged.
 
 CI remediation: the cross-build runner is pinned to Ubuntu 22.04 instead of `ubuntu-latest`, so the GNU cross-toolchain targets glibc 2.35. The deployed binary was independently built with Zig 0.13.0 against glibc 2.35. Task 04 is **Implemented** with the above limitations recorded.
+
+
+---
+
+# Task 05 — HUMAN CHECKPOINT C
+
+**Status:** Pending physical validation  
+**Automated implementation:** complete; host gates and the glibc-2.35-compatible ARMv7 cross-build are green.
+
+Task 05 uses one bundled six-puzzle collection and no durable collection/progress filesystem work. Keep the Task 04 safety/lifecycle constraints: use a disposable blank notebook underneath the overlay, run exactly one app instance, do not stop Kindle services, do not add an input grab, and use Ctrl-C in the controlling SSH shell to exit.
+
+## Obtain and stage the Task 05 binary
+
+1. Open the latest green GitHub Actions run for the current Task 05 checkpoint commit.
+2. Download artifact `kindle-chess-task05-armv7`.
+3. Extract and transfer the `kindle-chess` binary to:
+
+   ```text
+   /mnt/us/kindle-chess-task05/kindle-chess
+   ```
+
+4. On the Scribe:
+
+   ```sh
+   mkdir -p /mnt/us/kindle-chess-task05
+   chmod 755 /mnt/us/kindle-chess-task05/kindle-chess
+   pidof kindle-chess || true
+   ```
+
+   Do not launch if another experiment instance is still running.
+
+5. With a harmless blank notebook open under the overlay, launch one foreground instance:
+
+   ```sh
+   /mnt/us/kindle-chess-task05/kindle-chess 2>/mnt/us/kindle-chess-task05/checkpoint-c.log
+   ```
+
+The header identifies the current puzzle as `1/6` through `6/6`. Use finger taps for app interaction; stylus behavior remains the Task 04 finger-filtering/lifecycle limitation and does not need to be re-proven here.
+
+## Checklist
+
+### 1. One-move puzzle — `1/6 one-move`
+
+- Confirm the pieces are legible at normal reading distance and controls are comfortably tappable.
+- Try wrong move `d7→d8`: the board must roll back and show the obvious wrong result.
+- Then solve `d7→e8`: completion feedback appears, the description auto-reveals, and the solved marker appears.
+- Tap another board square after completion: the solved position must not change.
+- Tap Reset: the original FEN returns and the attempt feedback/description clears.
+
+### 2. Three-ply puzzle — `2/6 three-ply`
+
+Tap Next, then:
+
+- play `e2→e6`;
+- verify the stored black reply `f7→f8` appears automatically and intermediate Correct feedback is visible;
+- finish with `e6→f7`;
+- verify Complete feedback and description reveal.
+
+### 3. White queen promotion — `3/6 promotion-white-queen`
+
+Tap Next:
+
+- play `a7→a8`;
+- verify the promotion modal blocks ordinary board/control taps;
+- tap Cancel once and confirm the pawn returns to a7 with no solution progress;
+- repeat `a7→a8`, choose **Q**, and confirm completion.
+
+### 4. Underpromotion — `4/6 promotion-white-knight`
+
+Tap Next:
+
+- play `b7→b8`, choose **Q** first; confirm Wrong and rollback to the original pawn;
+- repeat `b7→b8`, choose **N**; confirm the knight appears and the puzzle completes.
+
+### 5. Black promotion / auto-orientation — `5/6 promotion-black-rook`
+
+Tap Next:
+
+- verify the board automatically faces Black before making a move;
+- play `h2→h1` in logical board coordinates and choose **R**;
+- confirm the rook promotion completes.
+
+### 6. Automatic opponent promotion — `6/6 promotion-auto-reply`
+
+Tap Next:
+
+- confirm Next is visibly disabled/inert at the collection end;
+- play `h2→h3`;
+- verify the stored reply automatically promotes `a2→a1=Q` without opening the promotion modal;
+- finish `h3→h8` and confirm completion.
+
+### 7. Free Board + reset
+
+Navigate back to `1/6 one-move` with Previous:
+
+- confirm Previous becomes visibly disabled/inert at `1/6`;
+- toggle **FREE**;
+- move the white king `f4→a8`; it must move without grading/solving;
+- tap Reset; the original FEN returns while FREE remains selected;
+- toggle FREE off; Solution mode restarts from the original FEN.
+
+### 8. Orientation lock + flip + navigation
+
+From `1/6`:
+
+- tap **LOCK**, then **FLIP**;
+- navigate forward several puzzles, including the black-to-move promotion puzzle;
+- verify the manually chosen orientation remains fixed while LOCK is selected;
+- Flip again while locked and verify it still works;
+- unlock; the board must not jump immediately;
+- navigate once more and verify normal side-to-move auto-orientation resumes.
+
+### 9. Description toggle before/after solve
+
+Return to `1/6 one-move` and Reset:
+
+- tap **NOTE** before solving; description must show without solving or advancing;
+- hide it again;
+- solve `d7→e8`; description must auto-reveal;
+- tap NOTE again and verify it can be hidden after solving.
+
+## Exit and recovery
+
+- Stop the single app instance with Ctrl-C in its controlling SSH shell.
+- Verify `pidof kindle-chess` returns no app PID.
+- Use normal Home/back or lock/unlock if the stock UI needs a repaint.
+- Confirm native finger/pen interaction, orientation, and contrast are normal.
+- Do not reboot unless normal recovery fails.
+
+## What to report
+
+Please send:
+
+- pass/fail for checklist items 1–9;
+- whether the Sashité pieces were legible at normal reading distance;
+- whether all controls felt comfortably tappable;
+- any wrong/complete/promotion feedback that was unclear;
+- any coordinate drift, missed taps, stale pixels, or stock-UI repaint behavior that differs materially from Task 04;
+- `/mnt/us/kindle-chess-task05/checkpoint-c.log` if anything is ambiguous or fails.
+
+Task 05 remains **Awaiting HUMAN CHECKPOINT C** until these checks are recorded.

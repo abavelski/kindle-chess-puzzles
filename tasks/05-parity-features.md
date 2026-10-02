@@ -1,11 +1,25 @@
 # Task 05 — Complete single-collection interaction parity
 
-**Status:** Ready  
+**Status:** Awaiting HUMAN CHECKPOINT C  
 **Depends on:** Tasks 02-04
 
 ## Outcome
 
 With one bundled/explicit collection, make the Scribe app behave like the current Kobo app for all interaction features that do not require multi-file persistence.
+
+## Automated implementation complete
+
+Task 05 now adds:
+
+- a single six-puzzle `parity-puzzles.json` collection containing the one-move, three-ply, white queen promotion, white knight underpromotion, black rook promotion, and automatic-opponent-promotion cases required by Checkpoint C;
+- that parity collection as the bundled live Kindle collection, without adding filesystem collection/progress loading;
+- explicit `can_previous_puzzle` / `can_next_puzzle` state so navigation remains no-wrap while unavailable directions render visibly disabled;
+- end-to-end host integration tests that dispatch real `Action` values, assert resulting `AppState`, and lock 11 deterministic Scribe-resolution rendered flow snapshots;
+- updated Task 03 renderer goldens reflecting disabled Previous/Next appearance at collection ends.
+
+GitHub Actions run 23 verified formatting, clippy with warnings denied, all workspace/core/render/platform tests, Sashité regeneration, Python/tooling checks, and the glibc-2.35-compatible ARMv7 FBInk-linked cross-build.
+
+The task is intentionally not marked Implemented until HUMAN CHECKPOINT C passes on the physical Scribe.
 
 ## Required behavior
 
