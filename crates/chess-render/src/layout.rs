@@ -266,7 +266,9 @@ impl Layout {
                 collection_modal.x.saturating_add(small_gap),
                 collection_rows_y
                     .saturating_add(index.saturating_mul(minimum_touch_px + small_gap)),
-                collection_modal.width.saturating_sub(small_gap.saturating_mul(2)),
+                collection_modal
+                    .width
+                    .saturating_sub(small_gap.saturating_mul(2)),
                 minimum_touch_px,
             )
         });
@@ -278,7 +280,9 @@ impl Layout {
         let collection_nav = Rect::new(
             collection_modal.x.saturating_add(small_gap),
             collection_nav_y,
-            collection_modal.width.saturating_sub(small_gap.saturating_mul(2)),
+            collection_modal
+                .width
+                .saturating_sub(small_gap.saturating_mul(2)),
             minimum_touch_px,
         );
         if collection_nav.bottom().saturating_add(small_gap) > collection_modal.bottom() {

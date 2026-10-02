@@ -5,8 +5,7 @@ use chess_core::{
     CollectionEntry, Progress, PuzzleCollection,
 };
 use std::{
-    env,
-    fmt,
+    env, fmt,
     fs::{self, File, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
@@ -411,10 +410,7 @@ fn create_temp_file(parent: &Path, target: &Path) -> Result<(PathBuf, File), Sto
 
     for _ in 0..128 {
         let sequence = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let temp_path = parent.join(format!(
-            ".{target_name}.tmp-{}-{sequence}",
-            process::id()
-        ));
+        let temp_path = parent.join(format!(".{target_name}.tmp-{}-{sequence}", process::id()));
         match OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -439,8 +435,8 @@ fn create_temp_file(parent: &Path, target: &Path) -> Result<(PathBuf, File), Sto
 }
 
 fn sync_directory(path: &Path) -> Result<(), StorageError> {
-    let directory =
-        File::open(path).map_err(|error| io_error("could not open directory for sync", path, error))?;
+    let directory = File::open(path)
+        .map_err(|error| io_error("could not open directory for sync", path, error))?;
     directory
         .sync_all()
         .map_err(|error| io_error("could not sync directory", path, error))

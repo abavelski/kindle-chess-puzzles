@@ -1,4 +1,6 @@
-use chess_core::{parse_puzzle_file, Action, ActiveCollection, AppState, CollectionEntry, Progress};
+use chess_core::{
+    parse_puzzle_file, Action, ActiveCollection, AppState, CollectionEntry, Progress,
+};
 use chess_render::{DisplayMetrics, HitTarget, Layout, Rect, MIN_TOUCH_MM};
 
 const SCRIBE: DisplayMetrics = DisplayMetrics {
@@ -96,7 +98,6 @@ fn landscape_metrics_still_produce_valid_layout_without_magic_scribe_coordinates
     assert!(layout.viewport.contains_rect(layout.board));
     assert!(layout.status.bottom() <= landscape.height);
 }
-
 
 #[test]
 fn collection_picker_targets_are_touch_sized_and_block_the_board() {

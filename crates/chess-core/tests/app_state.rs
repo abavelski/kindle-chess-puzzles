@@ -381,7 +381,6 @@ fn navigation_availability_matches_collection_ends_without_wrap() {
     assert_eq!(app.board(), &last);
 }
 
-
 #[test]
 fn collection_picker_requests_a_file_without_mutating_the_active_board() {
     let mut app = state("puzzles.json", PUZZLES);
@@ -396,13 +395,19 @@ fn collection_picker_requests_a_file_without_mutating_the_active_board() {
     assert!(app.collection_picker_open());
     assert_eq!(
         app.dispatch(Action::SelectCollection(1)),
-        vec![Effect::CollectionRequested("puzzles-broken.json".to_owned())]
+        vec![Effect::CollectionRequested(
+            "puzzles-broken.json".to_owned()
+        )]
     );
     assert_eq!(app.active_collection().key(), "puzzles.json");
     assert_eq!(app.board(), &initial_board);
 
     app.dispatch(Action::TapSquare(square("d7")));
-    assert_eq!(app.board(), &initial_board, "picker blocks ordinary board actions");
+    assert_eq!(
+        app.board(),
+        &initial_board,
+        "picker blocks ordinary board actions"
+    );
 
     app.dispatch(Action::CloseCollectionPicker);
     assert!(!app.collection_picker_open());
@@ -444,9 +449,7 @@ fn restart_restores_active_file_current_puzzle_and_solved_ids_per_file() {
     );
 
     play(&mut app, "d7e8");
-    assert!(app
-        .progress()
-        .is_solved("puzzles.json", "lichess-001cr"));
+    assert!(app.progress().is_solved("puzzles.json", "lichess-001cr"));
     app.dispatch(Action::NextPuzzle);
     assert_eq!(app.active_puzzle().id, "lichess-000hf");
 

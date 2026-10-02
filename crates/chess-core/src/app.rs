@@ -393,7 +393,8 @@ impl AppState {
     }
 
     fn request_collection(&self, index: usize) -> Vec<Effect> {
-        if !self.collection_picker_open || !self.collection_picker_visible_range().contains(&index) {
+        if !self.collection_picker_open || !self.collection_picker_visible_range().contains(&index)
+        {
             return Vec::new();
         }
 

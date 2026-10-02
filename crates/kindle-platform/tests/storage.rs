@@ -71,21 +71,20 @@ fn discovery_filters_sorts_and_uses_filename_when_title_is_blank() {
         b"{ definitely not json",
     );
     write(&paths.puzzle_dir.join("notes.json"), b"{}");
-    fs::create_dir_all(paths.puzzle_dir.join("puzzles-dir.json")).expect("create ignored directory");
+    fs::create_dir_all(paths.puzzle_dir.join("puzzles-dir.json"))
+        .expect("create ignored directory");
 
     let storage = KindleStorage::new(paths);
-    let discovered = storage.discover_collections().expect("discover collections");
+    let discovered = storage
+        .discover_collections()
+        .expect("discover collections");
 
     assert_eq!(
         discovered
             .iter()
             .map(|entry| entry.filename.as_str())
             .collect::<Vec<_>>(),
-        [
-            "puzzles-a.json",
-            "puzzles-broken.json",
-            "puzzles-z.json"
-        ]
+        ["puzzles-a.json", "puzzles-broken.json", "puzzles-z.json"]
     );
     assert_eq!(discovered[0].label, "puzzles-a.json");
     assert!(discovered[0].is_valid());
@@ -133,7 +132,10 @@ fn invalid_only_discovery_preserves_source_and_does_not_install_over_it() {
 
     assert_eq!(discovered.len(), 1);
     assert!(!discovered[0].is_valid());
-    assert_eq!(fs::read(&broken_path).expect("read preserved broken file"), broken);
+    assert_eq!(
+        fs::read(&broken_path).expect("read preserved broken file"),
+        broken
+    );
     assert!(!paths.puzzle_dir.join("puzzles.json").exists());
 }
 

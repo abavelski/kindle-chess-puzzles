@@ -56,10 +56,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     if persistence_enabled && progress_store.dirty() {
         if let Err(error) = progress_store.retry_if_dirty(app.progress()) {
-            append_message(
-                &mut startup_message,
-                format!("Progress warning: {error}"),
-            );
+            append_message(&mut startup_message, format!("Progress warning: {error}"));
         }
     }
     if let Some(message) = startup_message {
