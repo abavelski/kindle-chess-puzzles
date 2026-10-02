@@ -19,6 +19,8 @@ use std::collections::VecDeque;
 const BUNDLED_PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/parity-puzzles.json");
 const BUNDLED_FALLBACK_KEY: &str = "bundled-examples.json";
 
+type InitialCollection = (String, PuzzleCollection, bool, Option<String>);
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("kindle-chess: {error}");
@@ -137,7 +139,7 @@ fn select_initial_collection(
     storage: &KindleStorage,
     discovered: &[DiscoveredCollection],
     progress: &Progress,
-) -> Result<(String, PuzzleCollection, bool, Option<String>), Box<dyn std::error::Error>> {
+) -> Result<InitialCollection, Box<dyn std::error::Error>> {
     let mut valid = discovered
         .iter()
         .filter(|entry| entry.is_valid())
