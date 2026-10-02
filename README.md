@@ -61,9 +61,9 @@ Start here:
 
 ## Current state
 
-Tasks 00-02 are **Implemented**. The physical Scribe checkpoint passed on 2026-10-02, and the repository now has a Rust 1.85.1 workspace plus a platform-neutral `chess-core` covering board/FEN/UCI, promotions, version-1 puzzle collections, collection-name discovery, progress serialization, and the pure puzzle-solving application state machine. Solution grading, rollback, automatic replies, promotion, Free Board, orientation lock, description visibility, collection activation, and explicit progress-change effects are covered by host tests. Host formatting/clippy/tests and a minimal `armv7-unknown-linux-gnueabihf` cross-build are enforced in CI.
+Tasks 00-03 are **Implemented**, completing the host-side M1 application foundation. The repository now has a Rust 1.85.1 workspace, platform-neutral `chess-core` application logic, and a deterministic `chess-render` layer with a project-owned Gray8 frame, DPI-aware layout/hit testing, renderer-owned text/feedback UI, reproducible Sashité Western assets, and Scribe-resolution snapshot coverage. Host formatting/clippy/tests, asset regeneration checks, and a minimal `armv7-unknown-linux-gnueabihf` cross-build are enforced in CI.
 
-Task 03 is next: the shared deterministic e-ink renderer, layout, hit testing, and Sashité assets. FBInk runtime, touch input, real device persistence, and production deployment remain intentionally unimplemented.
+Task 04 is next: connect the shared frame and logical hit targets to Kindle FBInk display and touch input in a minimal event loop. Real device persistence and the later lifecycle/deployment work remain intentionally unimplemented.
 
 For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
 

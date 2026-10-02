@@ -1,6 +1,6 @@
 # Task 03 — Add deterministic layout, rendering, hit testing, and Sashité assets
 
-**Status:** Ready  
+**Status:** Implemented  
 **Depends on:** Tasks 01-02
 
 ## Outcome
@@ -8,6 +8,31 @@
 Render every parity UI state to a deterministic project-owned grayscale frame on the host, with the same layout/hit-testing code intended for Kindle.
 
 Do not call FBInk yet.
+
+## Implemented
+
+Task 03 adds a platform-neutral `chess-render` implementation with:
+
+- a project-owned `Gray8` frame with explicit width, height, stride, clipping, rectangle operations, grayscale/alpha blits, deterministic line/polygon drawing, and PGM export for host inspection;
+- DPI-derived `Layout`, `Rect`, and shared `HitTarget` geometry used by both rendering and input mapping, including all 64 board squares, toolbar controls, previous/next navigation, and promotion choices/cancel;
+- a Scribe 1860x2480 @ 300 DPI reference layout with a 1696x1696 board (212 px squares) and controls/modal targets at or above the 10 mm minimum touch size;
+- deterministic 5x7 renderer-owned text, board coordinates, status/description text, string/number difficulty, solved marker, selected controls/squares, correct/wrong/complete feedback, and the promotion modal;
+- the 12 Sashité Western source SVGs used by the reference app, preserved under `assets/sashite-western/`, plus a reproducible host generator and checked-in vector-layer output consumed without runtime SVG parsing;
+- full-frame damage reporting through shared region types, leaving partial-refresh optimization to Task 07;
+- 13 Scribe-resolution Gray8 snapshot hashes covering white/black orientation, selection, correct/wrong/complete/solved, Free Board, orientation lock, description, promotion, long description, and numeric difficulty.
+
+No FBInk, evdev, framebuffer, filesystem, or Kindle runtime dependency was added to `chess-render`.
+
+## Validation
+
+GitHub Actions run 11 verified:
+
+- `cargo fmt --all -- --check`;
+- `cargo clippy --workspace --all-targets -- -D warnings`;
+- `cargo test --workspace`, including the 10 new renderer/layout/canvas/asset/snapshot tests and all existing core tests;
+- `python3 scripts/generate_sashite.py --check`, proving the checked-in piece layer reproduces from the source SVGs;
+- the existing Task 00 Python/tooling checks;
+- the minimal `kindle-chess` ARMv7 hard-float cross-build smoke test.
 
 ## Canvas
 
@@ -120,14 +145,14 @@ Define `Rect`/region types now, but do not optimize refreshes yet. The renderer 
 
 ## Acceptance criteria
 
-- host tests render every visible parity state;
-- snapshots are deterministic across CI;
-- hit testing shares layout data rather than duplicating magic coordinates;
-- all 64 squares map correctly in both orientations;
-- toolbar/modal targets meet the documented minimum size;
-- Sashité assets are reproducibly generated and attributable;
-- renderer has no FBInk/Kindle dependency;
-- workspace checks pass.
+- [x] host tests render every visible parity state;
+- [x] snapshots are deterministic across CI;
+- [x] hit testing shares layout data rather than duplicating magic coordinates;
+- [x] all 64 squares map correctly in both orientations;
+- [x] toolbar/modal targets meet the documented minimum size;
+- [x] Sashité assets are reproducibly generated and attributable;
+- [x] renderer has no FBInk/Kindle dependency;
+- [x] workspace checks pass.
 
 ## Suggested commits
 

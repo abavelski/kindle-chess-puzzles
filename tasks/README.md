@@ -9,7 +9,7 @@ Implement one task at a time.
 | [00](00-device-probe.md) | Record Scribe/FBInk/input/lifecycle facts without app code | Implemented |
 | [01](01-bootstrap-and-core.md) | Rust workspace, CI/checks, board/FEN/UCI/puzzle/progress core | Implemented |
 | [02](02-application-state.md) | Pure test-driven puzzle-solving application state machine | Implemented |
-| [03](03-renderer-and-assets.md) | Shared deterministic e-ink renderer, layout, hit testing, Sashité assets | Ready |
+| [03](03-renderer-and-assets.md) | Shared deterministic e-ink renderer, layout, hit testing, Sashité assets | Implemented |
 | [04](04-fbink-and-input.md) | Kindle FBInk display + touch input + minimal event loop | Ready |
 | [05](05-parity-features.md) | Promotion, Free Board, navigation, flip/lock, descriptions, feedback | Ready |
 | [06](06-persistence-and-collections.md) | Multi-collection workflow and durable progress on Kindle | Ready |
@@ -27,7 +27,7 @@ No product implementation should depend on guessed event nodes, resolution, ABI,
 
 ### M1: host-complete application
 
-Tasks 01-02 are complete: the Rust workspace, compatibility core, fixtures, quality gate, ARMv7 cross-compilation smoke test, and pure application state machine are in place. Task 03 adds the deterministic renderer; after that, almost all behavior is executable in tests/snapshots without the Kindle.
+M1 is complete. Tasks 01-03 provide the Rust workspace, compatibility core, fixtures, pure application state machine, deterministic Gray8 renderer, DPI-aware layout/hit testing, Sashité assets, snapshot coverage, quality gate, and ARMv7 cross-compilation smoke test. Almost all application behavior is now executable on the host without the Kindle.
 
 ### M2: first usable Scribe build
 

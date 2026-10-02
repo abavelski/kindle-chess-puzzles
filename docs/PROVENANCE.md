@@ -21,4 +21,13 @@ The reference repository does not currently contain a top-level license file. Tr
 
 ## Sashité assets
 
-No Sashité image assets are added by Task 01. Their source/provenance remains documented in the project plan and will be handled when Task 03 introduces generated renderer assets.
+Task 03 adds the same Sashité Western chess SVG source set used by the reference application:
+
+- upstream project: `https://sashite.dev/assets/chess/`;
+- local source of truth: `assets/sashite-western/first/*.svg` and `assets/sashite-western/second/*.svg`;
+- piece set: king, queen, rook, bishop, knight, and pawn for both players;
+- upstream/reference attribution: public domain, used here under CC0 1.0.
+
+The SVG files are preserved as source assets. `scripts/generate_sashite.py` deterministically converts their supported path/fill data into normalized grayscale vector layers in `crates/chess-render/src/pieces_generated.rs`. Runtime code rasterizes those generated layers into the project-owned Gray8 frame and does not parse SVG on the Kindle.
+
+`scripts/check.sh` runs `python3 scripts/generate_sashite.py --check` so CI fails if the generated Rust output no longer matches the checked-in SVG sources. Additional asset notes live in `assets/sashite-western/README.md`.
