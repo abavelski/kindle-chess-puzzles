@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.1
+        with:
+          components: rustfmt, clippy
+          targets: armv7-unknown-linux-gnueabihf
+      - name: Check host code and tests
+        run: scripts/check.sh
+
+  kindle-cross-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.1
+        with:
+          targets: armv7-unknown-linux-gnueabihf
+      - name: Install ARMv7 hard-float cross linker
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf
+      - name: Cross-build minimal Kindle binary
+        run: scripts/check-kindle.sh
