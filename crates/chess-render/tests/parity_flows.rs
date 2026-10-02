@@ -136,17 +136,17 @@ fn task05_action_state_render_flows_match_reviewed_snapshots() {
     actual.push(("last-next-disabled", hash(&last)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("wrong-rollback", 0),
-        ("one-move-complete", 0),
-        ("three-ply-auto-reply", 0),
-        ("promotion-modal", 0),
-        ("promotion-cancel", 0),
-        ("underpromotion-complete", 0),
-        ("free-arbitrary-move", 0),
-        ("free-return-solution", 0),
-        ("lock-flip-navigation", 0),
-        ("description-before-solve", 0),
-        ("last-next-disabled", 0),
+        ("wrong-rollback", 13_216_954_808_432_134_677),
+        ("one-move-complete", 12_376_751_887_211_764_430),
+        ("three-ply-auto-reply", 744_515_517_300_163_609),
+        ("promotion-modal", 5_044_260_433_586_245_585),
+        ("promotion-cancel", 7_978_264_775_456_717_942),
+        ("underpromotion-complete", 3_269_916_398_641_963_660),
+        ("free-arbitrary-move", 2_051_037_271_762_308_966),
+        ("free-return-solution", 5_183_906_274_710_523_030),
+        ("lock-flip-navigation", 11_984_190_113_212_202_906),
+        ("description-before-solve", 6_923_481_890_747_312_918),
+        ("last-next-disabled", 18_178_882_495_593_380_909),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
