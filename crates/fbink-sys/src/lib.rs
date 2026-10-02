@@ -89,18 +89,14 @@ pub struct FbInkState {
 pub enum FbInkError {
     UnsupportedPlatform,
     Validation(ValidationError),
-    Call {
-        operation: &'static str,
-        code: i32,
-    },
+    Call { operation: &'static str, code: i32 },
 }
 
 impl fmt::Display for FbInkError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnsupportedPlatform => formatter.write_str(
-                "FBInk runtime is only linked for armv7-unknown-linux-gnueabihf",
-            ),
+            Self::UnsupportedPlatform => formatter
+                .write_str("FBInk runtime is only linked for armv7-unknown-linux-gnueabihf"),
             Self::Validation(error) => write!(formatter, "invalid FBInk request: {error}"),
             Self::Call { operation, code } => {
                 write!(formatter, "{operation} failed with FBInk error {code}")
@@ -188,13 +184,7 @@ impl FbInk {
         #[cfg(all(target_os = "linux", target_arch = "arm"))]
         {
             let code = unsafe {
-                ffi::kcp_fbink_present_gray8(
-                    self.fd,
-                    pixels.as_ptr(),
-                    width,
-                    height,
-                    pixels.len(),
-                )
+                ffi::kcp_fbink_present_gray8(self.fd, pixels.as_ptr(), width, height, pixels.len())
             };
             call_result("fbink_print_raw_data/full refresh", code)
         }

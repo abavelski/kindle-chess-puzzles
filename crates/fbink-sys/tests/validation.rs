@@ -2,14 +2,8 @@ use fbink_sys::{validate_frame, validate_rect, ValidationError};
 
 #[test]
 fn frame_validation_rejects_zero_dimensions_short_buffers_and_stride_mismatch() {
-    assert_eq!(
-        validate_frame(0, 2480, 0),
-        Err(ValidationError::EmptyFrame)
-    );
-    assert_eq!(
-        validate_frame(1860, 0, 0),
-        Err(ValidationError::EmptyFrame)
-    );
+    assert_eq!(validate_frame(0, 2480, 0), Err(ValidationError::EmptyFrame));
+    assert_eq!(validate_frame(1860, 0, 0), Err(ValidationError::EmptyFrame));
     assert_eq!(
         validate_frame(1860, 2480, 1860 * 2480 - 1),
         Err(ValidationError::BufferLength)

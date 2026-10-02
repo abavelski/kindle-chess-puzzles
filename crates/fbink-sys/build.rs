@@ -1,8 +1,4 @@
-use std::{
-    env,
-    path::PathBuf,
-    process::Command,
-};
+use std::{env, path::PathBuf, process::Command};
 
 const PINNED_FBINK_REVISION: &str = "92e127008145b2a22fba7c59815d810d716310dd";
 
@@ -59,10 +55,7 @@ fn main() {
             .arg("-DFBINK_MINIMAL")
             .arg("-DFBINK_WITH_DRAW")
             .arg("-DFBINK_WITH_IMAGE")
-            .arg(format!(
-                "-DFBINK_VERSION=\"{}\"",
-                PINNED_FBINK_REVISION
-            ))
+            .arg(format!("-DFBINK_VERSION=\"{}\"", PINNED_FBINK_REVISION))
             .arg("-I")
             .arg(&fbink)
             .arg("-c")

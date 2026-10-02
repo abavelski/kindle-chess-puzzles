@@ -8,9 +8,7 @@
 
 use chess_core::{parse_puzzle_file, ActiveCollection, AppState, Progress};
 use chess_render::{render, DisplayMetrics};
-use kindle_platform::{
-    task04_scribe_transform, FingerInput, KindleDisplay, TapPolicy, SCRIBE_DPI,
-};
+use kindle_platform::{task04_scribe_transform, FingerInput, KindleDisplay, TapPolicy, SCRIBE_DPI};
 
 const BUNDLED_PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/puzzles.json");
 
@@ -63,10 +61,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
         let (x, y) = input.next_tap()?;
         let promotion_open = app.pending_promotion().is_some();
-        if let Some(target) = output
-            .layout
-            .hit_test(x, y, app.flipped(), promotion_open)
-        {
+        if let Some(target) = output.layout.hit_test(x, y, app.flipped(), promotion_open) {
             let _effects = app.dispatch(target.into_action());
         }
     }

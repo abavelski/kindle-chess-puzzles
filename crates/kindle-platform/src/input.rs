@@ -145,26 +145,23 @@ impl InputCandidate {
 
 pub fn is_finger_touchscreen_candidate(candidate: &InputCandidate) -> bool {
     let lower_name = candidate.name.to_ascii_lowercase();
-    if lower_name.contains("wacom")
-        || lower_name.contains("stylus")
-        || lower_name.contains("pen")
-    {
+    if lower_name.contains("wacom") || lower_name.contains("stylus") || lower_name.contains("pen") {
         return false;
     }
 
-    has_bit(candidate.capabilities.event_types_low64, u8::try_from(EV_ABS).unwrap())
-        && has_bit(
-            candidate.capabilities.abs_low64,
-            u8::try_from(ABS_MT_POSITION_X).unwrap(),
-        )
-        && has_bit(
-            candidate.capabilities.abs_low64,
-            u8::try_from(ABS_MT_POSITION_Y).unwrap(),
-        )
-        && has_bit(
-            candidate.capabilities.abs_low64,
-            u8::try_from(ABS_MT_TRACKING_ID).unwrap(),
-        )
+    has_bit(
+        candidate.capabilities.event_types_low64,
+        u8::try_from(EV_ABS).unwrap(),
+    ) && has_bit(
+        candidate.capabilities.abs_low64,
+        u8::try_from(ABS_MT_POSITION_X).unwrap(),
+    ) && has_bit(
+        candidate.capabilities.abs_low64,
+        u8::try_from(ABS_MT_POSITION_Y).unwrap(),
+    ) && has_bit(
+        candidate.capabilities.abs_low64,
+        u8::try_from(ABS_MT_TRACKING_ID).unwrap(),
+    )
 }
 
 fn has_bit(bits: u64, code: u8) -> bool {
@@ -187,12 +184,10 @@ pub fn scan_input_candidates(root: &Path) -> io::Result<Vec<InputCandidate>> {
             continue;
         }
         let device = entry.path().join("device");
-        let name = fs::read_to_string(device.join("name"))?
-            .trim()
-            .to_owned();
+        let name = fs::read_to_string(device.join("name"))?.trim().to_owned();
         let capabilities = device.join("capabilities");
-        let event_types_low64 = parse_low64_bitmap(&fs::read_to_string(capabilities.join("ev"))?)
-            .unwrap_or(0);
+        let event_types_low64 =
+            parse_low64_bitmap(&fs::read_to_string(capabilities.join("ev"))?).unwrap_or(0);
         let abs_low64 =
             parse_low64_bitmap(&fs::read_to_string(capabilities.join("abs"))?).unwrap_or(0);
         candidates.push(InputCandidate {
@@ -237,13 +232,7 @@ pub struct RawInputEvent {
 }
 
 impl RawInputEvent {
-    pub const fn new(
-        sec: u32,
-        usec: u32,
-        event_type: u16,
-        code: u16,
-        value: i32,
-    ) -> Self {
+    pub const fn new(sec: u32, usec: u32, event_type: u16, code: u16, value: i32) -> Self {
         Self {
             sec,
             usec,
@@ -342,12 +331,7 @@ impl MtDecoder {
                 self.pending_down = false;
                 self.active = true;
                 self.last_emitted = Some((x, y));
-                return Some(TouchEvent::new(
-                    TouchPhase::Down,
-                    x,
-                    y,
-                    self.frame_time_ms,
-                ));
+                return Some(TouchEvent::new(TouchPhase::Down, x, y, self.frame_time_ms));
             }
         }
 
@@ -366,12 +350,7 @@ impl MtDecoder {
             if let Some((x, y)) = position {
                 if self.last_emitted != Some((x, y)) {
                     self.last_emitted = Some((x, y));
-                    return Some(TouchEvent::new(
-                        TouchPhase::Move,
-                        x,
-                        y,
-                        self.frame_time_ms,
-                    ));
+                    return Some(TouchEvent::new(TouchPhase::Move, x, y, self.frame_time_ms));
                 }
             }
         }
@@ -548,12 +527,7 @@ impl FingerInput {
 }
 
 pub fn task04_scribe_transform(metrics: DisplayMetrics) -> Result<TouchTransform, TransformError> {
-    TouchTransform::new(
-        SCRIBE_TOUCH_X,
-        SCRIBE_TOUCH_Y,
-        metrics,
-        Rotation::Deg0,
-    )
+    TouchTransform::new(SCRIBE_TOUCH_X, SCRIBE_TOUCH_Y, metrics, Rotation::Deg0)
 }
 
 pub fn input_device_path(dev_root: &Path, candidate: &InputCandidate) -> PathBuf {

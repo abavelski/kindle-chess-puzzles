@@ -11,7 +11,9 @@ const METRICS: DisplayMetrics = DisplayMetrics {
 };
 
 fn bitmap(codes: &[u8]) -> u64 {
-    codes.iter().fold(0_u64, |bits, code| bits | (1_u64 << code))
+    codes
+        .iter()
+        .fold(0_u64, |bits, code| bits | (1_u64 << code))
 }
 
 #[test]

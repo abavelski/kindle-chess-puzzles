@@ -43,8 +43,12 @@ impl fmt::Display for PresentError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
             Self::GeometryMismatch => "rendered frame dimensions do not match the FBInk display",
-            Self::UnsupportedPixelFormat => "Task 04 requires the measured 8-bit Y8 framebuffer mode",
-            Self::NonTightFrame => "Task 04 FBInk presentation requires a tightly packed Gray8 frame",
+            Self::UnsupportedPixelFormat => {
+                "Task 04 requires the measured 8-bit Y8 framebuffer mode"
+            }
+            Self::NonTightFrame => {
+                "Task 04 FBInk presentation requires a tightly packed Gray8 frame"
+            }
         };
         formatter.write_str(message)
     }
@@ -92,10 +96,7 @@ impl From<PresentError> for DisplayError {
     }
 }
 
-pub fn validate_presentable_frame(
-    state: &DisplayState,
-    frame: &Gray8,
-) -> Result<(), PresentError> {
+pub fn validate_presentable_frame(state: &DisplayState, frame: &Gray8) -> Result<(), PresentError> {
     if state.bpp != 8 || !state.is_y8 {
         return Err(PresentError::UnsupportedPixelFormat);
     }

@@ -11,10 +11,9 @@ pub use display::{
 };
 pub use input::{
     input_device_path, is_finger_touchscreen_candidate, scan_input_candidates,
-    select_finger_touchscreen, task04_scribe_transform, AxisRange, DeviceCapabilities,
-    FingerInput, InputCandidate, InputError, MtDecoder, RawInputEvent, Rotation, TapPolicy,
-    TapRecognizer, TouchEvent, TouchPhase, TouchTransform, TransformError, SCRIBE_TOUCH_X,
-    SCRIBE_TOUCH_Y,
+    select_finger_touchscreen, task04_scribe_transform, AxisRange, DeviceCapabilities, FingerInput,
+    InputCandidate, InputError, MtDecoder, RawInputEvent, Rotation, TapPolicy, TapRecognizer,
+    TouchEvent, TouchPhase, TouchTransform, TransformError, SCRIBE_TOUCH_X, SCRIBE_TOUCH_Y,
 };
 
 pub const PLATFORM_IMPLEMENTED: bool = true;
