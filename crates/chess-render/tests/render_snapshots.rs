@@ -137,5 +137,5 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("number-difficulty", 0),
     ];
 
-    assert_eq!(actual, EXPECTED);
+    assert_eq!(actual.as_slice(), EXPECTED);
 }

@@ -68,6 +68,20 @@ impl PromotionChoice {
     }
 }
 
+impl TryFrom<usize> for PromotionChoice {
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Queen),
+            1 => Ok(Self::Rook),
+            2 => Ok(Self::Bishop),
+            3 => Ok(Self::Knight),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingPromotion {
     before: Board,

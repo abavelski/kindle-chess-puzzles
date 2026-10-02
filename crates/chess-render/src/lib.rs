@@ -1,6 +1,17 @@
-//! Placeholder for the shared deterministic renderer introduced by Task 03.
+//! Platform-neutral deterministic grayscale renderer for Kindle Chess Puzzles.
 
 #![forbid(unsafe_code)]
 
-/// Confirms the renderer crate exists without introducing platform behavior.
-pub const CORE_CRATE_WIRED: bool = true;
+mod canvas;
+mod font;
+mod geometry;
+mod layout;
+mod pieces;
+mod render;
+
+pub use canvas::{CanvasError, Gray8};
+pub use geometry::Rect;
+pub use layout::{
+    ControlTarget, DisplayMetrics, HitTarget, Layout, LayoutError, MIN_TOUCH_MM,
+};
+pub use render::{render, RenderOutput};

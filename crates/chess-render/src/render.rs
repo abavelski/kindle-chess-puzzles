@@ -1,0 +1,389 @@
+//! Deterministic monochrome-first chess application renderer.
+
+use crate::{
+    font::{draw_text, draw_text_centered, draw_wrapped_text},
+    pieces::draw_piece,
+    DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
+};
+use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback};
+
+const WHITE: u8 = 255;
+const INK: u8 = 0;
+const LIGHT_SQUARE: u8 = 238;
+const DARK_SQUARE: u8 = 184;
+const SOFT_GRAY: u8 = 224;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RenderOutput {
+    pub frame: Gray8,
+    pub layout: Layout,
+    pub damage: Vec<Rect>,
+}
+
+pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput, LayoutError> {
+    let layout = Layout::new(metrics)?;
+    let mut frame = Gray8::new(metrics.width, metrics.height, WHITE);
+    let header_scale = (metrics.dpi / 75).clamp(2, 6);
+    let text_scale = (metrics.dpi / 100).clamp(2, 5);
+    let small_scale = (metrics.dpi / 125).clamp(2, 4);
+
+    draw_header(&mut frame, state, layout, header_scale, small_scale);
+    draw_board(&mut frame, state, layout, small_scale);
+    draw_toolbar(&mut frame, state, layout, text_scale);
+    draw_navigation(&mut frame, layout, text_scale);
+    draw_status(&mut frame, state, layout, small_scale);
+
+    match state.feedback() {
+        SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
+        SolutionFeedback::Complete => draw_complete_overlay(&mut frame, layout),
+        SolutionFeedback::None | SolutionFeedback::Correct => {}
+    }
+
+    if let Some(pending) = state.pending_promotion() {
+        draw_promotion_modal(&mut frame, layout, pending.color(), text_scale);
+    }
+
+    Ok(RenderOutput {
+        frame,
+        layout,
+        damage: vec![layout.viewport],
+    })
+}
+
+fn draw_header(
+    frame: &mut Gray8,
+    state: &AppState,
+    layout: Layout,
+    header_scale: u32,
+    small_scale: u32,
+) {
+    frame.stroke_rect(layout.header, 3, INK);
+    let puzzle = state.active_puzzle();
+    let difficulty = puzzle
+        .difficulty
+        .as_ref()
+        .map(|value| format!(" ({value})"))
+        .unwrap_or_default();
+    let title = format!(
+        "{}/{} {}{}",
+        state.active_puzzle_index() + 1,
+        state.active_collection().puzzles().len(),
+        puzzle.id,
+        difficulty
+    );
+    let padding = layout.header.height / 8;
+    draw_text(
+        frame,
+        layout.header.x.saturating_add(padding),
+        layout.header.y.saturating_add(
+            layout
+                .header
+                .height
+                .saturating_sub(7 * header_scale)
+                / 2,
+        ),
+        &title,
+        header_scale,
+        INK,
+    );
+
+    if state.is_current_solved() {
+        let badge_width = layout.minimum_touch_px().saturating_mul(2);
+        let badge = Rect::new(
+            layout.header.right().saturating_sub(badge_width),
+            layout.header.y,
+            badge_width,
+            layout.header.height,
+        )
+        .inset(layout.header.height / 10);
+        frame.fill_rect(badge, INK);
+        draw_text_centered(frame, badge, "SOLVED", small_scale, WHITE);
+    }
+}
+
+fn draw_board(frame: &mut Gray8, state: &AppState, layout: Layout, coordinate_scale: u32) {
+    for display_square in 0..64 {
+        let rect = layout.square_rect(display_square);
+        let row = display_square / 8;
+        let column = display_square % 8;
+        let tone = if (row + column) % 2 == 0 {
+            LIGHT_SQUARE
+        } else {
+            DARK_SQUARE
+        };
+        frame.fill_rect(rect, tone);
+
+        let logical_square = if state.flipped() {
+            63 - display_square
+        } else {
+            display_square
+        };
+        if let Some(piece) = state.board().piece_at(logical_square) {
+            draw_piece(frame, piece, rect);
+        }
+        if state.board().selected() == Some(logical_square) {
+            frame.stroke_rect(rect, 6, INK);
+            frame.stroke_rect(rect.inset(7), 3, WHITE);
+        }
+    }
+    frame.stroke_rect(layout.board, 4, INK);
+    draw_coordinates(frame, state.flipped(), layout, coordinate_scale);
+}
+
+fn draw_coordinates(frame: &mut Gray8, flipped: bool, layout: Layout, scale: u32) {
+    let files = if flipped { "HGFEDCBA" } else { "ABCDEFGH" };
+    let ranks = if flipped { "12345678" } else { "87654321" };
+    let gutter = layout.coordinate_gutter();
+    for (index, file) in files.chars().enumerate() {
+        let square = layout.square_rect(index + 56);
+        let rect = Rect::new(square.x, layout.board.bottom(), square.width, gutter);
+        draw_text_centered(frame, rect, &file.to_string(), scale, INK);
+    }
+    for (index, rank) in ranks.chars().enumerate() {
+        let square = layout.square_rect(index * 8);
+        let rect = Rect::new(
+            layout.board.x.saturating_sub(gutter),
+            square.y,
+            gutter,
+            square.height,
+        );
+        draw_text_centered(frame, rect, &rank.to_string(), scale, INK);
+    }
+}
+
+fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    for target in layout.toolbar_targets {
+        let (label, selected) = match target.target {
+            HitTarget::ToggleMode => ("FREE", state.mode() == BoardMode::FreeBoard),
+            HitTarget::ToggleDescription => ("NOTE", state.description_visible()),
+            HitTarget::ToggleOrientationLock => ("LOCK", state.orientation_locked()),
+            HitTarget::Reset => ("RESET", false),
+            HitTarget::Flip => ("FLIP", false),
+            _ => continue,
+        };
+        draw_button(frame, target.rect, label, selected, scale);
+    }
+}
+
+fn draw_navigation(frame: &mut Gray8, layout: Layout, scale: u32) {
+    draw_button(frame, layout.previous, "< PREV", false, scale);
+    draw_button(frame, layout.next, "NEXT >", false, scale);
+}
+
+fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    frame.stroke_rect(layout.status, 3, INK);
+    let padding = (layout.status.height / 12).max(8);
+    let line_height = 8 * scale;
+    let status_line = match state.mode() {
+        BoardMode::FreeBoard => "FREE BOARD".to_owned(),
+        BoardMode::Solution => {
+            let side = match state.active_puzzle().side_to_move() {
+                Color::White => "WHITE TO MOVE",
+                Color::Black => "BLACK TO MOVE",
+            };
+            if state.feedback() == SolutionFeedback::Correct {
+                format!("{side} - CORRECT")
+            } else {
+                side.to_owned()
+            }
+        }
+    };
+    draw_text(
+        frame,
+        layout.status.x.saturating_add(padding),
+        layout.status.y.saturating_add(padding),
+        &status_line,
+        scale,
+        INK,
+    );
+
+    let body_y = layout
+        .status
+        .y
+        .saturating_add(padding)
+        .saturating_add(line_height);
+    let body = Rect::new(
+        layout.status.x.saturating_add(padding),
+        body_y,
+        layout.status.width.saturating_sub(padding.saturating_mul(2)),
+        layout.status.bottom().saturating_sub(body_y).saturating_sub(padding),
+    );
+
+    if let Some(message) = state.transient_message() {
+        frame.fill_rect(body, SOFT_GRAY);
+        frame.stroke_rect(body, 2, INK);
+        draw_wrapped_text(frame, body.inset(8), &format!("! {message}"), scale, INK);
+    } else if state.description_visible() {
+        if let Some(description) = state
+            .active_puzzle()
+            .description
+            .as_deref()
+            .filter(|text| !text.trim().is_empty())
+        {
+            draw_wrapped_text(frame, body, description, scale, INK);
+        }
+    }
+
+    if state.feedback() == SolutionFeedback::Correct {
+        let mark = Rect::new(
+            layout.status.right().saturating_sub(layout.minimum_touch_px()),
+            layout.status.y,
+            layout.minimum_touch_px(),
+            line_height.saturating_add(padding.saturating_mul(2)),
+        );
+        draw_check(frame, mark.inset(mark.width / 5), 5, INK);
+    }
+}
+
+fn draw_wrong_overlay(frame: &mut Gray8, layout: Layout) {
+    let overlay = feedback_rect(layout);
+    frame.fill_rect(overlay, WHITE);
+    frame.stroke_rect(overlay, 6, INK);
+    let inner = overlay.inset(overlay.width / 5);
+    draw_thick_line(
+        frame,
+        i32::try_from(inner.x).unwrap_or(i32::MAX),
+        i32::try_from(inner.y).unwrap_or(i32::MAX),
+        i32::try_from(inner.right()).unwrap_or(i32::MAX),
+        i32::try_from(inner.bottom()).unwrap_or(i32::MAX),
+        10,
+        INK,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(inner.right()).unwrap_or(i32::MAX),
+        i32::try_from(inner.y).unwrap_or(i32::MAX),
+        i32::try_from(inner.x).unwrap_or(i32::MAX),
+        i32::try_from(inner.bottom()).unwrap_or(i32::MAX),
+        10,
+        INK,
+    );
+}
+
+fn draw_complete_overlay(frame: &mut Gray8, layout: Layout) {
+    let overlay = feedback_rect(layout);
+    frame.fill_rect(overlay, WHITE);
+    frame.stroke_rect(overlay, 6, INK);
+    draw_check(frame, overlay.inset(overlay.width / 6), 12, INK);
+}
+
+fn feedback_rect(layout: Layout) -> Rect {
+    let size = layout.square_size().saturating_mul(2);
+    Rect::new(
+        layout.board.x + (layout.board.width - size) / 2,
+        layout.board.y + (layout.board.height - size) / 2,
+        size,
+        size,
+    )
+}
+
+fn draw_promotion_modal(
+    frame: &mut Gray8,
+    layout: Layout,
+    color: Color,
+    scale: u32,
+) {
+    frame.fill_rect(layout.promotion_modal, WHITE);
+    frame.stroke_rect(layout.promotion_modal, 6, INK);
+    let title_height = layout.minimum_touch_px();
+    let title = Rect::new(
+        layout.promotion_modal.x,
+        layout.promotion_modal.y,
+        layout.promotion_modal.width,
+        title_height,
+    );
+    draw_text_centered(frame, title, "PROMOTE PAWN", scale, INK);
+
+    const KINDS: [PieceKind; 4] = [
+        PieceKind::Queen,
+        PieceKind::Rook,
+        PieceKind::Bishop,
+        PieceKind::Knight,
+    ];
+    const LABELS: [&str; 4] = ["Q", "R", "B", "N"];
+    for (index, rect) in layout.promotion_choices.into_iter().enumerate() {
+        frame.fill_rect(rect, SOFT_GRAY);
+        frame.stroke_rect(rect, 3, INK);
+        let piece_area = Rect::new(rect.x, rect.y, rect.width, rect.height * 3 / 4);
+        draw_piece(
+            frame,
+            chess_core::Piece {
+                color,
+                kind: KINDS[index],
+            },
+            piece_area,
+        );
+        let label = Rect::new(
+            rect.x,
+            rect.y + rect.height * 3 / 4,
+            rect.width,
+            rect.height / 4,
+        );
+        draw_text_centered(frame, label, LABELS[index], scale.min(3), INK);
+    }
+    draw_button(frame, layout.promotion_cancel, "CANCEL", false, scale);
+}
+
+fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
+    let (background, foreground) = if selected {
+        (INK, WHITE)
+    } else {
+        (WHITE, INK)
+    };
+    frame.fill_rect(rect, background);
+    frame.stroke_rect(rect, 3, INK);
+    if selected {
+        frame.stroke_rect(rect.inset(5), 2, WHITE);
+    }
+    draw_text_centered(frame, rect.inset(6), label, scale, foreground);
+}
+
+fn draw_check(frame: &mut Gray8, rect: Rect, thickness: u32, tone: u8) {
+    let x0 = rect.x + rect.width / 8;
+    let y0 = rect.y + rect.height / 2;
+    let x1 = rect.x + rect.width * 2 / 5;
+    let y1 = rect.y + rect.height * 3 / 4;
+    let x2 = rect.x + rect.width * 7 / 8;
+    let y2 = rect.y + rect.height / 4;
+    draw_thick_line(
+        frame,
+        i32::try_from(x0).unwrap_or(i32::MAX),
+        i32::try_from(y0).unwrap_or(i32::MAX),
+        i32::try_from(x1).unwrap_or(i32::MAX),
+        i32::try_from(y1).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(x1).unwrap_or(i32::MAX),
+        i32::try_from(y1).unwrap_or(i32::MAX),
+        i32::try_from(x2).unwrap_or(i32::MAX),
+        i32::try_from(y2).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+}
+
+fn draw_thick_line(
+    frame: &mut Gray8,
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    thickness: u32,
+    tone: u8,
+) {
+    let half = i32::try_from(thickness / 2).unwrap_or(i32::MAX);
+    for offset_y in -half..=half {
+        for offset_x in -half..=half {
+            frame.draw_line(
+                x0.saturating_add(offset_x),
+                y0.saturating_add(offset_y),
+                x1.saturating_add(offset_x),
+                y1.saturating_add(offset_y),
+                tone,
+            );
+        }
+    }
+}
