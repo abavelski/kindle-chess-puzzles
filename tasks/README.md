@@ -6,7 +6,7 @@ Implement one task at a time.
 
 | Task | Outcome | Status |
 | --- | --- | --- |
-| [00](00-device-probe.md) | Record Scribe/FBInk/input/lifecycle facts without app code | Ready |
+| [00](00-device-probe.md) | Record Scribe/FBInk/input/lifecycle facts without app code | Awaiting HUMAN CHECKPOINT A |
 | [01](01-bootstrap-and-core.md) | Rust workspace, CI/checks, board/FEN/UCI/puzzle/progress core | Ready |
 | [02](02-application-state.md) | Pure test-driven puzzle-solving application state machine | Ready |
 | [03](03-renderer-and-assets.md) | Shared deterministic e-ink renderer, layout, hit testing, Sashité assets | Ready |
@@ -21,7 +21,9 @@ Implement one task at a time.
 
 ### M0: hardware facts
 
-Task 00 only. No product implementation should depend on guessed event nodes, resolution, ABI, or lifecycle commands.
+Task 00 tooling is implemented, but M0 is not complete until HUMAN CHECKPOINT A records the actual Scribe measurements in `docs/device/ks1-barolo.md`.
+
+No product implementation should depend on guessed event nodes, resolution, ABI, or lifecycle commands.
 
 ### M1: host-complete application
 
@@ -42,7 +44,7 @@ Every task must:
 - follow `AGENTS.md`;
 - start behavior with failing tests where host-testable;
 - keep core/render code Kindle-independent;
-- keep `cargo fmt --check`, clippy, and tests green;
+- keep `cargo fmt --check`, clippy, and tests green once the Rust workspace exists;
 - preserve version-1 puzzle compatibility;
 - avoid chess-engine behavior unless explicitly stated;
 - keep all interaction states clear without color;

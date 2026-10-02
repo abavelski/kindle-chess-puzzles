@@ -1,0 +1,3 @@
+# Local copies of Task 00 device logs/raw captures. Review and summarize them in
+# docs/device/ instead of committing raw device output.
+/probe-output/
