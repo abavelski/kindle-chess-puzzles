@@ -47,7 +47,7 @@ Do not hardcode these before Task 00:
 - safe launch/return behavior for the installed jailbreak/homebrew stack;
 - writable locations that are convenient for puzzle files and safe for progress.
 
-Task 00 completed on 2026-10-02 and records verified measurements in `docs/device/ks1-barolo.md`: firmware 5.19.6, 32-bit ARMv7 hard-float/glibc 2.35, visible 1860×2480 Y8 framebuffer with 1872-byte stride, direct portrait finger coordinates, separate physical/virtual pen streams, and a successful Kindle FBInk `92e1270` overlay restored with Home. Task 04 subsequently ran the Rust/FBInk application loop on the device and verified finger mapping, controls, stylus filtering, and recovery. Stock-UI input/repaint contention and transient refresh traces remain explicit lifecycle/refresh work; other orientations and production storage persistence remain later-task validation.
+Task 00 completed on 2026-10-02 and records verified measurements in `docs/device/ks1-barolo.md`: firmware 5.19.6, 32-bit ARMv7 hard-float/glibc 2.35, visible 1860×2480 Y8 framebuffer with 1872-byte stride, direct portrait finger coordinates, separate physical/virtual pen streams, and a successful Kindle FBInk `92e1270` overlay restored with Home. Task 04 subsequently ran the Rust/FBInk application loop on the device and verified finger mapping, controls, stylus filtering, and recovery. Stock-UI input/repaint contention and transient refresh traces remain explicit lifecycle/refresh work; Task 06 subsequently verified production storage persistence through exit/relaunch and computer-copy collection changes; other orientations remain untested.
 
 ## Bring-up policy
 
@@ -137,7 +137,7 @@ Task 06 uses these Kindle defaults:
 
 They can be overridden with `KINDLE_CHESS_PUZZLE_DIR` and `KINDLE_CHESS_PROGRESS_FILE`, so host tests use temporary directories and a future platform adapter is not coupled to Kindle paths. The platform storage adapter creates the puzzle directory/default `puzzles.json` only when no matching collection exists. Matching invalid collections are preserved rather than overwritten. Progress uses a same-directory temporary file, file sync, atomic rename, and directory sync; malformed or future-version progress is protected from automatic replacement.
 
-Earlier device checkpoints verified `/mnt/us` is usable for application staging. HUMAN CHECKPOINT D must still confirm that these exact Task 06 locations persist through the intended Scribe exit/relaunch and computer-copy workflow before the task is marked Implemented.
+Earlier device checkpoints verified `/mnt/us` is usable for application staging. HUMAN CHECKPOINT D passed on 2026-10-02 and verified these exact Task 06 locations through Scribe exit/relaunch and computer-copy changes: active collection, per-collection current puzzle IDs, and solved markers restored, while uploaded collection hashes remained unchanged. A newly copied valid collection was discovered, and a malformed file could be selected and removed without losing progress.
 
 Puzzle JSON remains user/source data. Solved/current/active progress is app-owned and is never written back into a puzzle collection.
 

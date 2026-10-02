@@ -686,3 +686,59 @@ After Ctrl-C, `pidof kindle-chess kindle-chess-glibc235` returned no PIDs. The d
 Task 05 is **Implemented**. No puzzle/progress files were modified by the app, and later task files remain untouched.
 
 Completion checks: `scripts/check.sh` passed formatting, clippy, workspace tests, asset regeneration, and Python/tooling checks; `scripts/check-kindle.sh` passed with the previously verified Zig/glibc-2.35 cross-toolchain overrides.
+
+---
+
+# Task 06 — HUMAN CHECKPOINT D
+
+**Status:** Passed on 2026-10-02; Task 06 Implemented.
+
+- Commit: `027ae82b0b7c026bde628723dcaef5461ce7da42`; CI run `37055795926` completed successfully for host checks and the ARMv7 cross-build.
+- Artifact: `kindle-chess-task06-armv7`, ID `11247968147`. Downloaded ZIP SHA-256 matched GitHub's digest: `343da46a5d917c185b491d0948ec4948cd7d4f1f885fab66bd4ba559a569f770`.
+- Binary: `/mnt/us/kindle-chess-task06/kindle-chess`; host/device SHA-256 matched: `8b363331208c7733d118cd375f46765953ea90b373e2048f8c0ef5d533255cc2`.
+- SSH: root, empty password, port 2222 at the user-supplied LAN address. Device reconfirmed ARMv7, firmware 5.19.6, visible 1860×2480 / virtual 1872×4960 / 8 bpp. Dynamic loader resolved all binary dependencies successfully.
+- `/mnt/us/kindle-chess` did not exist before deployment. Copied repository fixtures `tests/fixtures/puzzles.json` and `tests/fixtures/puzzles-endgames.json` into `/mnt/us/kindle-chess/puzzles`.
+- Source baseline hashes: `puzzles.json` = `95d9f37c13f9df9ce686a75bee0288c2c54c1f84e53d292a619de4a53e95a9bf`; `puzzles-endgames.json` = `e6376ecd34dbd6f8a47072c42d191c2c99f5478b2d8c2989aed4f5efcbb28da2`.
+- User confirmed a disposable blank notebook was open before launch. Verified no existing app process, launched one foreground SSH PTY instance, then confirmed exactly one PID (`30966` at initial launch).
+- Launch helper: `sh /mnt/us/kindle-chess-task06/launch.sh`. It refuses launch while an existing chess instance is present, explicitly sets the documented puzzle/progress paths, creates a timestamped stderr log, and execs the app. Exit remains Ctrl-C in the controlling PTY; the helper changes no stock services, input ownership, framebuffer mode, or power policy.
+- Initial log: `/mnt/us/kindle-chess-task06/checkpoint-d-20261002-215104.log`. Startup reports both valid collections, active `puzzles-endgames.json`, persistent storage enabled, pinned FBInk `92e1270`, expected geometry, and capability-selected `pt_mt` finger input.
+- Initial progress file was created at `/mnt/us/kindle-chess/state/progress.json` with active `puzzles-endgames.json`, current ID `end-1`, and no solved IDs. Collection hashes still matched immediately after startup. This is startup evidence, not a completed human persistence check.
+- Local artifacts and launch helper are retained in ignored `probe-output/task06/`.
+
+## Human touch sequence and checkpoint pauses
+
+Use finger taps and logical board coordinates. Existing stock-UI/refresh contention remains the Task 04 limitation; keep a blank notebook underneath the overlay.
+
+1. On initial **Endgames 1/2 end-1**, solve `g6→g7`. Confirm Complete and solved marker. Tap Next to **2/2 end-2** and leave it unsolved.
+2. Tap FILES and choose **Lichess sample puzzles**. Solve **1/2 lichess-001cr** with `d7→e8`, then tap Next to **2/2 lichess-000hf**. Solve `e2→e6`, observe automatic `f7→f8`, then finish `e6→f7`.
+3. Switch via FILES to Endgames: it should return to **2/2 end-2**, unsolved. Tap Previous: **end-1** should have its solved marker. Leave Endgames at **1/2**.
+4. Switch back to Lichess: it should return to **2/2 lichess-000hf** with its solved marker. Pause and report results. The operator stops the foreground app with Ctrl-C, checks no PID remains, checks progress and source hashes, and relaunches through the helper.
+5. After relaunch, confirm active **Lichess 2/2**, solved marker visible. Switch to Endgames: confirm **1/2 end-1**, solved marker visible. Pause for the computer-copy portion.
+6. The operator stops the app and copies a third valid matching collection into the puzzle directory, plus malformed `puzzles-broken.json` containing `{ broken`. Preserve both original collection files and all progress. Relaunch and confirm the new valid collection is listed in FILES.
+7. Select `puzzles-broken.json`. Confirm a visible error and that the current valid collection/puzzle/board remains active after closing the picker. Pause and report.
+8. The operator stops the app, removes only the deliberately created malformed test file, and relaunches. Confirm the invalid entry is gone and previous collection positions/solved markers remain.
+9. Stop the app; use normal Home/back or lock/unlock to repaint if needed. Confirm native finger/pen interaction and display appearance are normal. Retrieve logs/progress, compare unchanged source hashes, and record user observations before marking Task 06 Implemented.
+
+For manual launch from a computer, connect with `ssh -tt -p 2222 root@192.168.1.20`, submit an empty password, and run the launch helper. Do not launch a second instance. Computer-copy and malformed-file preparation are checkpoint operations, not app writes to puzzle data.
+
+## HUMAN CHECKPOINT D observations
+
+- Initial touch checks 1–5: **PASS** by user confirmation, covering solving in both collections, navigation, collection switching, remembered positions, and solved markers.
+- Before restart, device progress independently recorded Endgames current `end-1`, solved `end-1`, and Lichess current `lichess-000hf`, solved `lichess-001cr` and `lichess-000hf`. The final active collection was **Endgames**, consistent with additional logged switches/navigation after the requested sequence; use this actual saved state for restart expectations.
+- Both uploaded collection SHA-256 hashes remained unchanged. Retrieved the first-run log and pre-restart progress to ignored `probe-output/task06/`.
+- Stopped the first instance with Ctrl-C in its controlling SSH PTY, verified no app PID remained, and relaunched once through the helper. Restart log: `/mnt/us/kindle-chess-task06/checkpoint-d-20261002-215527.log`. Human restoration confirmation and later computer-copy/invalid-file tests remain pending.
+- Restart restoration: **PASS** by user confirmation. App reopened on Endgames `1/2 end-1` with its solved marker; switching to Lichess restored `2/2 lichess-000hf` with its solved marker.
+- Stopped the second instance with Ctrl-C and verified no app PID remained. Copied `tests/fixtures/promotion-puzzles.json` from the computer as `puzzles-promotions.json`, plus deliberately malformed `puzzles-broken.json` containing `{ broken`. No original collection or progress file was replaced. Retrieved the restart log and launched one instance again; log `/mnt/us/kindle-chess-task06/checkpoint-d-20261002-215733.log`. New-file discovery, failed selection, removal, and final recovery checks remain pending.
+- Computer-copy/new-file and failed-selection checks: **PASS** by user confirmation. The added Promotion test puzzles collection opened at `1/4` with the white pawn on a7. Selecting malformed `puzzles-broken.json` displayed an error and preserved the active promotion puzzle/board. Switching back to Lichess restored `2/2` and its solved marker.
+- Stopped the third instance with Ctrl-C and verified no app PID remained. All three valid source files and the malformed test file retained their baseline hashes. Progress retained both collections' solved/current IDs and added the new promotion collection's current ID without solved IDs. Retrieved the third log, removed only the deliberately created malformed test file, and saved a local progress copy before final relaunch. Final restoration/removal and native recovery confirmation remain pending.
+- Final relaunch/removal check: **PASS** by user confirmation. Startup restored Lichess `2/2` with its solved marker, FILES no longer listed the malformed file, and switching to Endgames restored `1/2` with its solved marker. Final launch log: `/mnt/us/kindle-chess-task06/checkpoint-d-20261002-220014.log`; exactly one app PID was verified after launch.
+- Stopped the final instance with Ctrl-C and verified `pidof kindle-chess kindle-chess-glibc235` returned no PIDs. Retrieved the final log and progress to ignored `probe-output/task06/`. All three valid collection hashes still match their computer-copy baselines. Final active collection is Endgames, current `end-1`; all previously recorded solved/current IDs remain. Native UI recovery confirmation remains pending.
+
+
+## HUMAN CHECKPOINT D final result — 2026-10-02
+
+**PASS.** User confirmed all collection/persistence checks and normal native finger/menu interaction, pen drawing, and display appearance after the final app exit. The checklist verified switching collections, browsing/solving in each, durable active/current/solved restoration, computer-copy discovery of a third collection, safe failed selection of malformed data, and removal of the malformed file without losing progress.
+
+All app instances were stopped through Ctrl-C, with no app PIDs remaining. All three valid source collection hashes remained unchanged; progress is separate at `/mnt/us/kindle-chess/state/progress.json`. The added promotion collection remains available, and only the deliberately malformed test file was removed. No stock-service, input-grab, framebuffer-mode, rotation, or power-policy changes were made. Existing Task 04 stock-UI/refresh limitations remain unresolved by this storage task.
+
+Completion checks: `scripts/check.sh` passed formatting, clippy, workspace tests, asset regeneration, and Python/tooling checks. `scripts/check-kindle.sh` passed using the previously verified Zig/glibc-2.35 toolchain overrides. Logs and final progress are retained in ignored `probe-output/task06/`. Task 06 is **Implemented**; later task files remain untouched.
