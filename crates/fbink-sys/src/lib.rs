@@ -115,6 +115,7 @@ impl From<ValidationError> for FbInkError {
 
 #[derive(Debug)]
 pub struct FbInk {
+    #[cfg(all(target_os = "linux", target_arch = "arm"))]
     fd: i32,
 }
 
