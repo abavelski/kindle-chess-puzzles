@@ -21,6 +21,6 @@ serde_json = "=1.0.151"
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-all = "warn"
+all = { level = "warn", priority = -1 }
 dbg_macro = "deny"
 todo = "deny"
