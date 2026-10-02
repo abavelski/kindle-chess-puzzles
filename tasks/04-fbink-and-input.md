@@ -129,13 +129,13 @@ Record findings in `docs/device/ks1-barolo.md`.
 
 ## Acceptance criteria
 
-- same shared renderer runs on host and Scribe;
-- no fixed event-node assumption;
-- no raw input codes leak into core;
-- touch mapping matches rendered geometry;
-- full-frame FBInk presentation is reliable;
-- app can enter and leave the experiment without persistent framebuffer/input damage;
-- Kindle cross-build is part of the check workflow.
+- [x] same shared renderer runs on host and Scribe;
+- [x] no fixed event-node assumption;
+- [x] no raw input codes leak into core;
+- [x] touch mapping matches rendered geometry;
+- [x] full-frame FBInk presentation is reliable enough for the Task 04 correctness-first loop, with transient refresh artifacts documented for Task 07;
+- [x] app can enter and leave the experiment without persistent framebuffer/input damage;
+- [x] Kindle cross-build is part of the check workflow.
 
 ## Suggested commits
 

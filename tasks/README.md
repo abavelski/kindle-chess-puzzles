@@ -31,7 +31,7 @@ M1 is complete. Tasks 01-03 provide the Rust workspace, compatibility core, fixt
 
 ### M2: first usable Scribe build
 
-Tasks 04-06. This is the functional parity milestone.
+Task 04 is complete: the shared renderer now runs through pinned FBInk on the physical Scribe with capability-discovered finger input and verified coordinate mapping/recovery. Tasks 05-06 complete single-collection parity and then collection/progress persistence. This is the functional parity milestone.
 
 ### M3: reliable e-ink application
 

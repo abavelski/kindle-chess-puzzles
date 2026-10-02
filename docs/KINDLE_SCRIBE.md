@@ -47,7 +47,7 @@ Do not hardcode these before Task 00:
 - safe launch/return behavior for the installed jailbreak/homebrew stack;
 - writable locations that are convenient for puzzle files and safe for progress.
 
-Task 00 completed on 2026-10-02 and records verified measurements in `docs/device/ks1-barolo.md`: firmware 5.19.6, 32-bit ARMv7 hard-float/glibc 2.35, visible 1860×2480 Y8 framebuffer with 1872-byte stride, direct portrait finger coordinates, separate physical/virtual pen streams, and a successful Kindle FBInk `92e1270` overlay restored with Home. Continuous rendering/lifecycle, other orientations, and production storage persistence remain later-task validation.
+Task 00 completed on 2026-10-02 and records verified measurements in `docs/device/ks1-barolo.md`: firmware 5.19.6, 32-bit ARMv7 hard-float/glibc 2.35, visible 1860×2480 Y8 framebuffer with 1872-byte stride, direct portrait finger coordinates, separate physical/virtual pen streams, and a successful Kindle FBInk `92e1270` overlay restored with Home. Task 04 subsequently ran the Rust/FBInk application loop on the device and verified finger mapping, controls, stylus filtering, and recovery. Stock-UI input/repaint contention and transient refresh traces remain explicit lifecycle/refresh work; other orientations and production storage persistence remain later-task validation.
 
 ## Bring-up policy
 
@@ -72,7 +72,9 @@ Expected Rust target for a hard-float ARMv7 userspace is:
 armv7-unknown-linux-gnueabihf
 ```
 
-Do not consider this confirmed until the device probe and a hello-world execution pass.
+This target and ABI are now confirmed by Task 00 measurements and Task 04 execution of the Rust/FBInk application on the Scribe.
+
+The deployed Task 04 binary had to target glibc 2.35: an initial artifact linked against GLIBC_2.38 and failed in the device loader. CI therefore pins the ARM cross-build job to Ubuntu 22.04, while Task 04's verified device binary was also independently built with Zig targeting `arm-linux-gnueabihf.2.35`. Keep runtime libc compatibility explicit rather than treating a successful cross-build as proof of deployability.
 
 Prefer a reproducible Kindle toolchain/sysroot (for example the current KindleModding/KOReader toolchain family) instead of linking against arbitrary host libraries.
 
@@ -112,6 +114,8 @@ Swipe navigation is optional until raw-to-screen coordinate transforms and gestu
 ## Stock UI and lifecycle
 
 Modern Kindle firmware may use a stock UI stack that can repaint the framebuffer or own input. Do not assume a historical `stop framework` recipe is safe for the Scribe.
+
+Task 04 established that the foreground overlay can coexist with stock services but does not own the screen or input: stock UI actions can occur on the same touches and stock repaint can temporarily replace or bleed through the app frame. Task 07 must resolve that ownership/handoff explicitly rather than relying on the Task 04 overlay behavior.
 
 The lifecycle task must document the exact process/service transitions used on the target firmware and include cleanup on:
 

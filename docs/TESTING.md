@@ -101,7 +101,7 @@ Host tests can cover:
 - storage path selection;
 - safe progress write behavior in temporary directories.
 
-The CI should also cross-compile the Kindle binary once the toolchain is established. A cross-build passing is not a device test, but it catches accidental host-only dependencies.
+The CI should also cross-compile the Kindle binary once the toolchain is established. A cross-build passing is not a device test, and it is not sufficient evidence of runtime libc compatibility: Task 04 caught a GLIBC_2.38 artifact on a glibc 2.35 Scribe despite a green build. Keep the deployment baseline explicit and verify produced artifacts on-device at the relevant human checkpoint.
 
 ## Reference compatibility fixtures
 
