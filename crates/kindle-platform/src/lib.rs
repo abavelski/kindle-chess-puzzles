@@ -1,9 +1,10 @@
-//! Kindle-specific display and input adapters.
+//! Kindle-specific display, input, and storage adapters.
 
 #![forbid(unsafe_code)]
 
 mod display;
 mod input;
+mod storage;
 
 pub use display::{
     validate_presentable_frame, validate_task04_scribe_state, DisplayError, DisplayState,
@@ -14,6 +15,10 @@ pub use input::{
     select_finger_touchscreen, task04_scribe_transform, AxisRange, DeviceCapabilities, FingerInput,
     InputCandidate, InputError, MtDecoder, RawInputEvent, Rotation, TapPolicy, TapRecognizer,
     TouchEvent, TouchPhase, TouchTransform, TransformError, SCRIBE_TOUCH_X, SCRIBE_TOUCH_Y,
+};
+pub use storage::{
+    DiscoveredCollection, KindleStorage, ProgressLoad, ProgressStore, StorageError, StoragePaths,
+    DEFAULT_PROGRESS_FILE, DEFAULT_PUZZLE_DIR, PROGRESS_FILE_ENV, PUZZLE_DIR_ENV,
 };
 
 pub const PLATFORM_IMPLEMENTED: bool = true;

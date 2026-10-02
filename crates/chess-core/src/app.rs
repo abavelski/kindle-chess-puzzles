@@ -1,8 +1,11 @@
 //! Pure application state for solving and exploring puzzle collections.
 
 use crate::{
-    parse_uci_move, Board, Color, PieceKind, Progress, Puzzle, PuzzleCollection, TapResult, UciMove,
+    parse_uci_move, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle, PuzzleCollection,
+    TapResult, UciMove,
 };
+
+pub const COLLECTIONS_PER_PAGE: usize = 6;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ActiveCollection {
@@ -116,13 +119,19 @@ pub enum Action {
     ToggleMode,
     ToggleOrientationLock,
     ToggleDescription,
+    OpenCollectionPicker,
+    CloseCollectionPicker,
+    CollectionPickerPreviousPage,
+    CollectionPickerNextPage,
+    SelectCollection(usize),
     ActivateCollection(ActiveCollection),
     SetTransientMessage(Option<String>),
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Effect {
     ProgressChanged,
+    CollectionRequested(String),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -139,6 +148,9 @@ pub struct AppState {
     description_visible: bool,
     progress: Progress,
     transient_message: Option<String>,
+    collection_entries: Vec<CollectionEntry>,
+    collection_picker_open: bool,
+    collection_picker_page: usize,
 }
 
 impl AppState {
@@ -150,6 +162,11 @@ impl AppState {
             .expect("parsed puzzle collections are non-empty");
         let board = Board::from_fen(&puzzle.fen).expect("parsed puzzle FEN remains valid");
         let flipped = puzzle.side_to_move() == Color::Black;
+        let key = active_collection.key.clone();
+        let puzzle_id = puzzle.id.clone();
+        let mut progress = progress;
+        progress.set_active_file(&key);
+        progress.remember_puzzle(&key, &puzzle_id);
 
         Self {
             active_collection,
@@ -164,6 +181,9 @@ impl AppState {
             description_visible: false,
             progress,
             transient_message: None,
+            collection_entries: Vec::new(),
+            collection_picker_open: false,
+            collection_picker_page: 0,
         }
     }
 
@@ -232,50 +252,155 @@ impl AppState {
             .is_solved(self.active_collection.key(), &self.active_puzzle().id)
     }
 
+    pub fn set_collection_entries(&mut self, entries: Vec<CollectionEntry>) {
+        self.collection_entries = entries;
+        self.collection_picker_open = false;
+        self.collection_picker_page = 0;
+    }
+
+    pub fn collection_entries(&self) -> &[CollectionEntry] {
+        &self.collection_entries
+    }
+
+    pub const fn collection_picker_open(&self) -> bool {
+        self.collection_picker_open
+    }
+
+    pub const fn collection_picker_page(&self) -> usize {
+        self.collection_picker_page
+    }
+
+    pub fn collection_picker_page_count(&self) -> usize {
+        self.collection_entries.len().div_ceil(COLLECTIONS_PER_PAGE)
+    }
+
+    pub fn collection_picker_visible_range(&self) -> std::ops::Range<usize> {
+        let start = self
+            .collection_picker_page
+            .saturating_mul(COLLECTIONS_PER_PAGE)
+            .min(self.collection_entries.len());
+        let end = start
+            .saturating_add(COLLECTIONS_PER_PAGE)
+            .min(self.collection_entries.len());
+        start..end
+    }
+
+    pub const fn collection_picker_can_previous_page(&self) -> bool {
+        self.collection_picker_page > 0
+    }
+
+    pub fn collection_picker_can_next_page(&self) -> bool {
+        self.collection_picker_page + 1 < self.collection_picker_page_count()
+    }
+
     pub fn dispatch(&mut self, action: Action) -> Vec<Effect> {
-        let progress_changed = match action {
-            Action::TapSquare(square) => self.handle_square_tap(square),
-            Action::ChoosePromotion(choice) => self.finish_promotion(choice),
+        if self.collection_picker_open
+            && !matches!(
+                &action,
+                Action::CloseCollectionPicker
+                    | Action::CollectionPickerPreviousPage
+                    | Action::CollectionPickerNextPage
+                    | Action::SelectCollection(_)
+                    | Action::ActivateCollection(_)
+                    | Action::SetTransientMessage(_)
+            )
+        {
+            return Vec::new();
+        }
+
+        match action {
+            Action::OpenCollectionPicker => {
+                self.open_collection_picker();
+                Vec::new()
+            }
+            Action::CloseCollectionPicker => {
+                self.collection_picker_open = false;
+                Vec::new()
+            }
+            Action::CollectionPickerPreviousPage => {
+                self.collection_picker_page = self.collection_picker_page.saturating_sub(1);
+                Vec::new()
+            }
+            Action::CollectionPickerNextPage => {
+                if self.collection_picker_can_next_page() {
+                    self.collection_picker_page += 1;
+                }
+                Vec::new()
+            }
+            Action::SelectCollection(index) => self.request_collection(index),
+            Action::TapSquare(square) => Self::progress_effect(self.handle_square_tap(square)),
+            Action::ChoosePromotion(choice) => Self::progress_effect(self.finish_promotion(choice)),
             Action::CancelPromotion => {
                 self.cancel_promotion();
-                false
+                Vec::new()
             }
-            Action::PreviousPuzzle => self.turn_puzzle(false),
-            Action::NextPuzzle => self.turn_puzzle(true),
+            Action::PreviousPuzzle => Self::progress_effect(self.turn_puzzle(false)),
+            Action::NextPuzzle => Self::progress_effect(self.turn_puzzle(true)),
             Action::Reset => {
                 self.board.reset();
                 self.reset_attempt();
                 self.transient_message = None;
-                false
+                Vec::new()
             }
             Action::Flip => {
                 self.flipped = !self.flipped;
-                false
+                Vec::new()
             }
             Action::ToggleMode => {
                 self.toggle_mode();
-                false
+                Vec::new()
             }
             Action::ToggleOrientationLock => {
                 self.orientation_locked = !self.orientation_locked;
-                false
+                Vec::new()
             }
             Action::ToggleDescription => {
                 self.description_visible = !self.description_visible;
-                false
+                Vec::new()
             }
-            Action::ActivateCollection(collection) => self.activate_collection(collection),
+            Action::ActivateCollection(collection) => {
+                let changed = self.activate_collection(collection);
+                self.collection_picker_open = false;
+                Self::progress_effect(changed)
+            }
             Action::SetTransientMessage(message) => {
                 self.transient_message = message;
-                false
+                Vec::new()
             }
-        };
+        }
+    }
 
-        if progress_changed {
+    fn progress_effect(changed: bool) -> Vec<Effect> {
+        if changed {
             vec![Effect::ProgressChanged]
         } else {
             Vec::new()
         }
+    }
+
+    fn open_collection_picker(&mut self) {
+        if self.collection_entries.is_empty() || self.pending_promotion.is_some() {
+            return;
+        }
+
+        self.collection_picker_open = true;
+        self.collection_picker_page = self
+            .collection_entries
+            .iter()
+            .position(|entry| entry.key() == self.active_collection.key())
+            .map(|index| index / COLLECTIONS_PER_PAGE)
+            .unwrap_or(0);
+    }
+
+    fn request_collection(&self, index: usize) -> Vec<Effect> {
+        if !self.collection_picker_open || !self.collection_picker_visible_range().contains(&index) {
+            return Vec::new();
+        }
+
+        self.collection_entries
+            .get(index)
+            .map(|entry| vec![Effect::CollectionRequested(entry.key().to_owned())])
+            .unwrap_or_default()
     }
 
     fn handle_square_tap(&mut self, square: usize) -> bool {

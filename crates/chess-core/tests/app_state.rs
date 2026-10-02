@@ -1,6 +1,6 @@
 use chess_core::{
-    algebraic_to_square, parse_puzzle_file, Action, ActiveCollection, AppState, BoardMode, Color,
-    Effect, Piece, PieceKind, Progress, PromotionChoice, SolutionFeedback,
+    algebraic_to_square, parse_puzzle_file, Action, ActiveCollection, AppState, BoardMode,
+    CollectionEntry, Color, Effect, Piece, PieceKind, Progress, PromotionChoice, SolutionFeedback,
 };
 
 const PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/puzzles.json");
@@ -379,4 +379,107 @@ fn navigation_availability_matches_collection_ends_without_wrap() {
     app.dispatch(Action::NextPuzzle);
     assert_eq!(app.active_puzzle_index(), 1);
     assert_eq!(app.board(), &last);
+}
+
+
+#[test]
+fn collection_picker_requests_a_file_without_mutating_the_active_board() {
+    let mut app = state("puzzles.json", PUZZLES);
+    let initial_board = app.board().clone();
+    app.set_collection_entries(vec![
+        CollectionEntry::valid("puzzles.json", "Main"),
+        CollectionEntry::invalid("puzzles-broken.json", "invalid JSON"),
+        CollectionEntry::valid("puzzles-endgames.json", "Endgames"),
+    ]);
+
+    app.dispatch(Action::OpenCollectionPicker);
+    assert!(app.collection_picker_open());
+    assert_eq!(
+        app.dispatch(Action::SelectCollection(1)),
+        vec![Effect::CollectionRequested("puzzles-broken.json".to_owned())]
+    );
+    assert_eq!(app.active_collection().key(), "puzzles.json");
+    assert_eq!(app.board(), &initial_board);
+
+    app.dispatch(Action::TapSquare(square("d7")));
+    assert_eq!(app.board(), &initial_board, "picker blocks ordinary board actions");
+
+    app.dispatch(Action::CloseCollectionPicker);
+    assert!(!app.collection_picker_open());
+}
+
+#[test]
+fn collection_picker_pages_catalogs_larger_than_one_scribe_page() {
+    let mut app = state("puzzles.json", PUZZLES);
+    app.set_collection_entries(
+        (0..7)
+            .map(|index| {
+                CollectionEntry::valid(
+                    format!("puzzles-{index}.json"),
+                    format!("Collection {index}"),
+                )
+            })
+            .collect(),
+    );
+
+    app.dispatch(Action::OpenCollectionPicker);
+    assert_eq!(app.collection_picker_page_count(), 2);
+    assert_eq!(app.collection_picker_visible_range(), 0..6);
+    assert!(!app.collection_picker_can_previous_page());
+    assert!(app.collection_picker_can_next_page());
+
+    app.dispatch(Action::CollectionPickerNextPage);
+    assert_eq!(app.collection_picker_visible_range(), 6..7);
+    assert!(app.collection_picker_can_previous_page());
+    assert!(!app.collection_picker_can_next_page());
+}
+
+#[test]
+fn restart_restores_active_file_current_puzzle_and_solved_ids_per_file() {
+    let first = parse_puzzle_file(PUZZLES).expect("first collection");
+    let second = parse_puzzle_file(PROMOTIONS).expect("second collection");
+    let mut app = AppState::new(
+        ActiveCollection::from_collection("puzzles.json", first.clone()),
+        Progress::new(),
+    );
+
+    play(&mut app, "d7e8");
+    assert!(app
+        .progress()
+        .is_solved("puzzles.json", "lichess-001cr"));
+    app.dispatch(Action::NextPuzzle);
+    assert_eq!(app.active_puzzle().id, "lichess-000hf");
+
+    app.dispatch(Action::ActivateCollection(
+        ActiveCollection::from_collection("puzzles-promotions.json", second.clone()),
+    ));
+    play(&mut app, "a7a8q");
+    assert!(app
+        .progress()
+        .is_solved("puzzles-promotions.json", "promotion-white-queen"));
+    app.dispatch(Action::NextPuzzle);
+    assert_eq!(app.active_puzzle_index(), 1);
+
+    let saved = app.progress().clone();
+    assert_eq!(
+        saved.active_file.as_deref(),
+        Some("puzzles-promotions.json")
+    );
+
+    let mut restarted = AppState::new(
+        ActiveCollection::from_collection("puzzles-promotions.json", second),
+        saved,
+    );
+    assert_eq!(restarted.active_puzzle_index(), 1);
+    assert!(restarted
+        .progress()
+        .is_solved("puzzles.json", "lichess-001cr"));
+    assert!(restarted
+        .progress()
+        .is_solved("puzzles-promotions.json", "promotion-white-queen"));
+
+    restarted.dispatch(Action::ActivateCollection(
+        ActiveCollection::from_collection("puzzles.json", first),
+    ));
+    assert_eq!(restarted.active_puzzle().id, "lichess-000hf");
 }

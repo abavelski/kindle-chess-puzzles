@@ -1,6 +1,6 @@
 use chess_core::{
-    algebraic_to_square, parse_puzzle_file, Action, ActiveCollection, AppState, Progress,
-    PromotionChoice,
+    algebraic_to_square, parse_puzzle_file, Action, ActiveCollection, AppState, CollectionEntry,
+    Progress, PromotionChoice,
 };
 use chess_render::{render, DisplayMetrics};
 
@@ -121,6 +121,28 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     }"#;
     actual.push(("number-difficulty", hash(&state(number))));
 
+    let mut picker = state(PUZZLES);
+    picker.set_collection_entries(vec![
+        CollectionEntry::valid("puzzles.json", "Lichess sample puzzles"),
+        CollectionEntry::valid("puzzles-endgames.json", "Endgames"),
+    ]);
+    picker.dispatch(Action::OpenCollectionPicker);
+    actual.push(("collection-picker", hash(&picker)));
+
+    let mut picker_error = state(PUZZLES);
+    picker_error.set_collection_entries(vec![
+        CollectionEntry::valid("puzzles.json", "Lichess sample puzzles"),
+        CollectionEntry::invalid("puzzles-broken.json", "Invalid progress fixture"),
+    ]);
+    picker_error.dispatch(Action::OpenCollectionPicker);
+    actual.push(("collection-picker-error", hash(&picker_error)));
+
+    let mut warning = state(PUZZLES);
+    warning.dispatch(Action::SetTransientMessage(Some(
+        "Progress warning: write failed; newest progress remains in memory.".to_owned(),
+    )));
+    actual.push(("progress-warning", hash(&warning)));
+
     const EXPECTED: &[(&str, u64)] = &[
         ("white", 13_976_124_547_179_353_654),
         ("black", 17_389_228_202_895_532_587),
@@ -135,6 +157,9 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("promotion", 11_267_433_688_762_715_960),
         ("long-description", 7_122_248_525_340_359_484),
         ("number-difficulty", 14_071_113_336_766_925_544),
+        ("collection-picker", 0),
+        ("collection-picker-error", 0),
+        ("progress-warning", 0),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);

@@ -44,6 +44,10 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
         draw_promotion_modal(&mut frame, layout, pending.color(), text_scale);
     }
 
+    if state.collection_picker_open() {
+        draw_collection_picker(&mut frame, state, layout, small_scale);
+    }
+
     Ok(RenderOutput {
         frame,
         layout,
@@ -87,8 +91,13 @@ fn draw_header(
 
     if state.is_current_solved() {
         let badge_width = layout.minimum_touch_px().saturating_mul(2);
+        let right = if state.collection_entries().is_empty() {
+            layout.header.right()
+        } else {
+            layout.collection_button.x
+        };
         let badge = Rect::new(
-            layout.header.right().saturating_sub(badge_width),
+            right.saturating_sub(badge_width),
             layout.header.y,
             badge_width,
             layout.header.height,
@@ -96,6 +105,10 @@ fn draw_header(
         .inset(layout.header.height / 10);
         frame.fill_rect(badge, INK);
         draw_text_centered(frame, badge, "SOLVED", small_scale, WHITE);
+    }
+
+    if !state.collection_entries().is_empty() {
+        draw_button(frame, layout.collection_button, "FILES", false, small_scale);
     }
 }
 
@@ -331,6 +344,66 @@ fn draw_promotion_modal(frame: &mut Gray8, layout: Layout, color: Color, scale: 
         draw_text_centered(frame, label, LABELS[index], scale.min(3), INK);
     }
     draw_button(frame, layout.promotion_cancel, "CANCEL", false, scale);
+}
+
+fn draw_collection_picker(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    frame.fill_rect(layout.collection_modal, WHITE);
+    frame.stroke_rect(layout.collection_modal, 6, INK);
+
+    let title = Rect::new(
+        layout.collection_modal.x,
+        layout.collection_modal.y,
+        layout.collection_modal.width,
+        layout.minimum_touch_px(),
+    );
+    let page_count = state.collection_picker_page_count().max(1);
+    draw_text_centered(
+        frame,
+        title,
+        &format!(
+            "COLLECTIONS {}/{}",
+            state.collection_picker_page() + 1,
+            page_count
+        ),
+        scale,
+        INK,
+    );
+
+    for (slot, index) in state.collection_picker_visible_range().enumerate() {
+        let entry = &state.collection_entries()[index];
+        let rect = layout.collection_rows[slot];
+        let selected = entry.key() == state.active_collection().key();
+        let (background, foreground) = if selected {
+            (INK, WHITE)
+        } else if entry.error().is_some() {
+            (SOFT_GRAY, INK)
+        } else {
+            (WHITE, INK)
+        };
+        frame.fill_rect(rect, background);
+        frame.stroke_rect(rect, 3, INK);
+        let text = match entry.error() {
+            Some(error) => format!("{}\n! {error}", entry.label()),
+            None => entry.label().to_owned(),
+        };
+        draw_wrapped_text(frame, rect.inset(10), &text, scale.min(3), foreground);
+    }
+
+    draw_navigation_button(
+        frame,
+        layout.collection_page_previous,
+        "< PAGE",
+        state.collection_picker_can_previous_page(),
+        scale,
+    );
+    draw_button(frame, layout.collection_close, "CLOSE", false, scale);
+    draw_navigation_button(
+        frame,
+        layout.collection_page_next,
+        "PAGE >",
+        state.collection_picker_can_next_page(),
+        scale,
+    );
 }
 
 fn draw_navigation_button(frame: &mut Gray8, rect: Rect, label: &str, enabled: bool, scale: u32) {

@@ -1,7 +1,7 @@
 //! DPI-aware deterministic layout and hit testing.
 
 use crate::Rect;
-use chess_core::{Action, PromotionChoice};
+use chess_core::{Action, AppState, PromotionChoice, COLLECTIONS_PER_PAGE};
 
 pub const MIN_TOUCH_MM: u32 = 10;
 
@@ -41,6 +41,11 @@ pub enum HitTarget {
     Next,
     Promotion(PromotionChoice),
     CancelPromotion,
+    OpenCollections,
+    Collection(usize),
+    CollectionPreviousPage,
+    CollectionNextPage,
+    CloseCollections,
 }
 
 impl HitTarget {
@@ -56,6 +61,11 @@ impl HitTarget {
             Self::Next => Action::NextPuzzle,
             Self::Promotion(choice) => Action::ChoosePromotion(choice),
             Self::CancelPromotion => Action::CancelPromotion,
+            Self::OpenCollections => Action::OpenCollectionPicker,
+            Self::Collection(index) => Action::SelectCollection(index),
+            Self::CollectionPreviousPage => Action::CollectionPickerPreviousPage,
+            Self::CollectionNextPage => Action::CollectionPickerNextPage,
+            Self::CloseCollections => Action::CloseCollectionPicker,
         }
     }
 }
@@ -71,6 +81,7 @@ pub struct Layout {
     pub metrics: DisplayMetrics,
     pub viewport: Rect,
     pub header: Rect,
+    pub collection_button: Rect,
     pub board_outer: Rect,
     pub board: Rect,
     pub toolbar: Rect,
@@ -81,6 +92,11 @@ pub struct Layout {
     pub promotion_modal: Rect,
     pub promotion_choices: [Rect; 4],
     pub promotion_cancel: Rect,
+    pub collection_modal: Rect,
+    pub collection_rows: [Rect; COLLECTIONS_PER_PAGE],
+    pub collection_page_previous: Rect,
+    pub collection_page_next: Rect,
+    pub collection_close: Rect,
     square_size: u32,
     minimum_touch_px: u32,
     coordinate_gutter: u32,
@@ -139,6 +155,15 @@ impl Layout {
             board_size.saturating_add(coordinate_gutter.saturating_mul(2)),
         );
         let header = Rect::new(board_outer.x, margin, board_outer.width, header_height);
+        let collection_button_width = minimum_touch_px
+            .saturating_mul(2)
+            .min(header.width.saturating_div(3).max(minimum_touch_px));
+        let collection_button = Rect::new(
+            header.right().saturating_sub(collection_button_width),
+            header.y,
+            collection_button_width,
+            header.height,
+        );
 
         let toolbar_y = board
             .bottom()
@@ -230,10 +255,59 @@ impl Layout {
             minimum_touch_px,
         );
 
+        let collection_modal = board_outer.inset(minimum_touch_px / 3);
+        let collection_rows_y = collection_modal
+            .y
+            .saturating_add(minimum_touch_px)
+            .saturating_add(gap);
+        let collection_rows = std::array::from_fn(|index| {
+            let index = u32::try_from(index).expect("collection row index fits");
+            Rect::new(
+                collection_modal.x.saturating_add(small_gap),
+                collection_rows_y
+                    .saturating_add(index.saturating_mul(minimum_touch_px + small_gap)),
+                collection_modal.width.saturating_sub(small_gap.saturating_mul(2)),
+                minimum_touch_px,
+            )
+        });
+        let rows_bottom = collection_rows
+            .last()
+            .expect("collection picker has rows")
+            .bottom();
+        let collection_nav_y = rows_bottom.saturating_add(gap);
+        let collection_nav = Rect::new(
+            collection_modal.x.saturating_add(small_gap),
+            collection_nav_y,
+            collection_modal.width.saturating_sub(small_gap.saturating_mul(2)),
+            minimum_touch_px,
+        );
+        if collection_nav.bottom().saturating_add(small_gap) > collection_modal.bottom() {
+            return Err(LayoutError::TooSmall);
+        }
+        let collection_nav_targets = split_targets(
+            collection_nav,
+            small_gap,
+            [
+                HitTarget::CollectionPreviousPage,
+                HitTarget::CloseCollections,
+                HitTarget::CollectionNextPage,
+            ],
+        );
+        if collection_nav_targets
+            .iter()
+            .any(|target| target.rect.width < minimum_touch_px)
+        {
+            return Err(LayoutError::TooSmall);
+        }
+        let collection_page_previous = collection_nav_targets[0].rect;
+        let collection_close = collection_nav_targets[1].rect;
+        let collection_page_next = collection_nav_targets[2].rect;
+
         let layout = Self {
             metrics,
             viewport: Rect::new(0, 0, metrics.width, metrics.height),
             header,
+            collection_button,
             board_outer,
             board,
             toolbar,
@@ -244,17 +318,24 @@ impl Layout {
             promotion_modal,
             promotion_choices,
             promotion_cancel,
+            collection_modal,
+            collection_rows,
+            collection_page_previous,
+            collection_page_next,
+            collection_close,
             square_size,
             minimum_touch_px,
             coordinate_gutter,
         };
         if !layout.viewport.contains_rect(layout.board_outer)
             || !layout.viewport.contains_rect(layout.header)
+            || !layout.viewport.contains_rect(layout.collection_button)
             || !layout.viewport.contains_rect(layout.toolbar)
             || !layout.viewport.contains_rect(layout.previous)
             || !layout.viewport.contains_rect(layout.next)
             || !layout.viewport.contains_rect(layout.status)
             || !layout.viewport.contains_rect(layout.promotion_modal)
+            || !layout.viewport.contains_rect(layout.collection_modal)
         {
             return Err(LayoutError::TooSmall);
         }
@@ -283,6 +364,36 @@ impl Layout {
             self.square_size,
             self.square_size,
         )
+    }
+
+    pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
+        if state.pending_promotion().is_some() {
+            return self.hit_test(x, y, state.flipped(), true);
+        }
+
+        if state.collection_picker_open() {
+            for (slot, index) in state.collection_picker_visible_range().enumerate() {
+                if self.collection_rows[slot].contains(x, y) {
+                    return Some(HitTarget::Collection(index));
+                }
+            }
+            if self.collection_page_previous.contains(x, y) {
+                return Some(HitTarget::CollectionPreviousPage);
+            }
+            if self.collection_page_next.contains(x, y) {
+                return Some(HitTarget::CollectionNextPage);
+            }
+            if self.collection_close.contains(x, y) {
+                return Some(HitTarget::CloseCollections);
+            }
+            return None;
+        }
+
+        if !state.collection_entries().is_empty() && self.collection_button.contains(x, y) {
+            return Some(HitTarget::OpenCollections);
+        }
+
+        self.hit_test(x, y, state.flipped(), false)
     }
 
     pub fn hit_test(

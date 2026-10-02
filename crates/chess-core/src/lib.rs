@@ -17,10 +17,12 @@ pub mod uci;
 
 pub use app::{
     Action, ActiveCollection, AppState, BoardMode, Effect, PendingPromotion, PromotionChoice,
-    SolutionFeedback,
+    SolutionFeedback, COLLECTIONS_PER_PAGE,
 };
 pub use board::{Board, Color, Piece, PieceKind, TapResult};
-pub use collection::{is_puzzle_collection_filename, sorted_puzzle_collection_filenames};
+pub use collection::{
+    is_puzzle_collection_filename, sorted_puzzle_collection_filenames, CollectionEntry,
+};
 pub use fen::{parse_fen, FenError, FenPosition};
 pub use progress::{FileProgress, Progress, PROGRESS_VERSION};
 pub use puzzle::{parse_puzzle_file, Difficulty, Puzzle, PuzzleCollection, MAX_PUZZLE_FILE_BYTES};
