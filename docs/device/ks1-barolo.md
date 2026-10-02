@@ -517,7 +517,7 @@ CI remediation: the cross-build runner is pinned to Ubuntu 22.04 instead of `ubu
 
 # Task 05 — HUMAN CHECKPOINT C
 
-**Status:** Pending physical validation  
+**Status:** Passed on 2026-10-02
 **Automated implementation:** complete; host gates and the glibc-2.35-compatible ARMv7 cross-build are green.
 
 Task 05 uses one bundled six-puzzle collection and no durable collection/progress filesystem work. Keep the Task 04 safety/lifecycle constraints: use a disposable blank notebook underneath the overlay, run exactly one app instance, do not stop Kindle services, do not add an input grab, and use Ctrl-C in the controlling SSH shell to exit.
@@ -651,4 +651,38 @@ Please send:
 - any coordinate drift, missed taps, stale pixels, or stock-UI repaint behavior that differs materially from Task 04;
 - `/mnt/us/kindle-chess-task05/checkpoint-c.log` if anything is ambiguous or fails.
 
-Task 05 remains **Awaiting HUMAN CHECKPOINT C** until these checks are recorded.
+Task 05 is **Implemented**; completed observations and recovery are recorded below.
+
+## Task 05 deployment — 2026-10-02
+
+- Tested commit: `a79e1d525461e1a49fd9cc8123774d956c66a871`, successful CI run 24 (`37049603381`), artifact `kindle-chess-task05-armv7` (`11245434619`).
+- Artifact ZIP SHA-256 verified against GitHub: `9ce270c584d79f311c07dda07576e00a3a9db5bc43137fa87f693dd5ef5b54fa`.
+- Binary staged at `/mnt/us/kindle-chess-task05/kindle-chess`; host/device SHA-256 matched: `27a44712e94243980adc9aab523722632e398675f017c1fa8b02a7cca19fd721`.
+- SSH root login with empty password on port 2222 succeeded. User reported a blank stock notebook open. `fbset` reconfirmed visible 1860×2480, virtual 1872×4960, 8 bpp.
+- Device dynamic loader resolved all dependencies successfully. Verified no Task 04/05 app PIDs before launch, then exactly one app PID afterward.
+- Launch: `/mnt/us/kindle-chess-task05/kindle-chess 2>/mnt/us/kindle-chess-task05/checkpoint-c.log` in a foreground SSH PTY. Ctrl-C is the controlled exit path. Startup reports pinned FBInk, expected Scribe geometry, and capability-selected `pt_mt` finger input.
+- Local artifact/evidence directory: ignored `probe-output/task05/`. Human checklist observations remain pending. No stock-service, input-grab, rotation, or waveform changes made.
+
+## HUMAN CHECKPOINT C observations
+
+- Test 1 (`1/6 one-move`): **PASS**, user confirmed pieces legible/controls comfortably tappable, wrong d7→d8 rollback and Wrong feedback, correct d7→e8 completion with description/solved marker, unchanged solved position after extra board tap, and Reset restoring the original position with transient feedback/description cleared.
+- Test 2 (`2/6 three-ply`): **PASS**, user confirmed e2→e6 produces Correct feedback and automatic f7→f8 black reply, followed by e6→f7 completion and description reveal.
+- Test 3 (`3/6 promotion-white-queen`): **PASS**, user confirmed a7→a8 opens the Q/R/B/N chooser, ordinary board/Reset taps leave the chooser and position unchanged, Cancel preserves the pawn on a7, and repeating the move with Q produces queen promotion and completion.
+- Test 4 (`4/6 promotion-white-knight`): **PASS**, user confirmed b7→b8 with Q produces Wrong and rollback to b7, then b7→b8 with N produces a knight on b8 and completion.
+- Test 5 (`5/6 promotion-black-rook`): **PASS**, user confirmed automatic Black-facing orientation (h1 top-left, files h→a), h2→h1 promotion with R, and black rook/completion feedback.
+- Test 6 (`6/6 promotion-auto-reply`): **PASS**, user confirmed White-facing orientation restored, Next visibly disabled/inert at 6/6, h2→h3 triggers automatic a2→a1 queen promotion without a chooser, and h3→h8 completes the puzzle.
+- Test 7 (Free Board/reset and first collection boundary): **PASS**, user confirmed Previous visibly disabled/inert at 1/6, FREE accepts f4→a8 without grading, Reset restores f4 while retaining FREE, and switching back to Solution restores the original position.
+- Test 8 (orientation lock/flip/navigation): **PASS**, user confirmed locked manual Black-facing orientation stays fixed from 1/6 through 5/6, Flip works while locked, unlocking does not immediately reorient, and subsequent navigation restores side-to-move automatic orientation.
+- Test 9 (description visibility): **PASS**, user confirmed NOTE reveals the description before solving without changing the board/attempt, can hide it, solving d7→e8 automatically reveals it, and NOTE can hide it after completion. This records the user's visual observations; the tail of the log does not contain every requested NOTE toggle.
+- All nine feature checklist items passed by user confirmation. Stopped the one Task 05 app instance through Ctrl-C in its controlling SSH PTY; no further feature tests requested. Native UI recovery confirmation remains pending.
+
+
+## HUMAN CHECKPOINT C final result — 2026-10-02
+
+**PASS.** All nine device checklist groups passed by user confirmation, covering every Task 05 physical acceptance item including black-to-move orientation. Sashité pieces were legible at normal reading distance and controls comfortably tappable. No new device behavior or defect was reported during this checkpoint; existing Task 04 stock UI/refresh limitations remain documented, without a claim that this task resolves them.
+
+After Ctrl-C, `pidof kindle-chess kindle-chess-glibc235` returned no PIDs. The device log was retrieved to ignored `probe-output/task05/checkpoint-c.log`. User confirmed normal native finger/menu interaction, pen drawing, and display appearance after returning to the stock UI. No reboot, service changes, input grabs, rotation changes, or waveform tuning were required.
+
+Task 05 is **Implemented**. No puzzle/progress files were modified by the app, and later task files remain untouched.
+
+Completion checks: `scripts/check.sh` passed formatting, clippy, workspace tests, asset regeneration, and Python/tooling checks; `scripts/check-kindle.sh` passed with the previously verified Zig/glibc-2.35 cross-toolchain overrides.

@@ -11,7 +11,7 @@ Implement one task at a time.
 | [02](02-application-state.md) | Pure test-driven puzzle-solving application state machine | Implemented |
 | [03](03-renderer-and-assets.md) | Shared deterministic e-ink renderer, layout, hit testing, Sashité assets | Implemented |
 | [04](04-fbink-and-input.md) | Kindle FBInk display + touch input + minimal event loop | Implemented |
-| [05](05-parity-features.md) | Promotion, Free Board, navigation, flip/lock, descriptions, feedback | Checkpoint C |
+| [05](05-parity-features.md) | Promotion, Free Board, navigation, flip/lock, descriptions, feedback | Implemented |
 | [06](06-persistence-and-collections.md) | Multi-collection workflow and durable progress on Kindle | Ready |
 | [07](07-eink-lifecycle.md) | Damage/refresh policy plus safe Kindle launch/exit lifecycle | Ready |
 | [08](08-build-deploy-package.md) | Reproducible cross-build, deploy, scriptlet/KPM package | Ready |
@@ -31,7 +31,7 @@ M1 is complete. Tasks 01-03 provide the Rust workspace, compatibility core, fixt
 
 ### M2: first usable Scribe build
 
-Task 04 is complete: the shared renderer now runs through pinned FBInk on the physical Scribe with capability-discovered finger input and verified coordinate mapping/recovery. Task 05 is automated and awaiting HUMAN CHECKPOINT C; Task 06 then adds collection/progress persistence. This is the functional parity milestone.
+Task 04 is complete: the shared renderer now runs through pinned FBInk on the physical Scribe with capability-discovered finger input and verified coordinate mapping/recovery. Task 05 is complete: HUMAN CHECKPOINT C verified single-collection solving, promotion, navigation, Free Board, orientation, descriptions, and normal recovery on 2026-10-02. Task 06 then adds collection/progress persistence. This is the functional parity milestone.
 
 ### M3: reliable e-ink application
 

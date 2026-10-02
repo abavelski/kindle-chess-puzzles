@@ -1,6 +1,6 @@
 # Task 05 — Complete single-collection interaction parity
 
-**Status:** Awaiting HUMAN CHECKPOINT C  
+**Status:** Implemented
 **Depends on:** Tasks 02-04
 
 ## Outcome
@@ -19,7 +19,7 @@ Task 05 now adds:
 
 GitHub Actions run 23 verified formatting, clippy with warnings denied, all workspace/core/render/platform tests, Sashité regeneration, Python/tooling checks, and the glibc-2.35-compatible ARMv7 FBInk-linked cross-build.
 
-The task is intentionally not marked Implemented until HUMAN CHECKPOINT C passes on the physical Scribe.
+HUMAN CHECKPOINT C passed on 2026-10-02 using the artifact from successful CI run 24 at commit `a79e1d5`. All nine device checklist groups, piece/control legibility, and normal stock finger/pen recovery after Ctrl-C were confirmed. Findings and deployment evidence are recorded in `docs/device/ks1-barolo.md`. The Task 04 stock-UI/refresh limitations remain scoped to later lifecycle work.
 
 ## Required behavior
 

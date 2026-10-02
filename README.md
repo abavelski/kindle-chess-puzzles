@@ -62,11 +62,11 @@ Start here:
 
 ## Current state
 
-Tasks 00-04 are **Implemented**. M1 is complete and the first live Scribe loop is validated: the repository has platform-neutral `chess-core`, deterministic `chess-render`, a pinned FBInk boundary, capability-based finger input discovery, measured Scribe touch normalization, and a bundled-puzzle event loop. HUMAN CHECKPOINT B passed on 2026-10-02 after correcting 32-bit sysfs capability-mask parsing and ensuring the cross-build targets the Scribe's glibc 2.35 baseline.
+Tasks 00-05 are **Implemented**. M1 is complete and the first live Scribe loop is validated: the repository has platform-neutral `chess-core`, deterministic `chess-render`, a pinned FBInk boundary, capability-based finger input discovery, measured Scribe touch normalization, and a bundled-puzzle event loop. HUMAN CHECKPOINT B passed on 2026-10-02 after correcting 32-bit sysfs capability-mask parsing and ensuring the cross-build targets the Scribe's glibc 2.35 baseline.
 
 The physical Task 04 checkpoint verified board geometry, corner/center mapping, every visible finger control, repeated-move alignment, stylus filtering, and normal recovery after termination. It also documented stock-UI input/repaint contention and temporary refresh traces; those remain later lifecycle/refresh work rather than Task 04 fixes.
 
-Task 05's automated implementation is complete and is awaiting **HUMAN CHECKPOINT C**. The live binary now bundles one six-puzzle parity collection covering one-move and three-ply solving, white/black/manual/automatic promotion, Free Board, navigation, orientation lock/flip, descriptions, feedback, difficulty, and solved display. Previous/Next are visibly disabled at collection ends, and host integration tests drive complete action→state→render flows through deterministic Scribe snapshots.
+Task 05 is **Implemented**, with HUMAN CHECKPOINT C passed on the physical Scribe on 2026-10-02. The live binary now bundles one six-puzzle parity collection covering one-move and three-ply solving, white/black/manual/automatic promotion, Free Board, navigation, orientation lock/flip, descriptions, feedback, difficulty, and solved display. Previous/Next are visibly disabled at collection ends, and host integration tests drive complete action→state→render flows through deterministic Scribe snapshots.
 
 For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
 
