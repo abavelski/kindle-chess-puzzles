@@ -1,6 +1,6 @@
-//! Minimal Task 04 Kindle event loop.
+//! Single-collection Task 05 Kindle parity loop.
 //!
-//! This intentionally uses a bundled fixture collection and no durable storage.
+//! This intentionally uses the bundled parity fixture collection and no durable storage.
 //! Exit through the controlling shell with Ctrl-C/SIGTERM; lifecycle ownership
 //! and signal cleanup policy are expanded in Task 07.
 
@@ -10,7 +10,7 @@ use chess_core::{parse_puzzle_file, ActiveCollection, AppState, Progress};
 use chess_render::{render, DisplayMetrics};
 use kindle_platform::{task04_scribe_transform, FingerInput, KindleDisplay, TapPolicy, SCRIBE_DPI};
 
-const BUNDLED_PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/puzzles.json");
+const BUNDLED_PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/parity-puzzles.json");
 
 fn main() {
     if let Err(error) = run() {
@@ -22,7 +22,7 @@ fn main() {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let collection = parse_puzzle_file(BUNDLED_PUZZLES)?;
     let mut app = AppState::new(
-        ActiveCollection::from_collection("bundled-task04.json", collection),
+        ActiveCollection::from_collection("bundled-task05-parity.json", collection),
         Progress::new(),
     );
 
@@ -53,7 +53,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         input.selected().event_name,
         input.selected().name
     );
-    eprintln!("kindle-chess: Ctrl-C or SIGTERM exits this Task 04 loop");
+    eprintln!("kindle-chess: Ctrl-C or SIGTERM exits this Task 05 loop");
 
     loop {
         let output = render(&app, metrics)?;

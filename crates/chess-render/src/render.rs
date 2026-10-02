@@ -12,6 +12,7 @@ const INK: u8 = 0;
 const LIGHT_SQUARE: u8 = 238;
 const DARK_SQUARE: u8 = 184;
 const SOFT_GRAY: u8 = 224;
+const DISABLED_INK: u8 = 128;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderOutput {
@@ -30,7 +31,7 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     draw_header(&mut frame, state, layout, header_scale, small_scale);
     draw_board(&mut frame, state, layout, small_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
-    draw_navigation(&mut frame, layout, text_scale);
+    draw_navigation(&mut frame, state, layout, text_scale);
     draw_status(&mut frame, state, layout, small_scale);
 
     match state.feedback() {
@@ -162,9 +163,15 @@ fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32)
     }
 }
 
-fn draw_navigation(frame: &mut Gray8, layout: Layout, scale: u32) {
-    draw_button(frame, layout.previous, "< PREV", false, scale);
-    draw_button(frame, layout.next, "NEXT >", false, scale);
+fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    draw_navigation_button(
+        frame,
+        layout.previous,
+        "< PREV",
+        state.can_previous_puzzle(),
+        scale,
+    );
+    draw_navigation_button(frame, layout.next, "NEXT >", state.can_next_puzzle(), scale);
 }
 
 fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
@@ -324,6 +331,22 @@ fn draw_promotion_modal(frame: &mut Gray8, layout: Layout, color: Color, scale: 
         draw_text_centered(frame, label, LABELS[index], scale.min(3), INK);
     }
     draw_button(frame, layout.promotion_cancel, "CANCEL", false, scale);
+}
+
+fn draw_navigation_button(
+    frame: &mut Gray8,
+    rect: Rect,
+    label: &str,
+    enabled: bool,
+    scale: u32,
+) {
+    if enabled {
+        draw_button(frame, rect, label, false, scale);
+    } else {
+        frame.fill_rect(rect, SOFT_GRAY);
+        frame.stroke_rect(rect, 3, DISABLED_INK);
+        draw_text_centered(frame, rect.inset(6), label, scale, DISABLED_INK);
+    }
 }
 
 fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {

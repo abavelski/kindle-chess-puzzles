@@ -175,6 +175,14 @@ impl AppState {
         self.puzzle_index
     }
 
+    pub const fn can_previous_puzzle(&self) -> bool {
+        self.puzzle_index > 0
+    }
+
+    pub fn can_next_puzzle(&self) -> bool {
+        self.puzzle_index + 1 < self.active_collection.puzzles.len()
+    }
+
     pub fn active_puzzle(&self) -> &Puzzle {
         &self.active_collection.puzzles[self.puzzle_index]
     }
