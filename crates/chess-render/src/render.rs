@@ -1,9 +1,7 @@
 //! Deterministic monochrome-first chess application renderer.
 
 use crate::{
-    font::{
-        draw_text, draw_text_centered, draw_wrapped_text, draw_wrapped_text_with_line_spacing,
-    },
+    font::{draw_text, draw_text_centered, draw_wrapped_text, draw_wrapped_text_with_line_spacing},
     pieces::draw_piece,
     DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
 };
