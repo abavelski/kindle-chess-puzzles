@@ -129,7 +129,7 @@ impl Gray8 {
 
         let radius_squared = u64::from(radius) * u64::from(radius);
         for local_y in 0..radius {
-            let dy = radius.saturating_sub(local_y);
+            let dy = radius.saturating_sub(local_y).saturating_sub(1);
             let mut inset = 0;
             while inset < radius {
                 let dx = radius.saturating_sub(inset);
