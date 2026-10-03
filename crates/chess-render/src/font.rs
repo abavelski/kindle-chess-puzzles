@@ -176,3 +176,30 @@ fn glyph(character: char) -> &'static [u8; 35] {
         _ => b"11111100010001000100001000000000100",
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::draw_wrapped_text_with_line_spacing;
+    use crate::{Gray8, Rect};
+
+    #[test]
+    fn wrapped_text_supports_extra_pixel_spacing_between_lines() {
+        let mut canvas = Gray8::new(24, 24, 255);
+        draw_wrapped_text_with_line_spacing(
+            &mut canvas,
+            Rect::new(0, 0, 24, 24),
+            "A\nA",
+            1,
+            0,
+            3,
+        );
+
+        for y in 7..11 {
+            assert!(
+                (0..24).all(|x| canvas.pixel(x, y) == Some(255)),
+                "expected blank separator row at y={y}"
+            );
+        }
+    }
+}
