@@ -59,6 +59,25 @@ fn board_outer_frame_is_thin_gray() {
 }
 
 #[test]
+fn exit_button_uses_vector_close_icon() {
+    let output = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
+    let frame = output.frame;
+    let exit = output.layout.exit;
+    let icon = exit.inset(exit.width.min(exit.height) / 4);
+    let right = icon.right().saturating_sub(1);
+    let bottom = icon.bottom().saturating_sub(1);
+
+    for (x, y) in [
+        (icon.x, icon.y),
+        (right, icon.y),
+        (icon.x, bottom),
+        (right, bottom),
+    ] {
+        assert_eq!(frame.pixel(x, y), Some(0), "close icon corner at {x},{y}");
+    }
+}
+
+#[test]
 fn parity_visual_states_match_reviewed_gray8_snapshots() {
     let mut actual = Vec::new();
 
