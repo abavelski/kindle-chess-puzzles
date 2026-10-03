@@ -74,17 +74,8 @@ fn refresh_button_uses_vector_refresh_icon() {
     let mid_x = icon.x + icon.width / 2;
     let mid_y = icon.y + icon.height / 2;
 
-    for (x, y) in [
-        (mid_x, top),
-        (right, mid_y),
-        (mid_x, bottom),
-        (left, mid_y),
-    ] {
-        assert_eq!(
-            frame.pixel(x, y),
-            Some(0),
-            "refresh icon stroke at {x},{y}"
-        );
+    for (x, y) in [(mid_x, top), (right, mid_y), (mid_x, bottom), (left, mid_y)] {
+        assert_eq!(frame.pixel(x, y), Some(0), "refresh icon stroke at {x},{y}");
     }
 }
 
