@@ -1228,3 +1228,83 @@ the updated library scriptlet is ready for the user to launch.
 Physical X exit: **PASS**, confirmed by the user on 2026-10-03 after
 launching the deployed update. This change does not establish a fix for stock
 white overpainting, reboot launch, or the deferred suspend/resume checkpoint.
+
+
+## Task 08 white overlay investigation — 2026-10-03
+
+Read-only SSH inspection found app PID 13202 still responsive. Library launch
+at 07:07:40 UTC logged winmgr T0 start; at 07:07:45.587 T0 expired,
+`flashTimeoutExpired: window=Active App` named the SH_Integration launcher,
+and winmgr submitted a native framebuffer update. The launcher explicitly
+logged `Child spawned, waiting to quit`; it had not exited early.
+The installed KOReader launcher uses awesome SIGSTOP/SIGCONT.
+
+Bounded probe planned: terminate only the verified chess supervisor, capture
+awesome's PID/start time and running status, STOP that PID, launch the existing
+chess supervisor under a 20-second timeout, compare visible framebuffer bytes
+after startup and beyond the native five-second timeout, then CONT the same
+verified PID and xrefresh. EXIT/INT/TERM/HUP traps restore it; second SSH shell
+manual recovery is `kill -CONT <verified awesome PID>; xrefresh -display :0.0`.
+No service stop, pillow change, rotation/depth or power transition is involved.
+
+Bounded physical probe result: **PASS for framebuffer stability and process
+restoration**. Existing supervisor 13187 was terminated normally, awesome PID
+3509 was paused, and the installed app ran under a 20-second timeout. Visible
+framebuffer captures at 2 and 10 seconds had identical SHA-256
+`33e6099c11d70b5d4b80f48de28d2acc3d9b4297db7f646044ea5ed4b63147e6`.
+The captured image was inspected and shows the complete promotion puzzle UI.
+After timeout, awesome returned to state S, no chess process remained, and
+logs recorded input cleanup/native repaint. `/bin/kill` exists on this target.
+Evidence is retained under ignored `probe-output/task08-overlay/`.
+
+Regression tests first failed for missing STOP/CONT and already-stopped/PID-reuse
+protection, then passed with the scoped handoff implementation. Installed
+supervisor validation and user library observations follow below; reboot and
+natural suspend/resume are not inferred from this probe.
+
+Installed-supervisor regression uncovered a second writer: the first cycle
+retained the chess frame, but a rapid second launch captured the native library
+covering the board before the 2-second sample, despite awesome remaining T.
+The two second-cycle captures differed only in the top clock rows, but both
+were already overwritten. STOP awesome alone is therefore insufficient.
+Plan revised before further coding: probe pausing the verified Xorg PID as
+well, with EXIT/INT/TERM/HUP cleanup resuming Xorg first, then awesome and
+xrefresh, a bounded app lifetime and independent SSH recovery. No service,
+rotation, depth or power changes.
+
+Dual-process bounded probe: **PASS**. Awesome 3509 and Xorg 3233 were paused
+with cleanup resuming Xorg first. Two consecutive 12-second launches, separated
+by native xrefresh and two seconds, each retained the complete chess frame:
+all four 2-second/8-second captures matched SHA-256
+`33e6099c11d70b5d4b80f48de28d2acc3d9b4297db7f646044ea5ed4b63147e6`.
+Both processes resumed afterward. No puzzle/progress data was modified.
+New Xorg/order/pre-stopped tests failed against the awesome-only implementation
+before adding the second verified process to supervisor ownership.
+
+Final paired-process supervisor deployed with the documented build/stage/deploy
+commands. All host checks, 10 lifecycle tests, packaging/FFI/input contracts,
+render snapshots and pinned ARMv7/glibc-2.35 release build passed.
+Installed-supervisor regression: **PASS** across two consecutive launches.
+All four framebuffer samples at 2 and 10 seconds matched the complete chess
+frame hash above. SIGTERM to the first supervisor and SIGKILL to the second
+app child both resumed Xorg then awesome, released the chess lock/input and
+requested native repaint. Both native processes returned to R/S; no app PID or
+lock remained. Puzzle and progress hashes were identical to the baseline.
+Temporary remote probe scripts/dumps were removed after saving local evidence.
+Library visual/tap/X-exit confirmation is requested; post-reboot and deferred
+natural suspend/resume checks remain pending.
+
+Library regression checkpoint: **PASS by user confirmation** on 2026-10-03
+(“all worked fine”). Library launch at 07:26:38 UTC used the final installed
+supervisor SHA-256
+`e8139610349633ee770c7fc7ce067c1b6e3d042445316c9f4611cee9567424dd`
+and release binary SHA-256
+`cc6b60a4dbd71c1fc3417959410775f3e7e087421b1e90e9693a91205cd15e52`.
+A framebuffer capture beyond the native overwrite window matched the complete
+chess frame hash. Logs recorded board taps, promotion choice and Exit, followed
+by Xorg CONT, awesome CONT, native repaint and supervisor exit 0. Both native
+processes returned to S; no chess app or SH_Integration launcher remained.
+User confirmed the board stayed visible, interaction/exit and native UI worked.
+This resolves the reported white-overlay regression and library launch/exit
+portion of checkpoint F. Post-reboot library launch and the separately deferred
+natural suspend/resume test remain unverified.

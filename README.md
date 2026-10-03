@@ -81,6 +81,6 @@ The initial target is the Kindle Scribe first generation. Reuse for Kobo is an a
 Task 08 provides a pinned release build, inspected stage, scp deployment and
 Scriptlet/KPM artifacts. See [build/deploy commands](docs/BUILD_DEPLOY.md).
 Clean-checkout builds and Scribe deployment, KPM installation/update, and
-uninstall/reinstall preserve puzzle/progress data. Checkpoint F still needs
-library launch/exit and post-reboot launch observations. Task 07's natural
+uninstall/reinstall preserve puzzle/progress data. Library launch/exit and the native white-overlay fix were verified on
+2026-10-03. Checkpoint F still needs post-reboot launch observation. Task 07's natural
 suspend/resume test is deferred by the user.

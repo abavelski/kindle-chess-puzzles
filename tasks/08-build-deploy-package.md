@@ -1,6 +1,6 @@
 # Task 08 — Make build, deployment, and Kindle packaging reproducible
 
-**Status:** In progress — top-right X exit fix deployed; library verification/display ownership and reboot checkpoint pending
+**Status:** In progress — library launch/exit and white-overlay fix verified; post-reboot checkpoint pending
 
 **Depends on:** Tasks 04-07
 
@@ -141,3 +141,31 @@ reviewed. Full checks and pinned release build passed, documented stage/deploy
 commands installed the matching binary, and device hashes confirmed unchanged
 puzzles/progress. The user confirmed the deployed X exit works on 2026-10-03.
 Later display, reboot and suspend issues were not included in this fix.
+
+
+White-overlay root cause verified on 2026-10-03: winmgr Active App T0 timeout
+repaints the blank native X background while the SH_Integration child remains
+alive. A timed awesome STOP/CONT probe kept the framebuffer unchanged beyond
+that timeout and restored the window manager. The supervisor now owns only a
+verified running awesome/Xorg PIDs and start times, pauses them before chess and resumes them
+before native exit repaint. Host regressions cover startup order, normal/TERM/
+child-KILL restoration, refusal of already stopped display processes and PID reuse.
+Library/reboot observations remain required; natural suspend/resume stays deferred.
+
+The initial awesome-only implementation failed a rapid-relaunch device probe:
+pending Xorg drawing still covered the board. A second bounded probe paused
+both awesome and Xorg and preserved the complete frame across consecutive
+launches. The final supervisor validates both processes before either STOP,
+then resumes Xorg before awesome during cleanup.
+
+Final paired-process fix deployed: full host checks/release build passed and
+two installed-device relaunch tests retained the complete chess frame past the
+native timeout. Supervisor TERM and child KILL resumed both native processes
+in order and released app ownership; puzzle/progress hashes stayed unchanged.
+User library visual/tap/X-exit confirmation and reboot observation are pending.
+
+User confirmed “all worked fine” after the final library regression test on
+2026-10-03: board visibility, taps/promotion, X exit and native UI restoration
+passed. Logs/framebuffer capture corroborate the launch and normal cleanup.
+Only post-reboot launch remains for checkpoint F; task status stays In progress.
+The separately deferred natural suspend/resume test is unchanged.

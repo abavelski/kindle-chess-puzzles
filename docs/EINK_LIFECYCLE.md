@@ -111,8 +111,9 @@ each exit type still needs device confirmation. The existing native UI can
 remain partly covered by chess pixels after process cleanup, so process exit
 alone does not pass the display-restoration requirement.
 
-The launcher does not stop or suspend stock services, change rotation/depth,
-or change power/network policy. Native repaint uses the device-verified
+The launcher changes no service configuration, rotation/depth or power/network
+policy. Task 08 adds a scoped pause of the verified awesome and Xorg processes, described
+below, to prevent native launch-time overpainting. Native repaint uses the device-verified
 `xrefresh -display :0.0` command. The app requires exclusive finger input on every launch and
 acquires EVIOCGRAB on only its discovered finger-touch file before the first
 frame. Acquisition errors abort startup; the scoped guard releases on drop and
@@ -172,3 +173,43 @@ through a platform effect, accessible in both modals, and retries dirty progress
 before releasing the scoped input/display handles. Automated tests and reviewed
 header snapshots cover this behavior. The user confirmed the deployed X exit
 works on 2026-10-03; white-overpaint and reboot verification remain pending.
+
+
+## Library framebuffer ownership fix (2026-10-03)
+
+The SH_Integration child remains running; it is not an early-launcher-exit bug.
+Scribe 5.19.6 winmgr logs show its Active App T0 timeout expiring five seconds
+after library launch and submitting a native repaint over the direct FBInk
+frame. Finger input ownership alone does not prevent this display writer.
+
+The supervisor now verifies exactly one PID each for `awesome` and `Xorg`,
+including `/proc/<pid>/comm`, start time and a running state. It validates
+both before sending `/bin/kill -STOP` to awesome, then Xorg, before chess.
+It refuses already stopped processes so it cannot take over another app's
+handoff. Cleanup terminates/reaps chess, verifies the same process identities,
+resumes Xorg then awesome, and requests the existing bounded native xrefresh.
+It does not disable pillow or change service configuration/power policy.
+Host tests disable the handoff with `KINDLE_CHESS_DISPLAY_HANDOFF=0`;
+production launches enable it by default. `KINDLE_CHESS_PROC_ROOT` and
+`KINDLE_CHESS_SIGNAL` support isolated host mocks.
+
+Pausing only awesome initially retained the framebuffer, but rapid relaunch
+exposed pending native Xorg drawing covering the board before the first sample.
+A subsequent bounded physical probe paused both processes across two consecutive
+launches: all 2-second and 8-second framebuffer captures matched the complete
+chess frame, and both processes resumed afterward. See the device record for
+installed-supervisor results. Natural suspend/resume and post-reboot library
+launch remain separate pending checkpoints.
+
+If the supervisor itself receives SIGKILL, its shell traps cannot run. Recover
+through SSH: verify the paused awesome/Xorg PIDs, names and start times recorded in the
+lifecycle log, stop any surviving chess child using the existing recovery
+procedure, run `/bin/kill -CONT <verified-Xorg-pid>` followed by
+`/bin/kill -CONT <verified-awesome-pid>`, then
+`xrefresh -display :0.0`. Remove only the verified stale chess lock afterward.
+Do not use broad service shutdown/restart as recovery.
+
+The final library regression passed on 2026-10-03 by user confirmation:
+board stayed visible beyond startup, taps/promotion and X exit worked, and
+native Kindle UI recovered normally. Device logs record orderly Xorg/awesome
+resume and exit 0. Post-reboot and natural suspend/resume remain unverified.

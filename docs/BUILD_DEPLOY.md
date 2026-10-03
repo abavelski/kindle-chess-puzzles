@@ -122,7 +122,8 @@ Kindle library. [KindleModding's scriptlet documentation](https://kindlemodding.
 specifies `.sh` files under `documents` and the `Name`/`Author` header format.
 The scriptlet includes `# DontUseFBInk`, as used by the installed KOReader
 scriptlet, so SH_Integration does not become another framebuffer writer.
-Library launch verification is pending. For the
+Library launch, stable board visibility, interaction and X exit were verified
+on 2026-10-03 after the paired-process display ownership fix. For the
 verified direct-shell route:
 
 ```sh
@@ -132,8 +133,9 @@ sh /mnt/us/kindle-chess/runtime/launch.sh
 
 The package launcher validates `uname -m` and the hard-float loader before
 starting the app, logs failures, then calls the Task 07 lifecycle
-supervisor. No stock-service, rotation, framebuffer-mode, or power-policy logic
-is duplicated. Exit through the app's top-right X control or terminate the supervised
+supervisor. Display ownership is handled only in that supervisor: it verifies and pauses
+awesome and Xorg before chess, resumes the same processes on cleanup, then requests native
+repaint. No rotation, framebuffer-mode or power-policy logic is duplicated. Exit through the app's top-right X control or terminate the supervised
 shell as described in [lifecycle notes](EINK_LIFECYCLE.md). Keep recovery SSH
 available for the first library-launch test.
 
