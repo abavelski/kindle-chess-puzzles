@@ -16,6 +16,7 @@ Implement one task at a time.
 | [07](07-eink-lifecycle.md) | Damage/refresh policy plus safe Kindle launch/exit lifecycle | Implemented — sleep checkpoint deferred |
 | [08](08-build-deploy-package.md) | Reproducible cross-build, deploy, scriptlet/KPM package | Implemented — reboot observation deferred |
 | [09](09-parity-validation.md) | Full reference-parity and reliability validation | Implemented — phase one closed |
+| [10](10-scribe-ghosting-follow-up.md) | Isolate and reduce residual Scribe panel ghosting with controlled refresh experiments | Ready |
 
 ## Milestones
 
@@ -68,7 +69,7 @@ Do not fold these old ideas into another task:
 - PGN;
 - Kobo runtime implementation.
 
-They can become new tasks after Task 09.
+They can become new tasks after Task 09. Task 10 is the first post-phase-one hardware investigation and is limited to the already documented residual Scribe ghosting.
 
 ## Future Kobo rule
 

@@ -121,6 +121,8 @@ If a larger cleaning refresh does not clear the ghost, investigate controller
 state and panel response further. Do not assume that a mode listed in a header
 is loaded by the target firmware, or treat successful ioctls as visual acceptance.
 
+The executable follow-up is tracked as [Task 10](../tasks/10-scribe-ghosting-follow-up.md). It preserves the accepted regional-clean build as the control and tests repeated final-pixel cleaning, coverage, explicit GC16, serialized waits, Kindle MTK fast mode, and only then a direct-ioctl A/B probe.
+
 ## Evidence and reproducibility
 
 The small framebuffer comparison is committed with this document. Raw dumps,
