@@ -93,10 +93,7 @@ fn header_controls_share_compact_height_and_title_uses_button_scale() {
         .minimum_touch_px()
         .saturating_mul(2)
         .saturating_sub(inset.saturating_mul(2));
-    let solved_height = layout
-        .header
-        .height
-        .saturating_sub(inset.saturating_mul(2));
+    let solved_height = layout.header.height.saturating_sub(inset.saturating_mul(2));
 
     assert_eq!(files.width, solved_width);
     assert_eq!(files.height, solved_height);
