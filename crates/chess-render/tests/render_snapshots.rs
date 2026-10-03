@@ -168,8 +168,8 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("promotion", 1_767_314_168_072_193_198),
         ("long-description", 14_666_888_970_708_769_618),
         ("number-difficulty", 7_275_147_851_208_785_662),
-        ("collection-picker", 5_311_104_488_793_424_616),
-        ("collection-picker-error", 16_232_787_114_710_864_832),
+        ("collection-picker", 8_200_220_995_219_185_173),
+        ("collection-picker-error", 4_371_957_158_270_576_243),
         ("progress-warning", 11_974_942_431_880_536_529),
     ];
 
