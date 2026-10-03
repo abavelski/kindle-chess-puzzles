@@ -87,8 +87,7 @@ fn board_change_planning_targets_only_committed_piece_changes() {
     assert!(capture_regions.contains(&layout.square_rect(square("a2"))));
     assert!(capture_regions.contains(&layout.square_rect(square("a7"))));
 
-    let promo_before =
-        Board::from_fen("8/P7/8/8/8/8/8/8 w - - 0 1").expect("test FEN is valid");
+    let promo_before = Board::from_fen("8/P7/8/8/8/8/8/8 w - - 0 1").expect("test FEN is valid");
     let mut promoted = promo_before.clone();
     assert!(promoted.promote_pawn(square("a7"), square("a8"), PieceKind::Queen));
     let promotion_regions =
