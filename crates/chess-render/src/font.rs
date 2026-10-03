@@ -190,7 +190,6 @@ fn glyph(character: char) -> &'static [u8; 35] {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::draw_wrapped_text_with_line_spacing;
@@ -199,14 +198,7 @@ mod tests {
     #[test]
     fn wrapped_text_supports_extra_pixel_spacing_between_lines() {
         let mut canvas = Gray8::new(24, 24, 255);
-        draw_wrapped_text_with_line_spacing(
-            &mut canvas,
-            Rect::new(0, 0, 24, 24),
-            "A\nA",
-            1,
-            0,
-            3,
-        );
+        draw_wrapped_text_with_line_spacing(&mut canvas, Rect::new(0, 0, 24, 24), "A\nA", 1, 0, 3);
 
         for y in 7..11 {
             assert!(
