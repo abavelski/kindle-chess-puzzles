@@ -107,7 +107,13 @@ fn draw_header(
     }
 
     if !state.collection_entries().is_empty() {
-        draw_button(frame, layout.collection_button, "FILES", false, control_scale);
+        draw_button(
+            frame,
+            layout.collection_button,
+            "FILES",
+            false,
+            control_scale,
+        );
     }
     draw_button(frame, layout.exit, "X", false, header_scale * 2);
 }
