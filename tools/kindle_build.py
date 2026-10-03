@@ -166,7 +166,7 @@ def build():
     receipt.write_text(json.dumps({'binary_sha256': sha256(binary), 'source_sha256': before,
                                   'target': TARGET, 'checks': 'passed', 'rust': '1.85.1',
                                   'zig': ZIG_VERSION, 'glibc': '2.35', 'fbink': FBINK}, indent=2) + '\n')
-    print(f'Validated release: {BUILD / "kindle-chess"}')
+    print(f'Validated release: {BUILD / "kindle-chess"} ({binary.stat().st_size} bytes)')
 
 
 def stage(binary, receipt_path, destination):

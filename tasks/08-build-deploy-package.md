@@ -1,6 +1,6 @@
 # Task 08 — Make build, deployment, and Kindle packaging reproducible
 
-**Status:** In progress — library launch/exit and white-overlay fix verified; post-reboot checkpoint pending
+**Status:** Implemented — post-reboot library observation explicitly deferred at phase-one close
 
 **Depends on:** Tasks 04-07
 
@@ -118,10 +118,12 @@ Commands and verified installation/data policy are in
 with the user-authorized natural suspend/resume deferral, which packaging tests
 do not claim to resolve.
 
-The remaining checkpoint F checks are library launch/exit and post-reboot
-library launch. Task 08 must not be marked Implemented until those observations
-are recorded. No reboot or successful library launch is inferred from host,
-loader, or package-install checks.
+The library launch/exit observation subsequently passed with the final paired-process
+display handoff. The only unperformed checkpoint-F item is library launch after a full
+device reboot. At phase-one close on 2026-10-03 that observation is explicitly deferred
+and remains **unverified**; Task 08's Implemented status does not claim a reboot test.
+No reboot result is inferred from host, loader, package-install, or ordinary relaunch
+checks.
 
 
 Library checkpoint regression (2026-10-03): the user reported blocked native
@@ -167,5 +169,6 @@ User library visual/tap/X-exit confirmation and reboot observation are pending.
 User confirmed “all worked fine” after the final library regression test on
 2026-10-03: board visibility, taps/promotion, X exit and native UI restoration
 passed. Logs/framebuffer capture corroborate the launch and normal cleanup.
-Only post-reboot launch remains for checkpoint F; task status stays In progress.
-The separately deferred natural suspend/resume test is unchanged.
+Only post-reboot launch remains unverified for checkpoint F. Phase-one closure records
+that observation as deferred rather than blocking the completed build/deploy/package
+workflow. The separately deferred natural suspend/resume test is unchanged.

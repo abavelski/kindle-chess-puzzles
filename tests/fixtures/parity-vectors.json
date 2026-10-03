@@ -1,0 +1,62 @@
+[
+  {
+    "id": "one-move",
+    "start_fen": "8/3B2pp/p5k1/6P1/1ppp1K2/8/1P6/8 w - - 0 39",
+    "side_to_move": "w",
+    "solver_actions": ["d7e8"],
+    "automatic_replies": [],
+    "final_placement": "4B3/6pp/p5k1/6P1/1ppp1K2/8/1P6/8",
+    "complete": true,
+    "solved": true
+  },
+  {
+    "id": "three-ply",
+    "start_fen": "r1bq3r/pp1nbkp1/2p1p2p/8/2BP4/1PN3P1/P3QP1P/3R1RK1 w - - 0 20",
+    "side_to_move": "w",
+    "solver_actions": ["e2e6", "e6f7"],
+    "automatic_replies": ["f7f8"],
+    "final_placement": "r1bq1k1r/pp1nbQp1/2p4p/8/2BP4/1PN3P1/P4P1P/3R1RK1",
+    "complete": true,
+    "solved": true
+  },
+  {
+    "id": "promotion-white-queen",
+    "start_fen": "7k/P7/8/8/8/8/8/K7 w - - 0 1",
+    "side_to_move": "w",
+    "solver_actions": ["a7a8q"],
+    "automatic_replies": [],
+    "final_placement": "Q6k/8/8/8/8/8/8/K7",
+    "complete": true,
+    "solved": true
+  },
+  {
+    "id": "promotion-white-knight",
+    "start_fen": "7k/1P6/8/8/8/8/8/K7 w - - 0 1",
+    "side_to_move": "w",
+    "solver_actions": ["b7b8n"],
+    "automatic_replies": [],
+    "final_placement": "1N5k/8/8/8/8/8/8/K7",
+    "complete": true,
+    "solved": true
+  },
+  {
+    "id": "promotion-black-rook",
+    "start_fen": "k7/8/8/8/8/8/7p/K7 b - - 0 1",
+    "side_to_move": "b",
+    "solver_actions": ["h2h1r"],
+    "automatic_replies": [],
+    "final_placement": "k7/8/8/8/8/8/8/K6r",
+    "complete": true,
+    "solved": true
+  },
+  {
+    "id": "promotion-auto-reply",
+    "start_fen": "7k/8/8/8/8/8/p6R/7K w - - 0 1",
+    "side_to_move": "w",
+    "solver_actions": ["h2h3", "h3h8"],
+    "automatic_replies": ["a2a1q"],
+    "final_placement": "7R/8/8/8/8/8/8/q6K",
+    "complete": true,
+    "solved": true
+  }
+]

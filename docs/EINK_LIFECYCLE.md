@@ -167,12 +167,15 @@ and timing observations. Do not infer resume reliability from those checks.
 The later library launch exposed a missing in-app exit and stock white
 overpainting while the app still accepted taps. Stopping the verified supervisor
 restored stock UI/touch, confirmed by the user. The earlier bounded direct-shell
-checks do not establish library display ownership. Task 08 remains open for this
-regression and reboot/relaunch. The header X now requests normal app return
+checks do not establish library display ownership. At this point Task 08 remained open
+for this regression and reboot/relaunch; the later section records the display fix and
+phase-one closure. The header X now requests normal app return
 through a platform effect, accessible in both modals, and retries dirty progress
 before releasing the scoped input/display handles. Automated tests and reviewed
 header snapshots cover this behavior. The user confirmed the deployed X exit
-works on 2026-10-03; white-overpaint and reboot verification remain pending.
+works on 2026-10-03. At that point white-overpaint and reboot verification remained
+pending; the following section records the subsequent white-overpaint fix and final
+library regression result. Post-reboot launch remains unverified.
 
 
 ## Library framebuffer ownership fix (2026-10-03)

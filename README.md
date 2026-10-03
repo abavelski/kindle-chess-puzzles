@@ -62,25 +62,63 @@ Start here:
 
 ## Current state
 
-Tasks 00-06 are **Implemented**. M1 is complete and the first live Scribe loop is validated: the repository has platform-neutral `chess-core`, deterministic `chess-render`, a pinned FBInk boundary, capability-based finger input discovery, measured Scribe touch normalization, and a bundled-puzzle event loop. HUMAN CHECKPOINT B passed on 2026-10-02 after correcting 32-bit sysfs capability-mask parsing and ensuring the cross-build targets the Scribe's glibc 2.35 baseline.
+**Phase one is closed.** Tasks 00-09 establish the first Kindle Scribe parity release:
+platform-neutral puzzle/application/rendering logic, pinned FBInk presentation, measured
+finger input, multiple collections and durable progress, damage-aware e-ink updates,
+supervised display/input ownership, reproducible ARMv7/glibc-2.35 builds, Scriptlet/KPM
+packaging, and reference-parity validation.
 
-The physical Task 04 checkpoint verified board geometry, corner/center mapping, every visible finger control, repeated-move alignment, stylus filtering, and normal recovery after termination. It also documented stock-UI input/repaint contention and temporary refresh traces; those remain later lifecycle/refresh work rather than Task 04 fixes.
+The validated hardware target is the **first-generation Kindle Scribe (Barolo), firmware
+5.19.6**. Physical checkpoints covered puzzle solving, promotions, Free Board, navigation,
+orientation, descriptions, collection switching, restart persistence, repeated touch use,
+normal/crash exit recovery, and library launch/exit. See
+[the parity matrix](docs/PARITY.md), [measured results](docs/RESULTS.md), and
+[the device record](docs/device/ks1-barolo.md).
 
-Task 05 is **Implemented**, with HUMAN CHECKPOINT C passed on the physical Scribe on 2026-10-02. The live binary now bundles one six-puzzle parity collection covering one-move and three-ply solving, white/black/manual/automatic promotion, Free Board, navigation, orientation lock/flip, descriptions, feedback, difficulty, and solved display. Previous/Next are visibly disabled at collection ends, and host integration tests drive complete action→state→render flows through deterministic Scribe snapshots.
+Two lifecycle observations remain explicitly unverified rather than being inferred from
+other checks: natural idle suspend/resume, and library launch after a full device reboot.
+They are documented phase-one limitations. The next product phase may address findings
+from ongoing real-puzzle use without changing what phase one claims.
 
-Task 06 is **Implemented**, with **HUMAN CHECKPOINT D** passed on the physical Scribe on 2026-10-02. Collection switching, remembered puzzle IDs and solved markers after restart, computer-copy discovery, invalid-file preservation, and normal recovery were verified. M2 is complete. The Kindle loop now discovers multiple version-1 collections, provides a paged FILES picker, preserves invalid source files, and stores app-owned progress separately with protected corrupt/future records and atomic dirty-retry writes. Defaults are `/mnt/us/kindle-chess/puzzles` for collections and `/mnt/us/kindle-chess/state/progress.json` for progress, with environment overrides for tests and alternate deployments.
+## Build, install, and use
 
-Task 07 is **Implemented with the natural suspend/resume checkpoint deferred by the user** on 2026-10-03. Host-tested pixel damage, batched rectangle presentation, provisional refresh policy, timings, and a supervised overlay launcher are implemented. Exclusive finger input and native exit repaint passed promotion and crash-recovery probes. The user confirmed that only the sleeping test remains; resume reliability is still unverified. See [e-ink/lifecycle notes](docs/EINK_LIFECYCLE.md).
+The tested workflow is documented in [BUILD_DEPLOY.md](docs/BUILD_DEPLOY.md). From a fresh
+checkout:
 
-For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
+```sh
+git submodule update --init --recursive
+scripts/check.sh
+scripts/build-kindle.sh
+scripts/stage-kindle.sh
+```
 
-The initial target is the Kindle Scribe first generation. Reuse for Kobo is an architectural constraint, not an active implementation target for the first milestone.
+Deploy over the previously configured SSH transport with the device address supplied at
+runtime:
 
-## Build and install
+```sh
+scripts/deploy-kindle.sh --host root@DEVICE_IP --port 2222
+```
 
-Task 08 provides a pinned release build, inspected stage, scp deployment and
-Scriptlet/KPM artifacts. See [build/deploy commands](docs/BUILD_DEPLOY.md).
-Clean-checkout builds and Scribe deployment, KPM installation/update, and
-uninstall/reinstall preserve puzzle/progress data. Library launch/exit and the native white-overlay fix were verified on
-2026-10-03. Checkpoint F still needs post-reboot launch observation. Task 07's natural
-suspend/resume test is deferred by the user.
+The installed layout keeps runtime and user data separate:
+
+- runtime: `/mnt/us/kindle-chess/runtime/`;
+- puzzle collections: `/mnt/us/kindle-chess/puzzles/`;
+- progress: `/mnt/us/kindle-chess/state/progress.json`;
+- logs: `/mnt/us/kindle-chess/logs/`;
+- library Scriptlet: `/mnt/us/documents/kindle-chess.sh`.
+
+With Scriptlets/SH_Integration installed, launch **Kindle Chess Puzzles** from the Kindle
+library. A verified direct-shell fallback is
+`sh /mnt/us/kindle-chess/runtime/launch.sh`. Use the app's top-right **X** to exit;
+it flushes pending progress and lets the supervisor return display/input ownership to the
+native UI.
+
+For install/update/uninstall details, KPM commands, and manual recovery, follow
+[BUILD_DEPLOY.md](docs/BUILD_DEPLOY.md) and
+[EINK_LIFECYCLE.md](docs/EINK_LIFECYCLE.md). Recovery should preserve
+`puzzles/` and `state/`; do not delete user data to repair a runtime install.
+
+Phase-one compatibility is intentionally limited to version-1 puzzle files and the current
+reference feature set. This remains a physical-board puzzle app, not a chess engine.
+Unsolved-only navigation, version-2 branching/rich solutions, stylus-specific product
+interactions, statistics, and a Kobo runtime are deferred.

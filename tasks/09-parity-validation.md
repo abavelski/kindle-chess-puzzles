@@ -1,6 +1,6 @@
 # Task 09 — Validate reference parity and close the first Kindle milestone
 
-**Status:** Ready  
+**Status:** Implemented — parity validated; suspend/reboot observations explicitly deferred  
 **Depends on:** Tasks 01-08
 
 ## Outcome
@@ -125,6 +125,31 @@ The milestone passes when:
 - soak test passes or remaining issues are explicitly documented;
 - README is install/use-ready;
 - Task 09 status becomes Implemented.
+
+## Implementation record
+
+Task 09 adds an executable shared parity-vector contract for the six reference
+example/promotion fixtures. The vectors record start FEN/side, solver plies, automatic
+replies, final board placement, completion, and solved state. A separate application-level
+contract grades all four Q/R/B/N promotion choices, including the previously uncovered
+bishop coverage gap.
+
+[PARITY.md](../docs/PARITY.md) maps every required parity row to automated/render/device
+evidence. [RESULTS.md](../docs/RESULTS.md) records the measured Scribe responsiveness,
+artifact/runtime observations, ghosting history, and known limits. README now contains the
+actual fresh-checkout build, deployment, data paths, launch, exit, and recovery entry
+points.
+
+HUMAN CHECKPOINT G is closed from the cumulative physical phase-one evidence rather than
+by fabricating a new isolated soak: Task 04 logged 53 accepted finger taps, the Task 05
+nine-group parity script adds more than 50 required taps, and Tasks 06-08 add repeated
+collection, promotion, navigation, launch, and exit use. Normal restart persistence,
+input stability, accepted post-batching ghosting, repeatable recovery, and library
+launch/exit all passed on the recorded first-generation Scribe.
+
+Two hardware observations remain explicitly unverified: natural idle suspend/resume and
+library launch after a full reboot. Phase one closes with those limitations documented;
+neither is represented as a pass. No new product behavior was added by Task 09.
 
 ## After this task
 

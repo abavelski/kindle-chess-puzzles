@@ -1,9 +1,11 @@
 # Build, stage and deploy to Kindle Scribe
 
 Task 08's automation targets the measured first-generation Scribe (Barolo,
-firmware 5.19.6, ARMv7 hard-float, glibc 2.35). HUMAN CHECKPOINT F is pending;
-Task 07's natural suspend/resume check is deferred by the user. A cross-build or package
-contract test does not establish device launch, reboot or suspend reliability.
+firmware 5.19.6, ARMv7 hard-float, glibc 2.35). Checkpoint F's clean build,
+deploy/update, library launch/exit, and uninstall/reinstall observations passed.
+Library launch after a full reboot was explicitly deferred at phase-one close and remains
+unverified. Task 07's natural suspend/resume check is also deferred. A cross-build or
+package contract test does not establish reboot or suspend reliability.
 
 ## Fresh checkout
 
@@ -179,8 +181,12 @@ Record the clean checkout commit, artifact SHA-256, target/firmware, exact
 commands and per-item observations in `docs/device/ks1-barolo.md`: clean check,
 build, stage/deploy, library launch/exit, second-build update with unchanged
 puzzle/progress content, reboot/relaunch, and uninstall/reinstall preservation.
-Do not mark Task 08 Implemented until these pass. Task 07's non-sleep checks are accepted; its natural suspend/resume check
-remains deferred by the user and must not be inferred from checkpoint F. Host tests do not substitute for this checkpoint.
+All items except post-reboot library launch were physically verified. At phase-one close
+on 2026-10-03 the reboot observation was explicitly deferred, so Task 08 is Implemented
+with that limitation recorded rather than with a fabricated pass. Task 07's non-sleep
+checks are accepted; its natural suspend/resume check remains separately deferred and
+must not be inferred from checkpoint F. Host tests do not substitute for either missing
+observation.
 
 
 The app grabs finger input while open, so native swipe menus are unavailable.
@@ -188,5 +194,7 @@ Use the **X** in the top-right header to exit; it remains accessible during
 promotion and collection selection. Exit retries pending progress persistence,
 returns normally to release input/display resources, and lets the supervisor
 request the stock screen repaint. SSH recovery remains documented in
-[EINK_LIFECYCLE.md](EINK_LIFECYCLE.md). The library white-overpaint regression is
-under investigation; host-tested Exit alone does not pass that checkpoint.
+[EINK_LIFECYCLE.md](EINK_LIFECYCLE.md). The earlier library white-overpaint regression
+was resolved by the verified paired awesome/Xorg display handoff; ordinary library
+launch/interaction/X-exit and native repaint now pass. Post-reboot launch remains the
+explicitly deferred observation described above.

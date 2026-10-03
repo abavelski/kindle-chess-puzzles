@@ -118,6 +118,9 @@ Copy or recreate small fixtures from `abavelski/eink-chess-app`:
 - version-1 progress with solved IDs.
 
 For the same fixture and logical actions, core state should match the documented reference behavior.
+Task 09 records those expectations in `tests/fixtures/parity-vectors.json` and executes
+them through `AppState`, including start FEN/side, solver plies, automatic replies,
+final board placement, completion, and solved state.
 
 Do not make tests depend on Cobalt.
 

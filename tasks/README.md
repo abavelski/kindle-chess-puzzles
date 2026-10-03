@@ -14,8 +14,8 @@ Implement one task at a time.
 | [05](05-parity-features.md) | Promotion, Free Board, navigation, flip/lock, descriptions, feedback | Implemented |
 | [06](06-persistence-and-collections.md) | Multi-collection workflow and durable progress on Kindle | Implemented |
 | [07](07-eink-lifecycle.md) | Damage/refresh policy plus safe Kindle launch/exit lifecycle | Implemented — sleep checkpoint deferred |
-| [08](08-build-deploy-package.md) | Reproducible cross-build, deploy, scriptlet/KPM package | In progress — checkpoint F pending |
-| [09](09-parity-validation.md) | Full reference-parity and reliability validation | Ready |
+| [08](08-build-deploy-package.md) | Reproducible cross-build, deploy, scriptlet/KPM package | Implemented — reboot observation deferred |
+| [09](09-parity-validation.md) | Full reference-parity and reliability validation | Implemented — phase one closed |
 
 ## Milestones
 
@@ -35,7 +35,14 @@ Task 04 is complete: the shared renderer now runs through pinned FBInk on the ph
 
 ### M3: reliable e-ink application
 
-Tasks 07-09. Optimize refresh behavior, make launch/deploy reproducible, and prove repeated real-device use.
+M3 is complete. Tasks 07-09 provide batched damage-aware updates, exclusive finger input,
+scoped native display ownership/recovery, reproducible build/deploy/package workflows,
+shared reference-parity vectors, a full parity matrix, measured results, and cumulative
+real-device reliability validation.
+
+Phase-one closure intentionally leaves two hardware observations unverified: natural
+idle suspend/resume and library launch after a full device reboot. Their task/device
+records preserve that distinction; completion does not claim those tests passed.
 
 ## Common definition of done
 
