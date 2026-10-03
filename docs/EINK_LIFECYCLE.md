@@ -172,7 +172,9 @@ regression and reboot/relaunch. The header X now requests normal app return
 through a platform effect, accessible in both modals, and retries dirty progress
 before releasing the scoped input/display handles. Automated tests and reviewed
 header snapshots cover this behavior. The user confirmed the deployed X exit
-works on 2026-10-03; white-overpaint and reboot verification remain pending.
+works on 2026-10-03. At that point white-overpaint and reboot verification remained
+pending; the following section records the subsequent white-overpaint fix and final
+library regression result. Post-reboot launch remains unverified.
 
 
 ## Library framebuffer ownership fix (2026-10-03)
