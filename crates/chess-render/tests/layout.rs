@@ -19,6 +19,7 @@ fn scribe_layout_is_square_prominent_and_inside_viewport() {
 
     assert_eq!(layout.board.width, layout.board.height);
     assert_eq!(layout.board.width % 8, 0);
+    assert_eq!(layout.board.width, 1664);
     assert!(layout.board.width > SCRIBE.width * 3 / 4);
     assert!(layout.viewport.contains_rect(layout.board));
     assert!(layout.viewport.contains_rect(layout.header));

@@ -13,6 +13,7 @@ const LIGHT_SQUARE: u8 = 238;
 const DARK_SQUARE: u8 = 184;
 const SOFT_GRAY: u8 = 224;
 const DISABLED_INK: u8 = 128;
+const BOARD_FRAME_GRAY: u8 = 160;
 const DESCRIPTION_EXTRA_LINE_SPACING: u32 = 3;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -28,9 +29,10 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     let header_scale = (metrics.dpi / 75).clamp(2, 6);
     let text_scale = (metrics.dpi / 100).clamp(2, 5);
     let small_scale = (metrics.dpi / 125).clamp(2, 4);
+    let coordinate_scale = (metrics.dpi / 100).clamp(2, 4);
 
     draw_header(&mut frame, state, layout, header_scale, text_scale);
-    draw_board(&mut frame, state, layout, small_scale);
+    draw_board(&mut frame, state, layout, coordinate_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
     draw_status(&mut frame, state, layout, small_scale, text_scale);
@@ -146,6 +148,7 @@ fn draw_board(frame: &mut Gray8, state: &AppState, layout: Layout, coordinate_sc
     }
     frame.stroke_rect(layout.board, 4, INK);
     draw_coordinates(frame, state.flipped(), layout, coordinate_scale);
+    frame.stroke_rect(layout.board_outer, 2, BOARD_FRAME_GRAY);
 }
 
 fn draw_coordinates(frame: &mut Gray8, flipped: bool, layout: Layout, scale: u32) {

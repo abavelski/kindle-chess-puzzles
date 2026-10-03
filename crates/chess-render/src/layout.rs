@@ -139,7 +139,12 @@ impl Layout {
 
         let max_board_width = metrics.width - horizontal_reserved;
         let max_board_height = metrics.height - vertical_reserved;
-        let board_size = max_board_width.min(max_board_height) / 8 * 8;
+        let board_shrink = px_for_mm(metrics.dpi, 2).max(8);
+        let board_size = max_board_width
+            .min(max_board_height)
+            .saturating_sub(board_shrink)
+            / 8
+            * 8;
         if board_size < 8 * 24 {
             return Err(LayoutError::TooSmall);
         }

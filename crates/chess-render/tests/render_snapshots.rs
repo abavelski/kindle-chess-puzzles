@@ -48,6 +48,17 @@ fn hash(app: &AppState) -> u64 {
 }
 
 #[test]
+fn board_outer_frame_is_thin_gray() {
+    let output = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
+    let frame = output.frame;
+    let outer = output.layout.board_outer;
+
+    assert_eq!(frame.pixel(outer.x, outer.y), Some(160));
+    assert_eq!(frame.pixel(outer.x + 1, outer.y + 1), Some(160));
+    assert_eq!(frame.pixel(outer.x + 2, outer.y + 2), Some(255));
+}
+
+#[test]
 fn parity_visual_states_match_reviewed_gray8_snapshots() {
     let mut actual = Vec::new();
 
