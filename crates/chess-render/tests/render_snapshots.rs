@@ -62,10 +62,7 @@ fn board_outer_frame_is_thin_gray() {
 fn exit_button_uses_vector_close_icon() {
     let output = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
     let frame = output.frame;
-    let exit = output
-        .layout
-        .exit
-        .inset(output.layout.header.height / 10);
+    let exit = output.layout.exit.inset(output.layout.header.height / 10);
     let icon = exit.inset(exit.width.min(exit.height) / 4);
     let right = icon.right().saturating_sub(1);
     let bottom = icon.bottom().saturating_sub(1);
