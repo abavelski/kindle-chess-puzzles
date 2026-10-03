@@ -28,7 +28,7 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     let text_scale = (metrics.dpi / 100).clamp(2, 5);
     let small_scale = (metrics.dpi / 125).clamp(2, 4);
 
-    draw_header(&mut frame, state, layout, header_scale, small_scale);
+    draw_header(&mut frame, state, layout, header_scale, text_scale);
     draw_board(&mut frame, state, layout, small_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
@@ -60,7 +60,7 @@ fn draw_header(
     state: &AppState,
     layout: Layout,
     header_scale: u32,
-    small_scale: u32,
+    control_scale: u32,
 ) {
     frame.stroke_rect(layout.header, 3, INK);
     let puzzle = state.active_puzzle();
@@ -103,12 +103,11 @@ fn draw_header(
             layout.header.height,
         )
         .inset(layout.header.height / 10);
-        frame.fill_rect(badge, INK);
-        draw_text_centered(frame, badge, "SOLVED", small_scale, WHITE);
+        draw_button(frame, badge, "SOLVED", true, control_scale);
     }
 
     if !state.collection_entries().is_empty() {
-        draw_button(frame, layout.collection_button, "FILES", false, small_scale);
+        draw_button(frame, layout.collection_button, "FILES", false, control_scale);
     }
     draw_button(frame, layout.exit, "X", false, header_scale * 2);
 }
