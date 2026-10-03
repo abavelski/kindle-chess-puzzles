@@ -1,5 +1,9 @@
 # Fix plan: faint piece ghosts after moves
 
+The subsequent queen c7→d6 framebuffer capture, physical photo, rejected
+experiments and Kobo/Cobalt comparison limits are summarized in
+[the measured ghosting investigation](GHOSTING_INVESTIGATION.md).
+
 ## Dark-square follow-up — 2026-10-03
 
 The regional-clean build at `00f31cb` almost resolved piece traces, but the user
