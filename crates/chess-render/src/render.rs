@@ -26,11 +26,10 @@ pub struct RenderOutput {
 pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput, LayoutError> {
     let layout = Layout::new(metrics)?;
     let mut frame = Gray8::new(metrics.width, metrics.height, WHITE);
-    let header_scale = (metrics.dpi / 75).clamp(2, 6);
     let text_scale = (metrics.dpi / 100).clamp(2, 5);
     let coordinate_scale = (metrics.dpi / 100).clamp(2, 4);
 
-    draw_header(&mut frame, state, layout, header_scale, text_scale);
+    draw_header(&mut frame, state, layout, text_scale);
     draw_board(&mut frame, state, layout, coordinate_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
@@ -57,13 +56,7 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     })
 }
 
-fn draw_header(
-    frame: &mut Gray8,
-    state: &AppState,
-    layout: Layout,
-    header_scale: u32,
-    control_scale: u32,
-) {
+fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scale: u32) {
     frame.stroke_rect(layout.header, 3, INK);
     let puzzle = state.active_puzzle();
     let difficulty = puzzle
@@ -85,9 +78,9 @@ fn draw_header(
         layout
             .header
             .y
-            .saturating_add(layout.header.height.saturating_sub(7 * header_scale) / 2),
+            .saturating_add(layout.header.height.saturating_sub(7 * control_scale) / 2),
         &title,
-        header_scale,
+        control_scale,
         INK,
     );
 
@@ -98,26 +91,32 @@ fn draw_header(
         } else {
             layout.collection_button.x
         };
-        let badge = Rect::new(
-            right.saturating_sub(badge_width),
-            layout.header.y,
-            badge_width,
-            layout.header.height,
-        )
-        .inset(layout.header.height / 10);
+        let badge = header_control_visual_rect(
+            layout,
+            Rect::new(
+                right.saturating_sub(badge_width),
+                layout.header.y,
+                badge_width,
+                layout.header.height,
+            ),
+        );
         draw_button(frame, badge, "SOLVED", true, control_scale);
     }
 
     if !state.collection_entries().is_empty() {
         draw_button(
             frame,
-            layout.collection_button,
+            header_control_visual_rect(layout, layout.collection_button),
             "FILES",
             false,
             control_scale,
         );
     }
-    draw_close_button(frame, layout.exit);
+    draw_close_button(frame, header_control_visual_rect(layout, layout.exit));
+}
+
+fn header_control_visual_rect(layout: Layout, rect: Rect) -> Rect {
+    rect.inset(layout.header.height / 10)
 }
 
 fn draw_board(frame: &mut Gray8, state: &AppState, layout: Layout, coordinate_scale: u32) {

@@ -78,6 +78,80 @@ fn exit_button_uses_vector_close_icon() {
 }
 
 #[test]
+fn header_controls_share_compact_height_and_title_uses_button_scale() {
+    let mut app = state(PUZZLES);
+    play(&mut app, "d7e8");
+    app.set_collection_entries(vec![CollectionEntry::valid("puzzles.json", "Puzzles")]);
+
+    let output = render(&app, SCRIBE).expect("render succeeds");
+    let frame = output.frame;
+    let layout = output.layout;
+    let inset = layout.header.height / 10;
+    let files = layout.collection_button.inset(inset);
+    let close = layout.exit.inset(inset);
+    let solved_width = layout
+        .minimum_touch_px()
+        .saturating_mul(2)
+        .saturating_sub(inset.saturating_mul(2));
+    let solved_height = layout
+        .header
+        .height
+        .saturating_sub(inset.saturating_mul(2));
+
+    assert_eq!(files.width, solved_width);
+    assert_eq!(files.height, solved_height);
+    assert_eq!(close.height, solved_height);
+    assert!(close.width < files.width);
+
+    let files_mid_y = files.y + files.height / 2;
+    assert_eq!(
+        frame.pixel(layout.collection_button.x, files_mid_y),
+        Some(255),
+        "FILES visual should be inset from its full touch target"
+    );
+    assert_eq!(frame.pixel(files.x, files_mid_y), Some(0));
+
+    let close_mid_y = close.y + close.height / 2;
+    assert_eq!(
+        frame.pixel(layout.exit.x, close_mid_y),
+        Some(255),
+        "close visual should be inset from its full touch target"
+    );
+    assert_eq!(frame.pixel(close.x, close_mid_y), Some(0));
+
+    let padding = layout.header.height / 8;
+    let button_scale = (SCRIBE.dpi / 100).clamp(2, 5);
+    let old_header_scale = (SCRIBE.dpi / 75).clamp(2, 6);
+    let old_title_y = layout
+        .header
+        .y
+        .saturating_add(layout.header.height.saturating_sub(7 * old_header_scale) / 2);
+    let old_only_x = layout
+        .header
+        .x
+        .saturating_add(padding)
+        .saturating_add(2 * old_header_scale)
+        .saturating_add(2);
+    assert_eq!(
+        frame.pixel(old_only_x, old_title_y + 1),
+        Some(255),
+        "title should no longer use the larger header-only font scale"
+    );
+
+    let title_y = layout
+        .header
+        .y
+        .saturating_add(layout.header.height.saturating_sub(7 * button_scale) / 2);
+    let title_x = layout
+        .header
+        .x
+        .saturating_add(padding)
+        .saturating_add(2 * button_scale)
+        .saturating_add(1);
+    assert_eq!(frame.pixel(title_x, title_y + 1), Some(0));
+}
+
+#[test]
 fn status_panel_is_rounded_and_shows_one_large_primary_content() {
     let normal = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
     let status = normal.layout.status;
