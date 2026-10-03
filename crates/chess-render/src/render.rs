@@ -118,7 +118,7 @@ fn draw_header(
             control_scale,
         );
     }
-    draw_button(frame, layout.exit, "X", false, header_scale * 2);
+    draw_close_button(frame, layout.exit);
 }
 
 fn draw_board(frame: &mut Gray8, state: &AppState, layout: Layout, coordinate_scale: u32) {
@@ -454,6 +454,37 @@ fn draw_navigation_button(frame: &mut Gray8, rect: Rect, label: &str, enabled: b
         draw_button_chrome(frame, rect, SOFT_GRAY, DISABLED_INK, false);
         draw_text_centered(frame, rect.inset(6), label, scale, DISABLED_INK);
     }
+}
+
+fn draw_close_button(frame: &mut Gray8, rect: Rect) {
+    draw_button_chrome(frame, rect, WHITE, INK, false);
+    let size = rect.width.min(rect.height);
+    let icon = rect.inset(size / 4);
+    let thickness = (size / 18).clamp(4, 8);
+    draw_close_icon(frame, icon, thickness, INK);
+}
+
+fn draw_close_icon(frame: &mut Gray8, rect: Rect, thickness: u32, tone: u8) {
+    let right = rect.right().saturating_sub(1);
+    let bottom = rect.bottom().saturating_sub(1);
+    draw_thick_line(
+        frame,
+        i32::try_from(rect.x).unwrap_or(i32::MAX),
+        i32::try_from(rect.y).unwrap_or(i32::MAX),
+        i32::try_from(right).unwrap_or(i32::MAX),
+        i32::try_from(bottom).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(right).unwrap_or(i32::MAX),
+        i32::try_from(rect.y).unwrap_or(i32::MAX),
+        i32::try_from(rect.x).unwrap_or(i32::MAX),
+        i32::try_from(bottom).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
 }
 
 fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
