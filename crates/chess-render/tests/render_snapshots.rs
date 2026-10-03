@@ -62,7 +62,10 @@ fn board_outer_frame_is_thin_gray() {
 fn exit_button_uses_vector_close_icon() {
     let output = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
     let frame = output.frame;
-    let exit = output.layout.exit;
+    let exit = output
+        .layout
+        .exit
+        .inset(output.layout.header.height / 10);
     let icon = exit.inset(exit.width.min(exit.height) / 4);
     let right = icon.right().saturating_sub(1);
     let bottom = icon.bottom().saturating_sub(1);
@@ -280,22 +283,22 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("progress-warning", hash(&warning)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("white", 7_274_171_515_316_098_271),
-        ("black", 2_496_654_440_136_849_652),
-        ("selected", 14_975_178_667_347_546_835),
-        ("correct", 14_676_836_437_722_267_764),
-        ("wrong", 11_856_911_323_491_202_662),
-        ("complete", 10_055_778_487_675_368_986),
-        ("solved", 17_697_010_553_974_026_700),
-        ("free-board", 16_768_535_156_003_743_231),
-        ("orientation-lock", 40_746_267_019_051_627),
-        ("description", 1_594_050_334_548_296_178),
-        ("promotion", 7_588_247_853_360_506_850),
-        ("long-description", 11_640_727_412_420_928_314),
-        ("number-difficulty", 17_367_738_702_102_009_266),
-        ("collection-picker", 3_590_538_943_657_530_993),
-        ("collection-picker-error", 12_616_666_703_780_566_351),
-        ("progress-warning", 2_158_999_894_808_494_873),
+        ("white", 12_857_083_097_318_992_116),
+        ("black", 10_706_566_293_756_259_236),
+        ("selected", 11_498_342_331_450_273_560),
+        ("correct", 15_812_716_582_804_702_660),
+        ("wrong", 17_707_174_590_654_286_621),
+        ("complete", 10_736_563_106_794_206_117),
+        ("solved", 9_876_084_892_660_141_491),
+        ("free-board", 8_671_163_079_418_578_452),
+        ("orientation-lock", 7_746_178_605_488_746_880),
+        ("description", 10_600_028_045_314_014_685),
+        ("promotion", 10_835_985_786_175_961_452),
+        ("long-description", 5_058_915_074_704_000_684),
+        ("number-difficulty", 2_363_511_642_772_480_901),
+        ("collection-picker", 7_640_832_175_836_636_290),
+        ("collection-picker-error", 13_403_774_574_952_154_720),
+        ("progress-warning", 13_568_940_307_127_483_054),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
