@@ -23,6 +23,9 @@ pub use storage::{
     DEFAULT_PROGRESS_FILE, DEFAULT_PUZZLE_DIR, PROGRESS_FILE_ENV, PUZZLE_DIR_ENV,
 };
 
-pub use refresh::{classify_region, pack_region, ContentClass, RefreshMode, RefreshPolicy};
+pub use refresh::{
+    classify_region, clean_regions_for_board_change, pack_region, plan_present_regions,
+    ContentClass, PresentRegion, RefreshMode, RefreshPolicy, RefreshStrength,
+};
 
 pub const PLATFORM_IMPLEMENTED: bool = true;

@@ -131,6 +131,50 @@ fn all_major_transitions_reconstruct_the_full_render() {
 }
 
 #[test]
+fn moved_piece_origin_is_clean_and_damage_replay_matches_the_new_frame() {
+    let mut app = state();
+    app.dispatch(Action::ToggleMode);
+    app.dispatch(tap("f4"));
+    let previous = render(&app, METRICS).unwrap();
+    app.dispatch(tap("a8"));
+    let current = render(&app, METRICS).unwrap();
+
+    let logical_origin = algebraic_to_square("f4").unwrap();
+    let display_origin = if app.flipped() {
+        63 - logical_origin
+    } else {
+        logical_origin
+    };
+    let origin = current.layout.square_rect(display_origin);
+    let row = display_origin / 8;
+    let column = display_origin % 8;
+    let expected_background = if (row + column) % 2 == 0 { 238 } else { 184 };
+    for y in origin.y..origin.bottom() {
+        for x in origin.x..origin.right() {
+            assert_eq!(
+                current.frame.pixel(x, y),
+                Some(expected_background),
+                "origin square must render as a clean empty cell"
+            );
+        }
+    }
+
+    let damage = compact_damage(
+        &calculate_damage(Some(&previous.frame), &current.frame),
+        current.layout,
+    );
+    let mut replay = previous.frame.clone();
+    for rect in damage {
+        for y in rect.y..rect.bottom() {
+            for x in rect.x..rect.right() {
+                replay.set_pixel(x as i32, y as i32, current.frame.pixel(x, y).unwrap());
+            }
+        }
+    }
+    assert_eq!(replay, current.frame);
+}
+
+#[test]
 fn stride_padding_is_not_visible_damage_and_edge_tiles_are_clipped() {
     let old = Gray8::with_stride(65, 65, 80, 255).unwrap();
     let mut new = old.clone();

@@ -24,7 +24,7 @@ void fbink_get_state(const FBInkConfig* cfg, FBInkState* state) { (void)cfg; sta
 int fbink_print_raw_data(int fd, const unsigned char* data, int w, int h, size_t len, short x, short y, const FBInkConfig* cfg) {
     (void)data; assert(fd==4 && w==2 && h==3 && len==6 && x==20 && y==30);
     assert(cfg->ignore_alpha && !cfg->no_refresh);
-    assert(cfg->is_flashing == (mode==0));
+    assert(cfg->is_flashing == (mode==0 || mode==4));
     calls++;
     if (calls==1) {
         assert(cfg->wfm_mode == (mode==2 ? WFM_GC16 : mode==3 ? WFM_DU : WFM_AUTO));
@@ -37,7 +37,7 @@ int fbink_print_raw_data(int fd, const unsigned char* data, int w, int h, size_t
 int fbink_wait_for_complete(int fd, uint32_t marker) { assert(fd==4 && marker==LAST_MARKER); waits++; return 0; }
 int main(void) {
     unsigned char pixels[6]={0};
-    for (mode=0; mode<4; mode++) {
+    for (mode=0; mode<5; mode++) {
         failure=0; calls=0;
         assert(kcp_fbink_present_region(4,pixels,2,3,6,20,30,mode)==0);
         assert(calls==1 && waits==0);

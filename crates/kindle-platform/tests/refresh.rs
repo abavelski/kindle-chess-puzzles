@@ -1,5 +1,19 @@
-use chess_render::{Gray8, Rect};
-use kindle_platform::{classify_region, pack_region, ContentClass, RefreshMode, RefreshPolicy};
+use chess_core::{algebraic_to_square, Board, PieceKind};
+use chess_render::{DisplayMetrics, Gray8, Layout, Rect};
+use kindle_platform::{
+    classify_region, clean_regions_for_board_change, pack_region, plan_present_regions,
+    ContentClass, PresentRegion, RefreshMode, RefreshPolicy, RefreshStrength,
+};
+
+const METRICS: DisplayMetrics = DisplayMetrics {
+    width: 1860,
+    height: 2480,
+    dpi: 300,
+};
+
+fn square(name: &str) -> usize {
+    algebraic_to_square(name).unwrap()
+}
 
 #[test]
 fn classifies_both_old_and_new_pixels_and_packs_rows() {
@@ -45,6 +59,99 @@ fn unmeasured_modes_stay_auto_and_verified_modes_are_content_specific() {
     assert_eq!(
         policy.mode(ContentClass::Grayscale, false),
         RefreshMode::GrayPartial
+    );
+}
+
+#[test]
+fn board_change_planning_targets_only_committed_piece_changes() {
+    let layout = Layout::new(METRICS).unwrap();
+    let before = Board::starting_position();
+
+    let mut selected = before.clone();
+    selected.tap(square("a2"));
+    assert!(clean_regions_for_board_change(&before, &selected, false, false, layout).is_empty());
+
+    let mut moved = before.clone();
+    moved.tap(square("a2"));
+    moved.tap(square("a3"));
+    let move_regions = clean_regions_for_board_change(&before, &moved, false, false, layout);
+    assert_eq!(move_regions.len(), 2);
+    assert!(move_regions.contains(&layout.square_rect(square("a2"))));
+    assert!(move_regions.contains(&layout.square_rect(square("a3"))));
+
+    let mut captured = before.clone();
+    captured.tap(square("a2"));
+    captured.tap(square("a7"));
+    let capture_regions = clean_regions_for_board_change(&before, &captured, false, false, layout);
+    assert_eq!(capture_regions.len(), 2);
+    assert!(capture_regions.contains(&layout.square_rect(square("a2"))));
+    assert!(capture_regions.contains(&layout.square_rect(square("a7"))));
+
+    let promo_before = Board::from_fen("8/P7/8/8/8/8/8/8 w - - 0 1").expect("test FEN is valid");
+    let mut promoted = promo_before.clone();
+    assert!(promoted.promote_pawn(square("a7"), square("a8"), PieceKind::Queen));
+    let promotion_regions =
+        clean_regions_for_board_change(&promo_before, &promoted, false, false, layout);
+    assert_eq!(promotion_regions.len(), 2);
+
+    let mut reply = before.clone();
+    reply.tap(square("a2"));
+    reply.tap(square("a3"));
+    reply.tap(square("h7"));
+    reply.tap(square("h6"));
+    let reply_regions = clean_regions_for_board_change(&before, &reply, false, false, layout);
+    assert_eq!(reply_regions.len(), 4);
+
+    assert!(clean_regions_for_board_change(&before, &before, false, false, layout).is_empty());
+}
+
+#[test]
+fn large_or_reoriented_board_changes_clean_the_board_once() {
+    let layout = Layout::new(METRICS).unwrap();
+    let before = Board::starting_position();
+    let mut many = before.clone();
+    for (from, to) in [("a2", "a3"), ("b2", "b3"), ("c2", "c3")] {
+        many.tap(square(from));
+        many.tap(square(to));
+    }
+    assert_eq!(
+        clean_regions_for_board_change(&before, &many, false, false, layout),
+        vec![layout.board]
+    );
+
+    let mut one_move = before.clone();
+    one_move.tap(square("a2"));
+    one_move.tap(square("a3"));
+    assert_eq!(
+        clean_regions_for_board_change(&before, &one_move, false, true, layout),
+        vec![layout.board]
+    );
+}
+
+#[test]
+fn presentation_plan_replaces_overlapping_partial_damage_with_clean_regions() {
+    let viewport = Rect::new(0, 0, 40, 20);
+    let clean = Rect::new(5, 0, 5, 10);
+    let planned = plan_present_regions(
+        &[Rect::new(0, 0, 20, 10), Rect::new(30, 0, 5, 5)],
+        &[clean],
+        viewport,
+    );
+    assert!(planned.contains(&PresentRegion::clean(clean)));
+    assert!(planned.contains(&PresentRegion::partial(Rect::new(0, 0, 5, 10))));
+    assert!(planned.contains(&PresentRegion::partial(Rect::new(10, 0, 10, 10))));
+    assert!(planned.contains(&PresentRegion::partial(Rect::new(30, 0, 5, 5))));
+    for (index, first) in planned.iter().enumerate() {
+        for second in planned.iter().skip(index + 1) {
+            assert!(
+                !first.rect.intersects(second.rect),
+                "planned regions overlap: {first:?} and {second:?}"
+            );
+        }
+    }
+    assert_eq!(
+        planned.last().map(|region| region.strength),
+        Some(RefreshStrength::Clean)
     );
 }
 

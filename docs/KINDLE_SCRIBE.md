@@ -146,3 +146,15 @@ Do not bake a Kobo path or Cobalt store path into shared code.
 ## Licensing note
 
 FBInk is GPLv3+. Sashité Western chess SVG assets used by the reference project are public-domain/CC0 style assets according to their upstream project documentation. Preserve provenance and review final distribution obligations once the exact linking/package strategy is implemented.
+
+
+## Verified waveform limitation — 2026-10-03
+
+Flashing REAGLD (MTK GLD16, waveform mode 5) produced a white physical panel
+on repeated launches despite correct framebuffer pixels and successful FBInk
+submission/completion. The device kernel reported `waveform mode[5] not loaded
+night_mode[0]` from `wf_lut_get_waveform_mode_slot`. The enum's presence in the
+pinned header is not proof that the firmware has loaded that waveform.
+Errno-based fallback does not detect this asynchronous failure. REAGLD was
+removed; the original flashing AUTO/GC16 regional-clean build was restored.
+See `docs/device/ks1-barolo.md` and `docs/PIECE_GHOSTING_FIX.md` for evidence.

@@ -1347,3 +1347,161 @@ this closure:
 No device power transition or reboot was performed for Task 09. If either behavior
 becomes relevant in later real-user testing, repeat the dedicated lifecycle observation
 and append the result here.
+
+
+## Dark-square ghosting follow-up — 2026-10-03
+
+The user tested regional-clean branch `fix/piece-ghosting-regional-clean` at
+`00f31cb6714aef03bae67ef51cb3fe9a043c8ba2`. Piece traces were almost resolved,
+but faint residue remained on dark squares. Native UI residue was also visible
+on dark squares immediately after startup. These observations do not constitute
+a complete 30-move acceptance run.
+
+A follow-up build on that branch (local changes to display submission, tests and
+refresh documentation) clears clean grayscale regions to white and waits for
+each erase before drawing the final batch. Startup/recovery clear the viewport;
+ordinary moves retain regional coverage and partial selection remains unchanged.
+The policy is described in `docs/PIECE_GHOSTING_FIX.md`.
+
+Commands completed:
+
+```sh
+scripts/build-kindle.sh
+scripts/stage-kindle.sh
+scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222
+```
+
+Formatting, clippy, all workspace tests/snapshots, asset verification and all
+Python/C/lifecycle/package contracts passed. Nine host presentation tests cover
+submission ordering, startup, regional grayscale clearing and failure handling.
+The validated release targets ARMv7 hard-float and glibc 2.35 with pinned FBInk
+`92e127008145b2a22fba7c59815d810d716310dd`.
+
+Device read-only inspection reconfirmed ARMv7 and firmware 5.19.6. No app or
+supervisor lock was present before updating. The installed binary SHA-256 matches
+the build: `59ebe68f0696de84fe1f21d27e38fb559a3faa72f77750e4e029200ca5837aac`.
+Source receipt SHA-256: `29c8c3e0a842188d013a764847493cac3dbc2d8b33c7bf8016841dc6fce00d5e`.
+The device's `/lib/ld-linux-armhf.so.3 --list` resolved all dependencies.
+
+All four uploaded puzzle files and progress retained their before-deployment
+SHA-256 values. Progress remained
+`64baa78f53812f2a8b222bbe7faa700e35d5617888070fa7848ff9fcaf908014`.
+No lifecycle/service/rotation/power changes or reboot were performed.
+
+**Pending:** user visual checks of native residue at startup, light/dark origin
+squares after moves, and acceptance of the additional local flashes/latency.
+The app was left stopped for normal library launch. Host tests, transfer and
+loader checks do not establish elimination of the physical ghosting.
+
+
+## White-pass rejection and REAGLD experiment — 2026-10-03
+
+The user rejected the preceding white-pass build: native UI ghosts were worse,
+including on light squares, and piece ghosts persisted. White appeared briefly,
+then the ghost returned with the final redraw. The pending visual acceptance
+in the previous record is therefore **FAIL**. Production white clearing and
+its tests were removed; a new regression confirms a single final-pixel payload
+for regional and startup grayscale updates.
+
+Before stopping that build, captured `/dev/fb0` (1872-byte rows, 2480 rows) while
+the user had the app open. The inspected image shows the correct chess frame.
+80x80 interiors at (760,500), (770,260) and (100,2350) contain only 238, 184 and
+255 respectively. No native UI shapes are stored in those samples. Capture:
+ignored `probe-output/ghosting-follow-up/before.raw` and `before.png`. This
+supports a physical/controller-history issue, not saved native UI shapes in
+the app frame; it does not identify the exact driver cause.
+
+Supervisor PID 29628 was verified by its lock and `/proc` command line before
+TERM. It released child/input and resumed Xorg 3233 then awesome 3509 with the
+documented native repaint. No new lifecycle commands or state changes were
+introduced.
+
+Replacement: flashing REAGLD for Full/Clean requests, mapped by pinned FBInk to
+MTK GLD16/FULL; unsupported errors fall back to flashing AUTO. Partial updates
+stay AUTO. No white intermediate frame or new screen-wide move refresh exists.
+The C mapping/fallback test failed before implementation, then passed; the
+no-white-pass regression failed against the rejected build, then passed after
+reversion. Full formatting/clippy/workspace/snapshot/asset/C/lifecycle/package
+checks and the pinned ARMv7/glibc 2.35 release build passed.
+
+Build/stage/deploy used the same documented scripts and `root@192.168.1.20:2222`.
+Installed binary SHA-256:
+`69aa4b0aafa65dc2571ff4f67164d9b99ff20bcf5af73d04be533b06e8ca6065`.
+Source receipt SHA-256:
+`b7b429ea2926055e4cbbbbcbdc599558a2e7a5e72652f459eb022d5f904a3a17`.
+Base remains `00f31cb`, with local follow-up changes. All four puzzle hashes and
+progress hash from the previous record remained unchanged after deployment
+and the startup probe.
+
+A 12-second supervised startup via `/usr/bin/timeout -s TERM -k 3 12 sh
+/mnt/us/kindle-chess/runtime/launch.sh` rendered the correct frame and completed
+the initial REAGLD submission without unsupported-mode fallback or errors.
+Log: first usable frame 1044ms, one region, submit 23ms, completion 934ms.
+Capture: ignored `probe-output/ghosting-follow-up/reagld.raw` and `reagld.png`.
+On timeout the supervisor forwarded TERM, resumed Xorg then awesome, requested
+native repaint, and removed app/lock ownership (exit 143). Native process status
+inspection confirmed both were sleeping/running rather than stopped.
+
+**Pending:** visual startup/piece-ghosting acceptance and localized flash/latency
+checks. The startup probe verifies submission and recovery, not physical panel
+cleanliness. App left stopped for normal library launch; no reboot/suspend test.
+
+
+## White-screen root cause and baseline restoration — 2026-10-03
+
+The user reported a completely white physical screen on two further launches
+of the REAGLD build. While the second reported-white instance was active,
+captured `/dev/fb0` again: `probe-output/ghosting-follow-up/white-screen.raw`
+(ignored). It matches the earlier complete chess startup capture byte-for-byte,
+SHA-256 `fc119182f301fa8377456b43c3add2884478886878964bc296a16ffed85c3fee`.
+There are 2,872,651 non-white visible bytes. Logs show successful submission/
+completion, so the failure is neither an empty renderer output nor an app crash.
+
+Read-only kernel diagnostics established the specific cause:
+
+```text
+[HWTCON ERR]waveform mode[5] not loaded night_mode[0] @wf_lut_get_waveform_mode_slot,608
+```
+
+Three errors correspond to the REAGLD launches (kernel timestamps 148437.684387,
+148624.639298 and 148727.149787). Pinned FBInk maps REAGLD to MTK GLD16/mode 5.
+That day-mode waveform is not loaded on the target firmware. The asynchronous
+kernel error is not returned as an ioctl failure, so the errno-based fallback
+never runs. Successful submission and framebuffer screenshots were insufficient
+physical validation of this experimental mode. Kernel evidence is saved under
+ignored `probe-output/ghosting-follow-up/missing-waveform.log`.
+
+Verified supervisor 30876 by its command line and terminated it normally before
+updating. Removed REAGLD and reinstated the branch's original C waveform mapping;
+white clearing remains removed. The original C mapping contract failed against
+REAGLD before reversion and passed after it. The final-pixel/no-white-pass
+regression and all build checks passed.
+
+Rebuilt, staged and deployed with the documented scripts. Installed binary
+SHA-256 `45994cabb7407d867f3b330e2dce7f06591c09f11d1ba7505c08221bff67ab63`
+is identical to the first `00f31cb` regional-clean branch deployment.
+The test/documentation-inclusive source receipt is
+`4805099deb310ac40723fcf057baf9c67af1d03c35c350458d478934cdaa7579`.
+
+A 12-second supervised baseline startup completed its single full request
+(submit 25ms, completion 391ms). Kernel diagnostics retained exactly the three
+old missing-mode errors, with no new one. Captured the complete startup frame
+under ignored `probe-output/ghosting-follow-up/restored.raw`. Timeout cleanup
+forwarded TERM, restored Xorg/awesome to sleeping rather than stopped states,
+requested native repaint and removed app ownership. The app is left stopped.
+All four uploaded puzzle hashes and progress hash remained unchanged.
+
+The white-screen regression's cause is established and the prior exact binary
+is restored. User visual confirmation of the restored board is pending;
+residual dark-square ghosting remains unresolved. No reboot, suspend, new power
+policy or framebuffer mode change was performed.
+
+
+### User acceptance of restored regional cleaning — 2026-10-03
+
+After restoring the original regional-clean binary, the user confirmed it is
+still better than the pre-fix behavior and requested merging/pushing the fix to
+main. This accepts the restored board behavior with the remaining dark-square
+ghosting; it does not claim complete ghost elimination or a new 30-move,
+reboot, or suspend checkpoint. The rejected white-pass and REAGLD experiments
+are absent from the final production change.

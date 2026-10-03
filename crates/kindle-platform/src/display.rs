@@ -1,6 +1,9 @@
 //! Safe FBInk-backed display adapter for the measured Kindle Scribe target.
 
-use crate::{classify_region, pack_region, RefreshPolicy};
+use crate::{
+    classify_region, pack_region, plan_present_regions, PresentRegion, RefreshPolicy,
+    RefreshStrength,
+};
 use chess_render::{Gray8, Rect};
 use fbink_sys::{FbInk, FbInkError, FbInkState};
 use std::fmt;
@@ -176,16 +179,27 @@ pub fn submit_regions<P: RegionPresenter>(
     backend: &mut P,
     frame: &Gray8,
     previous: Option<&Gray8>,
-    regions: &[Rect],
+    regions: &[PresentRegion],
     policy: &RefreshPolicy,
     full: bool,
 ) -> Result<PresentTiming, FbInkError> {
-    validate_damage(frame, regions)?;
+    for region in regions {
+        validate_damage(frame, std::slice::from_ref(&region.rect))?;
+    }
     let start = Instant::now();
-    for rect in regions {
-        let pixels = pack_region(frame, *rect)?;
-        let mode = policy.mode(classify_region(previous, frame, *rect), full);
-        backend.submit(*rect, &pixels, mode)?;
+    for region in regions {
+        let pixels = pack_region(frame, region.rect)?;
+        let mode = if full {
+            fbink_sys::RefreshMode::Full
+        } else {
+            match region.strength {
+                RefreshStrength::Partial => {
+                    policy.mode(classify_region(previous, frame, region.rect), false)
+                }
+                RefreshStrength::Clean => fbink_sys::RefreshMode::Clean,
+            }
+        };
+        backend.submit(region.rect, &pixels, mode)?;
     }
     let submit = start.elapsed();
     if !regions.is_empty() {
@@ -198,7 +212,6 @@ pub fn submit_regions<P: RegionPresenter>(
         full,
     })
 }
-
 pub struct KindleDisplay {
     fbink: FbInk,
     state: DisplayState,
@@ -232,6 +245,7 @@ impl KindleDisplay {
             frame,
             None,
             &[Rect::new(0, 0, frame.width(), frame.height())],
+            &[],
             &mut RefreshPolicy::default(),
             true,
         )?;
@@ -245,17 +259,24 @@ impl KindleDisplay {
         frame: &Gray8,
         previous: Option<&Gray8>,
         regions: &[Rect],
+        clean_regions: &[Rect],
         policy: &mut RefreshPolicy,
         force_full: bool,
     ) -> Result<PresentTiming, DisplayError> {
         self.reinitialize()?;
         validate_presentable_frame(&self.state, frame)?;
         validate_damage(frame, regions)?;
-        let full = force_full || previous.is_none() || (!regions.is_empty() && policy.full_due());
-        let full_regions = [Rect::new(0, 0, frame.width(), frame.height())];
-        let regions = if full { &full_regions[..] } else { regions };
-        let timing = submit_regions(&mut self.fbink, frame, previous, regions, policy, full)?;
-        if !regions.is_empty() {
+        validate_damage(frame, clean_regions)?;
+        let has_work = !regions.is_empty() || !clean_regions.is_empty();
+        let full = force_full || previous.is_none() || (has_work && policy.full_due());
+        let viewport = Rect::new(0, 0, frame.width(), frame.height());
+        let planned = if full {
+            vec![PresentRegion::clean(viewport)]
+        } else {
+            plan_present_regions(regions, clean_regions, viewport)
+        };
+        let timing = submit_regions(&mut self.fbink, frame, previous, &planned, policy, full)?;
+        if !planned.is_empty() {
             policy.completed(full);
         }
         Ok(timing)
