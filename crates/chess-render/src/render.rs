@@ -14,7 +14,7 @@ const DARK_SQUARE: u8 = 184;
 const SOFT_GRAY: u8 = 224;
 const DISABLED_INK: u8 = 128;
 const BOARD_FRAME_GRAY: u8 = 160;
-const DESCRIPTION_EXTRA_LINE_SPACING: u32 = 3;
+const DESCRIPTION_EXTRA_LINE_SPACING: u32 = 6;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderOutput {
