@@ -32,6 +32,18 @@ The SVG files are preserved as source assets. `scripts/generate_sashite.py` dete
 
 `scripts/check.sh` runs `python3 scripts/generate_sashite.py --check` so CI fails if the generated Rust output no longer matches the checked-in SVG sources. Additional asset notes live in `assets/sashite-western/README.md`.
 
+## Fonts
+
+The renderer embeds Atkinson Hyperlegible Regular and Bold for all application text:
+
+- upstream project: `https://github.com/googlefonts/atkinson-hyperlegible`;
+- pinned upstream commit: `1cb311624b2ddf88e9e37873999d165a8cd28b46`;
+- local files: `assets/fonts/AtkinsonHyperlegible-Regular.ttf` and `assets/fonts/AtkinsonHyperlegible-Bold.ttf`;
+- copyright: Braille Institute of America, Inc.;
+- license: SIL Open Font License 1.1, preserved at `assets/fonts/OFL.txt`.
+
+The font bytes are compiled into `chess-render`, so host snapshots and Kindle rendering do not depend on system-installed fonts. Runtime rasterization uses the pure-Rust `fontdue` crate.
+
 ## FBInk
 
 Task 04 vendors FBInk as a Git submodule from `https://github.com/NiLuJe/FBInk` at exact revision:

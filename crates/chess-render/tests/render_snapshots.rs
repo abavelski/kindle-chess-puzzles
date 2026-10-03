@@ -99,7 +99,7 @@ fn exit_button_uses_vector_close_icon() {
 }
 
 #[test]
-fn header_controls_share_compact_height_and_title_uses_button_scale() {
+fn header_controls_share_compact_height_and_title_is_visible() {
     let mut app = state(PUZZLES);
     play(&mut app, "d7e8");
     app.set_collection_entries(vec![CollectionEntry::valid("puzzles.json", "Puzzles")]);
@@ -149,35 +149,17 @@ fn header_controls_share_compact_height_and_title_uses_button_scale() {
     assert_eq!(frame.pixel(close.x, close_mid_y), Some(0));
 
     let padding = layout.header.height / 8;
-    let button_scale = (SCRIBE.dpi / 100).clamp(2, 5);
-    let old_header_scale = (SCRIBE.dpi / 75).clamp(2, 6);
-    let old_title_y = layout
-        .header
-        .y
-        .saturating_add(layout.header.height.saturating_sub(7 * old_header_scale) / 2);
-    let old_only_x = layout
-        .refresh
-        .right()
-        .saturating_add(padding)
-        .saturating_add(2 * old_header_scale)
-        .saturating_add(2);
-    assert_eq!(
-        frame.pixel(old_only_x, old_title_y + 1),
-        Some(255),
-        "title should no longer use the larger header-only font scale"
-    );
-
-    let title_y = layout
-        .header
-        .y
-        .saturating_add(layout.header.height.saturating_sub(7 * button_scale) / 2);
-    let title_x = layout
-        .refresh
-        .right()
-        .saturating_add(padding)
-        .saturating_add(2 * button_scale)
-        .saturating_add(1);
-    assert_eq!(frame.pixel(title_x, title_y + 1), Some(0));
+    let title_start = layout.refresh.right().saturating_add(padding);
+    let title_end = layout
+        .collection_button
+        .x
+        .saturating_sub(layout.minimum_touch_px().saturating_mul(2))
+        .saturating_sub(padding);
+    let title_ink = (layout.header.y + 6..layout.header.bottom().saturating_sub(6))
+        .flat_map(|y| (title_start..title_end).map(move |x| (x, y)))
+        .filter(|&(x, y)| matches!(frame.pixel(x, y), Some(tone) if tone < 160))
+        .count();
+    assert!(title_ink > 20, "expected rendered title text in the header");
 }
 
 #[test]
@@ -205,14 +187,26 @@ fn status_panel_is_rounded_and_shows_one_large_primary_content() {
     described.dispatch(Action::ToggleDescription);
     let described = render(&described, SCRIBE).expect("render succeeds");
     assert_eq!(described.frame.pixel(x, y), Some(255));
-    assert_eq!(described.frame.pixel(x + 9, y + 15), Some(0));
+    assert!(
+        (y..status.bottom().saturating_sub(padding)).any(|py| {
+            (x..status.right().saturating_sub(padding))
+                .any(|px| matches!(described.frame.pixel(px, py), Some(tone) if tone < 160))
+        }),
+        "description should render visible text inside the status panel"
+    );
 
     let mut free_described = state(dot);
     free_described.dispatch(Action::ToggleMode);
     free_described.dispatch(Action::ToggleDescription);
     let free_described = render(&free_described, SCRIBE).expect("render succeeds");
     assert_eq!(free_described.frame.pixel(x, y), Some(255));
-    assert_eq!(free_described.frame.pixel(x + 9, y + 15), Some(0));
+    assert!(
+        (y..status.bottom().saturating_sub(padding)).any(|py| {
+            (x..status.right().saturating_sub(padding))
+                .any(|px| matches!(free_described.frame.pixel(px, py), Some(tone) if tone < 160))
+        }),
+        "description text should remain visible in Free Board mode"
+    );
 }
 
 #[test]
