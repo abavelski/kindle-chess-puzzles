@@ -41,6 +41,14 @@ rather than treating an incomplete submission as a successfully presented frame.
 
 ## Refresh policy and current measurements
 
+Both 2026-10-03 follow-up experiments were rejected: the white pass worsened
+ghosting, and flashing REAGLD left the physical panel white despite a correct
+framebuffer and successful submission/completion. The kernel reported waveform
+mode 5 not loaded in day mode; errno-based fallback cannot catch that asynchronous
+failure. Production is restored to the original regional-clean flashing AUTO
+path, without a white intermediate frame. The user accepted this improvement
+for merge; residual dark-square ghosting remains unresolved. See [the investigation](PIECE_GHOSTING_FIX.md).
+
 The pinned FBInk revision remains `92e127008145b2a22fba7c59815d810d716310dd`.
 Its `refresh_kindle_mtk` implementation maps flashing AUTO to GC16/FULL and
 non-flashing requests to PARTIAL. That is source evidence, not a new physical
@@ -49,7 +57,8 @@ measurement.
 | Content/request | Current default | Available after measurement |
 | --- | --- | --- |
 | First frame or explicit recovery | flashing AUTO, whole frame | Same |
-| Changed rectangles | non-flashing AUTO | GC16 for grayscale; DU for verified black/white regions |
+| Occupancy-changed board regions | flashing AUTO, regional coverage | Residual dark-square ghosts remain |
+| Other changed rectangles | non-flashing AUTO | GC16 for grayscale; DU for verified black/white regions |
 | Unchanged frame | no update | Same |
 | Periodic cleaning | disabled | `RefreshPolicy.full_every` after observing accumulation |
 

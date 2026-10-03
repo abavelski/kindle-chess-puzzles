@@ -1,5 +1,44 @@
 # Fix plan: faint piece ghosts after moves
 
+## Dark-square follow-up — 2026-10-03
+
+The regional-clean build at `00f31cb` almost resolved piece traces, but the user
+reported faint dark-square residue and native UI traces at startup. The next
+white-prepass experiment (`59ebe68f…` binary) made native ghosting worse,
+including on light squares, while piece traces remained. The user observed a
+brief white region followed by the ghost returning on redraw. That experiment
+is rejected and its production white pass has been reverted.
+
+A live framebuffer capture from the rejected build shows the correct chess
+frame. Sampled empty light/dark interiors are uniformly 238/184; the white
+status interior is uniformly 255. There are no native shapes in these sampled
+stored pixels. This supports a panel/controller-history explanation rather
+than the app retaining an image of the native UI. It does not identify the
+exact controller cause or prove that every pixel is correct.
+
+The REAGLD experiment (`69aa4b0a…` binary) changed clean startup/regional
+requests to flashing REAGLD (GLD16 on the pinned MTK path), a ghost-compensation
+mode documented by the pinned FBInk API. The driver accepted the request and
+reported completion, but the user observed a completely white physical screen
+on repeated launches. A framebuffer captured during that white-screen report
+matches the earlier correct startup frame byte-for-byte (SHA-256
+`fc119182f301fa8377456b43c3add2884478886878964bc296a16ffed85c3fee`).
+This is a presentation regression, not a blank rendered frame, app crash or
+native framebuffer overwrite. Unsupported-mode fallback did not run because
+submission succeeded. The kernel log identifies the cause: `[HWTCON ERR]waveform mode[5] not
+loaded night_mode[0] @wf_lut_get_waveform_mode_slot,608`. REAGLD maps to mode 5,
+whose day-mode waveform is not loaded on this device. Its asynchronous driver
+error is not reflected in the successful FBInk submission/completion results.
+
+REAGLD is rejected and reverted. Current production returns to the original
+`00f31cb` branch behavior: flashing AUTO (GC16 on MTK) for startup and regional
+clean requests, partial AUTO for ordinary selection/UI updates, and no white
+intermediate pass. Tests cover exact final-pixel payloads and baseline waveform
+mapping. The residual dark-square ghosting from that original build remains
+unresolved; framebuffer captures and successful ioctls cannot establish physical
+panel cleanliness. A future waveform experiment must include user visual
+confirmation before being treated as a working display mode.
+
 ## Problem
 
 After a piece moves, a very light image of that piece can remain visible on its

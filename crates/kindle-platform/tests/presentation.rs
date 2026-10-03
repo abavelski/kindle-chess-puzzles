@@ -7,10 +7,12 @@ struct Mock {
     submissions: Vec<(Rect, RefreshMode)>,
     waits: usize,
     fail_submission: bool,
+    pixels: Vec<Vec<u8>>,
 }
 impl RegionPresenter for Mock {
-    fn submit(&mut self, rect: Rect, _: &[u8], mode: RefreshMode) -> Result<(), FbInkError> {
+    fn submit(&mut self, rect: Rect, pixels: &[u8], mode: RefreshMode) -> Result<(), FbInkError> {
         self.submissions.push((rect, mode));
+        self.pixels.push(pixels.to_vec());
         if self.fail_submission {
             Err(FbInkError::Call {
                 operation: "mock",
@@ -116,4 +118,31 @@ fn invalid_batches_and_failed_submissions_do_not_wait_for_a_missing_update() {
     .is_err());
     assert_eq!(backend.submissions.len(), 1);
     assert_eq!(backend.waits, 0);
+}
+
+#[test]
+fn grayscale_clean_and_startup_submit_final_pixels_without_a_white_pass() {
+    for full in [false, true] {
+        let frame = Gray8::new(20, 20, 184);
+        let rect = if full {
+            Rect::new(0, 0, 20, 20)
+        } else {
+            Rect::new(16, 16, 4, 4)
+        };
+        let mut backend = Mock::default();
+        submit_regions(
+            &mut backend,
+            &frame,
+            None,
+            &[PresentRegion::clean(rect)],
+            &RefreshPolicy::default(),
+            full,
+        )
+        .unwrap();
+        assert_eq!(
+            backend.pixels,
+            [vec![184; (rect.width * rect.height) as usize]]
+        );
+        assert_eq!(backend.waits, 1);
+    }
 }
