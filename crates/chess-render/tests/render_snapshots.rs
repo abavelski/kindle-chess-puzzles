@@ -78,6 +78,41 @@ fn exit_button_uses_vector_close_icon() {
 }
 
 #[test]
+fn status_panel_is_rounded_and_shows_one_large_primary_content() {
+    let normal = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
+    let status = normal.layout.status;
+    let padding = (status.height / 12).max(8);
+    let x = status.x + padding;
+    let y = status.y + padding;
+
+    assert_eq!(normal.frame.pixel(status.x, status.y), Some(255));
+    assert_eq!(normal.frame.pixel(x + 2, y + 2), Some(0));
+
+    let dot = br#"{
+      "version":1,
+      "puzzles":[{
+        "id":"dot-description",
+        "fen":"7k/8/5KQ1/8/8/8/8/8 w - - 0 1",
+        "description":".",
+        "solution":["g6g7"]
+      }]
+    }"#;
+
+    let mut described = state(dot);
+    described.dispatch(Action::ToggleDescription);
+    let described = render(&described, SCRIBE).expect("render succeeds");
+    assert_eq!(described.frame.pixel(x, y), Some(255));
+    assert_eq!(described.frame.pixel(x + 9, y + 15), Some(0));
+
+    let mut free_described = state(dot);
+    free_described.dispatch(Action::ToggleMode);
+    free_described.dispatch(Action::ToggleDescription);
+    let free_described = render(&free_described, SCRIBE).expect("render succeeds");
+    assert_eq!(free_described.frame.pixel(x, y), Some(255));
+    assert_eq!(free_described.frame.pixel(x + 9, y + 15), Some(0));
+}
+
+#[test]
 fn parity_visual_states_match_reviewed_gray8_snapshots() {
     let mut actual = Vec::new();
 
@@ -174,22 +209,22 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("progress-warning", hash(&warning)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("white", 8_480_709_965_362_615_435),
-        ("black", 12_435_143_167_199_295_136),
-        ("selected", 14_112_709_328_684_773_503),
-        ("correct", 18_236_461_450_152_139_384),
-        ("wrong", 12_746_886_978_761_450_514),
-        ("complete", 594_585_259_787_527_362),
-        ("solved", 2_787_654_616_485_692_792),
-        ("free-board", 10_605_972_884_102_564_563),
-        ("orientation-lock", 18_423_626_122_802_553_879),
-        ("description", 10_687_910_333_876_019_354),
-        ("promotion", 1_649_090_469_881_244_046),
-        ("long-description", 4_608_995_654_602_089_138),
-        ("number-difficulty", 728_026_951_423_123_294),
-        ("collection-picker", 14_040_193_045_028_543_005),
-        ("collection-picker-error", 803_435_463_181_467_387),
-        ("progress-warning", 8_118_340_995_489_908_721),
+        ("white", 7_274_171_515_316_098_271),
+        ("black", 2_496_654_440_136_849_652),
+        ("selected", 14_975_178_667_347_546_835),
+        ("correct", 14_676_836_437_722_267_764),
+        ("wrong", 11_856_911_323_491_202_662),
+        ("complete", 10_055_778_487_675_368_986),
+        ("solved", 17_697_010_553_974_026_700),
+        ("free-board", 16_768_535_156_003_743_231),
+        ("orientation-lock", 40_746_267_019_051_627),
+        ("description", 1_594_050_334_548_296_178),
+        ("promotion", 7_588_247_853_360_506_850),
+        ("long-description", 11_640_727_412_420_928_314),
+        ("number-difficulty", 17_367_738_702_102_009_266),
+        ("collection-picker", 3_590_538_943_657_530_993),
+        ("collection-picker-error", 12_616_666_703_780_566_351),
+        ("progress-warning", 2_158_999_894_808_494_873),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);

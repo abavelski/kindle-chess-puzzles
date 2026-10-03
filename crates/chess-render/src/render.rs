@@ -28,14 +28,13 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     let mut frame = Gray8::new(metrics.width, metrics.height, WHITE);
     let header_scale = (metrics.dpi / 75).clamp(2, 6);
     let text_scale = (metrics.dpi / 100).clamp(2, 5);
-    let small_scale = (metrics.dpi / 125).clamp(2, 4);
     let coordinate_scale = (metrics.dpi / 100).clamp(2, 4);
 
     draw_header(&mut frame, state, layout, header_scale, text_scale);
     draw_board(&mut frame, state, layout, coordinate_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
-    draw_status(&mut frame, state, layout, small_scale, text_scale);
+    draw_status(&mut frame, state, layout, text_scale);
 
     match state.feedback() {
         SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
@@ -209,84 +208,50 @@ fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u
     );
 }
 
-fn draw_status(
-    frame: &mut Gray8,
-    state: &AppState,
-    layout: Layout,
-    status_scale: u32,
-    body_scale: u32,
-) {
-    frame.stroke_rect(layout.status, 3, INK);
-    let padding = (layout.status.height / 12).max(8);
-    let line_height = 8 * status_scale;
-    let status_line = match state.mode() {
-        BoardMode::FreeBoard => "FREE BOARD".to_owned(),
-        BoardMode::Solution => {
-            let side = match state.active_puzzle().side_to_move() {
-                Color::White => "WHITE TO MOVE",
-                Color::Black => "BLACK TO MOVE",
-            };
-            if state.feedback() == SolutionFeedback::Correct {
-                format!("{side} - CORRECT")
-            } else {
-                side.to_owned()
-            }
-        }
-    };
-    draw_text(
-        frame,
-        layout.status.x.saturating_add(padding),
-        layout.status.y.saturating_add(padding),
-        &status_line,
-        status_scale,
-        INK,
-    );
+fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    draw_button_chrome(frame, layout.status, WHITE, INK, false);
 
-    let body_y = layout
-        .status
-        .y
-        .saturating_add(padding)
-        .saturating_add(line_height);
-    let body = Rect::new(
-        layout.status.x.saturating_add(padding),
-        body_y,
-        layout
-            .status
-            .width
-            .saturating_sub(padding.saturating_mul(2)),
-        layout
-            .status
-            .bottom()
-            .saturating_sub(body_y)
-            .saturating_sub(padding),
-    );
+    let padding = (layout.status.height / 12).max(8);
+    let mut content = layout.status.inset(padding);
+
+    if state.feedback() == SolutionFeedback::Correct {
+        content.width = content.width.saturating_sub(layout.minimum_touch_px());
+    }
 
     if let Some(message) = state.transient_message() {
-        frame.fill_rect(body, SOFT_GRAY);
-        frame.stroke_rect(body, 2, INK);
-        draw_wrapped_text(
+        frame.fill_rounded_rect(content, 8, SOFT_GRAY);
+        frame.stroke_rect(content, 2, INK);
+        draw_wrapped_text(frame, content.inset(8), &format!("! {message}"), scale, INK);
+    } else if let Some(description) = state
+        .description_visible()
+        .then(|| state.active_puzzle().description.as_deref())
+        .flatten()
+        .filter(|text| !text.trim().is_empty())
+    {
+        draw_wrapped_text_with_line_spacing(
             frame,
-            body.inset(8),
-            &format!("! {message}"),
-            body_scale,
+            content,
+            description,
+            scale,
             INK,
+            DESCRIPTION_EXTRA_LINE_SPACING,
         );
-    } else if state.description_visible() {
-        if let Some(description) = state
-            .active_puzzle()
-            .description
-            .as_deref()
-            .filter(|text| !text.trim().is_empty())
-        {
-            draw_wrapped_text_with_line_spacing(
-                frame,
-                body,
-                description,
-                body_scale,
-                INK,
-                DESCRIPTION_EXTRA_LINE_SPACING,
-            );
-        }
+    } else {
+        let status_line = match state.mode() {
+            BoardMode::FreeBoard => "FREE BOARD".to_owned(),
+            BoardMode::Solution => {
+                let side = match state.active_puzzle().side_to_move() {
+                    Color::White => "WHITE TO MOVE",
+                    Color::Black => "BLACK TO MOVE",
+                };
+                if state.feedback() == SolutionFeedback::Correct {
+                    format!("{side} - CORRECT")
+                } else {
+                    side.to_owned()
+                }
+            }
+        };
+        draw_text(frame, content.x, content.y, &status_line, scale, INK);
     }
 
     if state.feedback() == SolutionFeedback::Correct {
@@ -297,7 +262,7 @@ fn draw_status(
                 .saturating_sub(layout.minimum_touch_px()),
             layout.status.y,
             layout.minimum_touch_px(),
-            line_height.saturating_add(padding.saturating_mul(2)),
+            layout.minimum_touch_px(),
         );
         draw_check(frame, mark.inset(mark.width / 5), 5, INK);
     }
