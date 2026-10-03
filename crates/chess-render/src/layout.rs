@@ -37,6 +37,7 @@ pub enum HitTarget {
     ToggleOrientationLock,
     Reset,
     Flip,
+    Refresh,
     Exit,
     Previous,
     Next,
@@ -50,24 +51,25 @@ pub enum HitTarget {
 }
 
 impl HitTarget {
-    pub fn into_action(self) -> Action {
+    pub fn into_action(self) -> Option<Action> {
         match self {
-            Self::Square(square) => Action::TapSquare(square),
-            Self::ToggleMode => Action::ToggleMode,
-            Self::ToggleDescription => Action::ToggleDescription,
-            Self::ToggleOrientationLock => Action::ToggleOrientationLock,
-            Self::Reset => Action::Reset,
-            Self::Flip => Action::Flip,
-            Self::Exit => Action::Exit,
-            Self::Previous => Action::PreviousPuzzle,
-            Self::Next => Action::NextPuzzle,
-            Self::Promotion(choice) => Action::ChoosePromotion(choice),
-            Self::CancelPromotion => Action::CancelPromotion,
-            Self::OpenCollections => Action::OpenCollectionPicker,
-            Self::Collection(index) => Action::SelectCollection(index),
-            Self::CollectionPreviousPage => Action::CollectionPickerPreviousPage,
-            Self::CollectionNextPage => Action::CollectionPickerNextPage,
-            Self::CloseCollections => Action::CloseCollectionPicker,
+            Self::Square(square) => Some(Action::TapSquare(square)),
+            Self::ToggleMode => Some(Action::ToggleMode),
+            Self::ToggleDescription => Some(Action::ToggleDescription),
+            Self::ToggleOrientationLock => Some(Action::ToggleOrientationLock),
+            Self::Reset => Some(Action::Reset),
+            Self::Flip => Some(Action::Flip),
+            Self::Refresh => None,
+            Self::Exit => Some(Action::Exit),
+            Self::Previous => Some(Action::PreviousPuzzle),
+            Self::Next => Some(Action::NextPuzzle),
+            Self::Promotion(choice) => Some(Action::ChoosePromotion(choice)),
+            Self::CancelPromotion => Some(Action::CancelPromotion),
+            Self::OpenCollections => Some(Action::OpenCollectionPicker),
+            Self::Collection(index) => Some(Action::SelectCollection(index)),
+            Self::CollectionPreviousPage => Some(Action::CollectionPickerPreviousPage),
+            Self::CollectionNextPage => Some(Action::CollectionPickerNextPage),
+            Self::CloseCollections => Some(Action::CloseCollectionPicker),
         }
     }
 }
@@ -83,6 +85,7 @@ pub struct Layout {
     pub metrics: DisplayMetrics,
     pub viewport: Rect,
     pub header: Rect,
+    pub refresh: Rect,
     pub collection_button: Rect,
     pub board_outer: Rect,
     pub board: Rect,
@@ -162,6 +165,7 @@ impl Layout {
             board_size.saturating_add(coordinate_gutter.saturating_mul(2)),
         );
         let header = Rect::new(0, 0, metrics.width, header_height);
+        let refresh = Rect::new(header.x, header.y, minimum_touch_px, header.height);
         let collection_button_width = minimum_touch_px
             .saturating_mul(2)
             .min(header.width.saturating_div(3).max(minimum_touch_px));
@@ -339,6 +343,7 @@ impl Layout {
             metrics,
             viewport: Rect::new(0, 0, metrics.width, metrics.height),
             header,
+            refresh,
             collection_button,
             board_outer,
             board,
@@ -363,6 +368,7 @@ impl Layout {
         };
         if !layout.viewport.contains_rect(layout.board_outer)
             || !layout.viewport.contains_rect(layout.header)
+            || !layout.viewport.contains_rect(layout.refresh)
             || !layout.viewport.contains_rect(layout.collection_button)
             || !layout.viewport.contains_rect(layout.toolbar)
             || !layout.viewport.contains_rect(layout.exit)
@@ -412,6 +418,9 @@ impl Layout {
     }
 
     pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
+        if self.refresh.contains(x, y) {
+            return Some(HitTarget::Refresh);
+        }
         if self.exit.contains(x, y) {
             return Some(HitTarget::Exit);
         }
@@ -455,6 +464,9 @@ impl Layout {
             return None;
         }
 
+        if self.refresh.contains(x, y) {
+            return Some(HitTarget::Refresh);
+        }
         if self.exit.contains(x, y) {
             return Some(HitTarget::Exit);
         }

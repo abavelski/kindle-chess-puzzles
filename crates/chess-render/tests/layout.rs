@@ -164,10 +164,12 @@ fn collection_picker_targets_are_touch_sized_and_block_the_board() {
 }
 
 #[test]
-fn exit_is_touch_sized_and_accessible_even_during_promotion_and_collection_modals() {
+fn header_edge_controls_are_touch_sized_and_accessible_during_modals() {
     let layout = Layout::new(SCRIBE).expect("Scribe layout");
-    assert!(layout.exit.width >= layout.minimum_touch_px());
-    assert!(layout.exit.height >= layout.minimum_touch_px());
+    for rect in [layout.refresh, layout.exit] {
+        assert!(rect.width >= layout.minimum_touch_px());
+        assert!(rect.height >= layout.minimum_touch_px());
+    }
     for rect in [
         layout.board_outer,
         layout.previous,
@@ -176,9 +178,18 @@ fn exit_is_touch_sized_and_accessible_even_during_promotion_and_collection_modal
     ] {
         assert!(!layout.exit.intersects(rect));
     }
+    assert_eq!(layout.refresh.x, layout.header.x);
+    assert_eq!(layout.refresh.y, layout.header.y);
     assert_eq!(layout.exit.right(), layout.header.right());
     assert_eq!(layout.exit.y, layout.header.y);
+    assert!(!layout.refresh.intersects(layout.exit));
     assert!(!layout.exit.intersects(layout.collection_button));
+
+    let (refresh_x, refresh_y) = center(layout.refresh);
+    assert_eq!(
+        layout.hit_test(refresh_x, refresh_y, false, true),
+        Some(HitTarget::Refresh)
+    );
     let (x, y) = center(layout.exit);
     assert_eq!(layout.hit_test(x, y, false, true), Some(HitTarget::Exit));
     let mut app = AppState::new(
@@ -192,10 +203,19 @@ fn exit_is_touch_sized_and_accessible_even_during_promotion_and_collection_modal
         Progress::new(),
     );
     assert_eq!(layout.hit_test_app(x, y, &app), Some(HitTarget::Exit));
+    assert_eq!(
+        layout.hit_test_app(refresh_x, refresh_y, &app),
+        Some(HitTarget::Refresh)
+    );
     app.set_collection_entries(vec![CollectionEntry::valid("puzzles.json", "Puzzles")]);
     app.dispatch(Action::OpenCollectionPicker);
     assert_eq!(layout.hit_test_app(x, y, &app), Some(HitTarget::Exit));
-    assert_eq!(HitTarget::Exit.into_action(), Action::Exit);
+    assert_eq!(
+        layout.hit_test_app(refresh_x, refresh_y, &app),
+        Some(HitTarget::Refresh)
+    );
+    assert_eq!(HitTarget::Exit.into_action(), Some(Action::Exit));
+    assert_eq!(HitTarget::Refresh.into_action(), None);
 }
 
 #[test]

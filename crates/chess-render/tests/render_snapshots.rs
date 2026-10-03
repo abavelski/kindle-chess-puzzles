@@ -59,6 +59,36 @@ fn board_outer_frame_is_thin_gray() {
 }
 
 #[test]
+fn refresh_button_uses_vector_refresh_icon() {
+    let output = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
+    let frame = output.frame;
+    let refresh = output
+        .layout
+        .refresh
+        .inset(output.layout.header.height / 10);
+    let icon = refresh.inset(refresh.width.min(refresh.height) / 4);
+    let left = icon.x + icon.width / 5;
+    let right = icon.right().saturating_sub(1) - icon.width / 5;
+    let top = icon.y + icon.height / 4;
+    let bottom = icon.bottom().saturating_sub(1) - icon.height / 4;
+    let mid_x = icon.x + icon.width / 2;
+    let mid_y = icon.y + icon.height / 2;
+
+    for (x, y) in [
+        (mid_x, top),
+        (right, mid_y),
+        (mid_x, bottom),
+        (left, mid_y),
+    ] {
+        assert_eq!(
+            frame.pixel(x, y),
+            Some(0),
+            "refresh icon stroke at {x},{y}"
+        );
+    }
+}
+
+#[test]
 fn exit_button_uses_vector_close_icon() {
     let output = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
     let frame = output.frame;
@@ -87,6 +117,7 @@ fn header_controls_share_compact_height_and_title_uses_button_scale() {
     let frame = output.frame;
     let layout = output.layout;
     let inset = layout.header.height / 10;
+    let refresh = layout.refresh.inset(inset);
     let files = layout.collection_button.inset(inset);
     let close = layout.exit.inset(inset);
     let solved_width = layout
@@ -97,8 +128,18 @@ fn header_controls_share_compact_height_and_title_uses_button_scale() {
 
     assert_eq!(files.width, solved_width);
     assert_eq!(files.height, solved_height);
+    assert_eq!(refresh.height, solved_height);
     assert_eq!(close.height, solved_height);
+    assert_eq!(refresh.width, close.width);
     assert!(close.width < files.width);
+
+    let refresh_mid_y = refresh.y + refresh.height / 2;
+    assert_eq!(
+        frame.pixel(layout.refresh.x, refresh_mid_y),
+        Some(255),
+        "refresh visual should be inset from its full touch target"
+    );
+    assert_eq!(frame.pixel(refresh.x, refresh_mid_y), Some(0));
 
     let files_mid_y = files.y + files.height / 2;
     assert_eq!(
@@ -124,8 +165,8 @@ fn header_controls_share_compact_height_and_title_uses_button_scale() {
         .y
         .saturating_add(layout.header.height.saturating_sub(7 * old_header_scale) / 2);
     let old_only_x = layout
-        .header
-        .x
+        .refresh
+        .right()
         .saturating_add(padding)
         .saturating_add(2 * old_header_scale)
         .saturating_add(2);
@@ -140,8 +181,8 @@ fn header_controls_share_compact_height_and_title_uses_button_scale() {
         .y
         .saturating_add(layout.header.height.saturating_sub(7 * button_scale) / 2);
     let title_x = layout
-        .header
-        .x
+        .refresh
+        .right()
         .saturating_add(padding)
         .saturating_add(2 * button_scale)
         .saturating_add(1);

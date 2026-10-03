@@ -6,7 +6,7 @@
 use chess_core::{
     parse_puzzle_file, Action, ActiveCollection, AppState, Effect, Progress, PuzzleCollection,
 };
-use chess_render::{calculate_damage, compact_damage, render, DisplayMetrics};
+use chess_render::{calculate_damage, compact_damage, render, DisplayMetrics, HitTarget};
 use kindle_platform::{
     clean_regions_for_board_change, task04_scribe_transform, DiscoveredCollection, FingerInput,
     KindleDisplay, KindleStorage, ProgressStore, RefreshPolicy, StoragePaths, TapPolicy,
@@ -125,6 +125,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut policy = RefreshPolicy::default();
     let mut touch_received: Option<Instant> = None;
     let mut clean_regions = Vec::new();
+    let mut force_full_next = false;
     loop {
         let mut output = render(&app, metrics)?;
         output.damage = compact_damage(
@@ -137,8 +138,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             &output.damage,
             &clean_regions,
             &mut policy,
-            force_full,
+            force_full || force_full_next,
         )?;
+        force_full_next = false;
         if previous.is_none() {
             eprintln!(
                 "kindle-chess: timing first_usable_frame={}ms",
@@ -161,9 +163,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         touch_received = Some(Instant::now());
         if let Some(target) = output.layout.hit_test_app(x, y, &app) {
             eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
+            if target == HitTarget::Refresh {
+                force_full_next = true;
+                eprintln!("kindle-chess: full-screen refresh requested");
+                continue;
+            }
             let board_before = app.board().clone();
             let flipped_before = app.flipped();
-            let effects = app.dispatch(target.into_action());
+            let effects = app.dispatch(
+                target
+                    .into_action()
+                    .expect("non-refresh hit targets map to app actions"),
+            );
             if apply_effects(
                 &mut app,
                 &storage,

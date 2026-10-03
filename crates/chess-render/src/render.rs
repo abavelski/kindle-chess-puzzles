@@ -74,7 +74,7 @@ fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scal
     let padding = layout.header.height / 8;
     draw_text(
         frame,
-        layout.header.x.saturating_add(padding),
+        layout.refresh.right().saturating_add(padding),
         layout
             .header
             .y
@@ -112,6 +112,7 @@ fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scal
             control_scale,
         );
     }
+    draw_refresh_button(frame, header_control_visual_rect(layout, layout.refresh));
     draw_close_button(frame, header_control_visual_rect(layout, layout.exit));
 }
 
@@ -418,6 +419,103 @@ fn draw_navigation_button(frame: &mut Gray8, rect: Rect, label: &str, enabled: b
         draw_button_chrome(frame, rect, SOFT_GRAY, DISABLED_INK, false);
         draw_text_centered(frame, rect.inset(6), label, scale, DISABLED_INK);
     }
+}
+
+fn draw_refresh_button(frame: &mut Gray8, rect: Rect) {
+    draw_button_chrome(frame, rect, WHITE, INK, false);
+    let size = rect.width.min(rect.height);
+    let icon = rect.inset(size / 4);
+    let thickness = (size / 18).clamp(4, 8);
+    draw_refresh_icon(frame, icon, thickness, INK);
+}
+
+fn draw_refresh_icon(frame: &mut Gray8, rect: Rect, thickness: u32, tone: u8) {
+    let left = rect.x.saturating_add(rect.width / 5);
+    let right = rect
+        .right()
+        .saturating_sub(1)
+        .saturating_sub(rect.width / 5);
+    let top = rect.y.saturating_add(rect.height / 4);
+    let bottom = rect
+        .bottom()
+        .saturating_sub(1)
+        .saturating_sub(rect.height / 4);
+    let mid_y = rect.y.saturating_add(rect.height / 2);
+    let arrow = (rect.width / 5).max(2);
+
+    draw_thick_line(
+        frame,
+        i32::try_from(left).unwrap_or(i32::MAX),
+        i32::try_from(top).unwrap_or(i32::MAX),
+        i32::try_from(right).unwrap_or(i32::MAX),
+        i32::try_from(top).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(right).unwrap_or(i32::MAX),
+        i32::try_from(top).unwrap_or(i32::MAX),
+        i32::try_from(right).unwrap_or(i32::MAX),
+        i32::try_from(mid_y).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(right).unwrap_or(i32::MAX),
+        i32::try_from(top).unwrap_or(i32::MAX),
+        i32::try_from(right.saturating_sub(arrow)).unwrap_or(i32::MAX),
+        i32::try_from(top.saturating_sub(arrow / 2)).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(right).unwrap_or(i32::MAX),
+        i32::try_from(top).unwrap_or(i32::MAX),
+        i32::try_from(right.saturating_sub(arrow)).unwrap_or(i32::MAX),
+        i32::try_from(top.saturating_add(arrow / 2)).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+
+    draw_thick_line(
+        frame,
+        i32::try_from(right).unwrap_or(i32::MAX),
+        i32::try_from(bottom).unwrap_or(i32::MAX),
+        i32::try_from(left).unwrap_or(i32::MAX),
+        i32::try_from(bottom).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(left).unwrap_or(i32::MAX),
+        i32::try_from(bottom).unwrap_or(i32::MAX),
+        i32::try_from(left).unwrap_or(i32::MAX),
+        i32::try_from(mid_y).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(left).unwrap_or(i32::MAX),
+        i32::try_from(bottom).unwrap_or(i32::MAX),
+        i32::try_from(left.saturating_add(arrow)).unwrap_or(i32::MAX),
+        i32::try_from(bottom.saturating_sub(arrow / 2)).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
+    draw_thick_line(
+        frame,
+        i32::try_from(left).unwrap_or(i32::MAX),
+        i32::try_from(bottom).unwrap_or(i32::MAX),
+        i32::try_from(left.saturating_add(arrow)).unwrap_or(i32::MAX),
+        i32::try_from(bottom.saturating_add(arrow / 2)).unwrap_or(i32::MAX),
+        thickness,
+        tone,
+    );
 }
 
 fn draw_close_button(frame: &mut Gray8, rect: Rect) {
