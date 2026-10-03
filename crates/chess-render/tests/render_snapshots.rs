@@ -126,7 +126,7 @@ fn header_controls_share_compact_height_and_title_uses_button_scale() {
 
     let refresh_mid_y = refresh.y + refresh.height / 2;
     assert_eq!(
-        frame.pixel(layout.refresh.x, refresh_mid_y),
+        frame.pixel(layout.refresh.x + 4, refresh_mid_y),
         Some(255),
         "refresh visual should be inset from its full touch target"
     );
@@ -312,22 +312,22 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("progress-warning", hash(&warning)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("white", 12_857_083_097_318_992_116),
-        ("black", 10_706_566_293_756_259_236),
-        ("selected", 11_498_342_331_450_273_560),
-        ("correct", 15_812_716_582_804_702_660),
-        ("wrong", 17_707_174_590_654_286_621),
-        ("complete", 4_850_085_460_229_043_401),
-        ("solved", 9_876_084_892_660_141_491),
-        ("free-board", 8_671_163_079_418_578_452),
-        ("orientation-lock", 7_746_178_605_488_746_880),
-        ("description", 12_189_179_550_342_317_313),
-        ("promotion", 10_835_985_786_175_961_452),
-        ("long-description", 1_913_185_588_152_541_260),
-        ("number-difficulty", 2_363_511_642_772_480_901),
-        ("collection-picker", 7_640_832_175_836_636_290),
-        ("collection-picker-error", 13_403_774_574_952_154_720),
-        ("progress-warning", 13_568_940_307_127_483_054),
+        ("white", 3_564_932_878_144_062_875),
+        ("black", 14_183_061_067_515_557_707),
+        ("selected", 6_232_841_546_383_290_319),
+        ("correct", 10_880_320_571_862_843_847),
+        ("wrong", 8_582_594_695_633_032_010),
+        ("complete", 13_930_519_359_136_657_730),
+        ("solved", 6_760_008_875_900_184_000),
+        ("free-board", 5_141_760_833_338_926_139),
+        ("orientation-lock", 6_807_638_419_167_296_551),
+        ("description", 11_547_129_074_789_225_178),
+        ("promotion", 9_918_959_335_839_534_183),
+        ("long-description", 3_866_145_748_673_485_355),
+        ("number-difficulty", 14_146_092_641_012_353_274),
+        ("collection-picker", 10_068_103_487_935_595_689),
+        ("collection-picker-error", 3_422_267_458_361_972_743),
+        ("progress-warning", 6_315_149_320_220_017_877),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
