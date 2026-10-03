@@ -35,7 +35,6 @@ fn gray_blit_uses_source_stride_and_canvas_clipping() {
     assert_eq!(canvas.pixel(2, 1), Some(30));
 }
 
-
 #[test]
 fn rounded_rectangle_leaves_corners_clear_and_fills_edges_and_center() {
     let mut canvas = Gray8::new(12, 8, 255);

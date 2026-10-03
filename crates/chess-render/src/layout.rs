@@ -119,8 +119,7 @@ impl Layout {
         let header_height = px_for_mm(metrics.dpi, 10).max(48);
         let minimum_touch_px = px_for_mm(metrics.dpi, MIN_TOUCH_MM);
         let compact_control_height = minimum_touch_px.saturating_sub(gap);
-        let control_visual_inset =
-            minimum_touch_px.saturating_sub(compact_control_height) / 2;
+        let control_visual_inset = minimum_touch_px.saturating_sub(compact_control_height) / 2;
         let status_min = px_for_mm(metrics.dpi, 14).max(64);
 
         let horizontal_reserved = margin
@@ -391,9 +390,7 @@ impl Layout {
             touch_rect.x,
             touch_rect.y.saturating_add(inset),
             touch_rect.width,
-            touch_rect
-                .height
-                .saturating_sub(inset.saturating_mul(2)),
+            touch_rect.height.saturating_sub(inset.saturating_mul(2)),
         )
     }
 

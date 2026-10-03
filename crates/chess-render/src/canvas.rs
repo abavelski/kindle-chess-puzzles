@@ -133,9 +133,7 @@ impl Gray8 {
             let mut inset = 0;
             while inset < radius {
                 let dx = radius.saturating_sub(inset);
-                if u64::from(dx) * u64::from(dx) + u64::from(dy) * u64::from(dy)
-                    <= radius_squared
-                {
+                if u64::from(dx) * u64::from(dx) + u64::from(dy) * u64::from(dy) <= radius_squared {
                     break;
                 }
                 inset += 1;

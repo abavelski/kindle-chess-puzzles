@@ -446,13 +446,7 @@ fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale
     draw_text_centered(frame, rect.inset(6), label, scale, foreground);
 }
 
-fn draw_button_chrome(
-    frame: &mut Gray8,
-    rect: Rect,
-    background: u8,
-    border: u8,
-    selected: bool,
-) {
+fn draw_button_chrome(frame: &mut Gray8, rect: Rect, background: u8, border: u8, selected: bool) {
     let radius = (rect.height / 6).clamp(6, 18);
     frame.fill_rounded_rect(rect, radius, border);
 

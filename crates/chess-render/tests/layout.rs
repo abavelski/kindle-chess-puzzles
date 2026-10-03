@@ -197,7 +197,6 @@ fn exit_is_touch_sized_and_accessible_even_during_promotion_and_collection_modal
     assert_eq!(HitTarget::Exit.into_action(), Action::Exit);
 }
 
-
 #[test]
 fn scribe_header_compact_controls_and_status_prioritize_description_space() {
     let layout = Layout::new(SCRIBE).expect("Scribe metrics fit");
