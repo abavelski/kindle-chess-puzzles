@@ -39,10 +39,23 @@ pub(crate) fn draw_text_centered(canvas: &mut Gray8, rect: Rect, text: &str, sca
 }
 
 pub(crate) fn draw_wrapped_text(canvas: &mut Gray8, rect: Rect, text: &str, scale: u32, tone: u8) {
+    draw_wrapped_text_with_line_spacing(canvas, rect, text, scale, tone, 0);
+}
+
+pub(crate) fn draw_wrapped_text_with_line_spacing(
+    canvas: &mut Gray8,
+    rect: Rect,
+    text: &str,
+    scale: u32,
+    tone: u8,
+    extra_line_spacing: u32,
+) {
     let scale = scale.max(1);
     let char_width = GLYPH_ADVANCE.saturating_mul(scale);
     let max_chars = (rect.width / char_width).max(1) as usize;
-    let line_height = LINE_ADVANCE.saturating_mul(scale);
+    let line_height = LINE_ADVANCE
+        .saturating_mul(scale)
+        .saturating_add(extra_line_spacing);
     let max_lines = (rect.height / line_height).max(1) as usize;
     let lines = wrap_lines(text, max_chars, max_lines);
     for (index, line) in lines.iter().enumerate() {
