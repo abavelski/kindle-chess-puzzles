@@ -70,6 +70,8 @@ Task 05 is **Implemented**, with HUMAN CHECKPOINT C passed on the physical Scrib
 
 Task 06 is **Implemented**, with **HUMAN CHECKPOINT D** passed on the physical Scribe on 2026-10-02. Collection switching, remembered puzzle IDs and solved markers after restart, computer-copy discovery, invalid-file preservation, and normal recovery were verified. M2 is complete. The Kindle loop now discovers multiple version-1 collections, provides a paged FILES picker, preserves invalid source files, and stores app-owned progress separately with protected corrupt/future records and atomic dirty-retry writes. Defaults are `/mnt/us/kindle-chess/puzzles` for collections and `/mnt/us/kindle-chess/state/progress.json` for progress, with environment overrides for tests and alternate deployments.
 
+Task 07 is **Implemented with the natural suspend/resume checkpoint deferred by the user** on 2026-10-03. Host-tested pixel damage, batched rectangle presentation, provisional refresh policy, timings, and a supervised overlay launcher are implemented. Exclusive finger input and native exit repaint passed promotion and crash-recovery probes. The user confirmed that only the sleeping test remains; resume reliability is still unverified. See [e-ink/lifecycle notes](docs/EINK_LIFECYCLE.md).
+
 For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
 
 The initial target is the Kindle Scribe first generation. Reuse for Kobo is an architectural constraint, not an active implementation target for the first milestone.

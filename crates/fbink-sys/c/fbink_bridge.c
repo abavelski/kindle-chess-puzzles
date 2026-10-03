@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "fbink.h"
 
@@ -68,12 +69,15 @@ kcp_fbink_get_state(KcpFbInkState* out)
 }
 
 int
-kcp_fbink_present_gray8(
+kcp_fbink_present_region(
     int fbfd,
     const uint8_t* data,
     uint32_t width,
     uint32_t height,
-    size_t len)
+    size_t len,
+    uint32_t left,
+    uint32_t top,
+    uint8_t mode)
 {
     if (data == NULL || width == 0U || height == 0U) {
         return -EINVAL;
@@ -81,21 +85,41 @@ kcp_fbink_present_gray8(
 
     FBInkConfig cfg = { 0 };
     cfg.ignore_alpha = true;
-    cfg.is_flashing = true;
+    cfg.is_flashing = mode == 0U;
+    switch (mode) {
+        case 0U: case 1U: cfg.wfm_mode = WFM_AUTO; break;
+        case 2U: cfg.wfm_mode = WFM_GC16; break;
+        case 3U: cfg.wfm_mode = WFM_DU; break;
+        default: return -EINVAL;
+    }
 
-    const int rv = fbink_print_raw_data(
+    errno = 0;
+    int rv = fbink_print_raw_data(
         fbfd,
         data,
         (int) width,
         (int) height,
         len,
-        0,
-        0,
+        (int) left,
+        (int) top,
         &cfg);
-    if (rv < 0) {
-        return rv;
+    const int submit_errno = errno;
+    // Retry unsupported explicit modes using the baseline AUTO waveform.
+    // Do not hide unrelated I/O or submission failures.
+    if ((mode == 2U || mode == 3U) &&
+        (rv == -EINVAL || rv == -ENOSYS || rv == -EOPNOTSUPP ||
+         (rv == -1 && (submit_errno == EINVAL || submit_errno == ENOSYS || submit_errno == EOPNOTSUPP)))) {
+        fprintf(stderr, "FBInk: mode %u unsupported; retrying AUTO\n", mode);
+        cfg.wfm_mode = WFM_AUTO;
+        rv = fbink_print_raw_data(fbfd, data, (int) width, (int) height,
+                                  len, (int) left, (int) top, &cfg);
     }
+    return rv < 0 ? rv : 0;
+}
 
+int
+kcp_fbink_wait(int fbfd)
+{
     const int wait_rv = fbink_wait_for_complete(fbfd, LAST_MARKER);
     return wait_rv < 0 ? wait_rv : 0;
 }

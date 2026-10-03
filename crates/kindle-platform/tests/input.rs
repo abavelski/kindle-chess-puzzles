@@ -230,3 +230,9 @@ fn normalized_touch_coordinates_feed_the_same_renderer_hit_targets() {
         );
     }
 }
+
+#[test]
+fn exclusive_input_failure_has_context_and_cannot_be_silently_shared() {
+    let error = kindle_platform::InputError::ExclusiveGrab(std::io::Error::from_raw_os_error(16));
+    assert!(error.to_string().starts_with("exclusive finger input: "));
+}

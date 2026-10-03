@@ -1,8 +1,10 @@
 //! Safe FBInk-backed display adapter for the measured Kindle Scribe target.
 
-use chess_render::Gray8;
+use crate::{classify_region, pack_region, RefreshPolicy};
+use chess_render::{Gray8, Rect};
 use fbink_sys::{FbInk, FbInkError, FbInkState};
 use std::fmt;
+use std::time::{Duration, Instant};
 
 pub const SCRIBE_DPI: u32 = 300;
 pub const SCRIBE_WIDTH: u32 = 1860;
@@ -121,6 +123,82 @@ pub fn validate_task04_scribe_state(state: DisplayState) -> Result<(), DisplayEr
     Ok(())
 }
 
+pub fn validate_damage(frame: &Gray8, regions: &[Rect]) -> Result<(), FbInkError> {
+    for rect in regions {
+        fbink_sys::validate_rect(
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            frame.width(),
+            frame.height(),
+        )?;
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PresentTiming {
+    pub submit: Duration,
+    pub complete: Duration,
+    pub regions: usize,
+    pub full: bool,
+}
+
+/// Host-testable submission boundary; the concrete adapter owns FBInk state.
+pub trait RegionPresenter {
+    fn submit(
+        &mut self,
+        rect: Rect,
+        pixels: &[u8],
+        mode: fbink_sys::RefreshMode,
+    ) -> Result<(), FbInkError>;
+    fn wait(&mut self) -> Result<(), FbInkError>;
+}
+
+impl RegionPresenter for FbInk {
+    fn submit(
+        &mut self,
+        rect: Rect,
+        pixels: &[u8],
+        mode: fbink_sys::RefreshMode,
+    ) -> Result<(), FbInkError> {
+        self.present_region(rect.x, rect.y, rect.width, rect.height, pixels, mode)
+    }
+    fn wait(&mut self) -> Result<(), FbInkError> {
+        self.wait_for_complete()
+    }
+}
+
+/// Submit a complete dirty batch before waiting on its last update marker.
+/// Pixel writes remain regional; the caller advances history only on success.
+pub fn submit_regions<P: RegionPresenter>(
+    backend: &mut P,
+    frame: &Gray8,
+    previous: Option<&Gray8>,
+    regions: &[Rect],
+    policy: &RefreshPolicy,
+    full: bool,
+) -> Result<PresentTiming, FbInkError> {
+    validate_damage(frame, regions)?;
+    let start = Instant::now();
+    for rect in regions {
+        let pixels = pack_region(frame, *rect)?;
+        let mode = policy.mode(classify_region(previous, frame, *rect), full);
+        backend.submit(*rect, &pixels, mode)?;
+    }
+    let submit = start.elapsed();
+    if !regions.is_empty() {
+        backend.wait()?;
+    }
+    Ok(PresentTiming {
+        submit,
+        complete: start.elapsed(),
+        regions: regions.len(),
+        full,
+    })
+}
+
 pub struct KindleDisplay {
     fbink: FbInk,
     state: DisplayState,
@@ -150,10 +228,36 @@ impl KindleDisplay {
     }
 
     pub fn present(&mut self, frame: &Gray8) -> Result<(), DisplayError> {
+        self.present_damage(
+            frame,
+            None,
+            &[Rect::new(0, 0, frame.width(), frame.height())],
+            &mut RefreshPolicy::default(),
+            true,
+        )?;
+        Ok(())
+    }
+
+    /// The caller commits its previous frame only after this returns success.
+    /// Validate the whole batch first; a later failure must never advance damage history.
+    pub fn present_damage(
+        &mut self,
+        frame: &Gray8,
+        previous: Option<&Gray8>,
+        regions: &[Rect],
+        policy: &mut RefreshPolicy,
+        force_full: bool,
+    ) -> Result<PresentTiming, DisplayError> {
         self.reinitialize()?;
         validate_presentable_frame(&self.state, frame)?;
-        self.fbink
-            .present_gray8(frame.width(), frame.height(), frame.pixels())?;
-        Ok(())
+        validate_damage(frame, regions)?;
+        let full = force_full || previous.is_none() || (!regions.is_empty() && policy.full_due());
+        let full_regions = [Rect::new(0, 0, frame.width(), frame.height())];
+        let regions = if full { &full_regions[..] } else { regions };
+        let timing = submit_regions(&mut self.fbink, frame, previous, regions, policy, full)?;
+        if !regions.is_empty() {
+            policy.completed(full);
+        }
+        Ok(timing)
     }
 }

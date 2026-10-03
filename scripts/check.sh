@@ -10,3 +10,6 @@ python3 -m py_compile tools/decode_evdev.py
 sh -n scripts/kindle_device_probe.sh
 sh -n scripts/kindle_fbink_smoke.sh
 sh -n scripts/kindle_capture_input.sh
+
+python3 -m unittest tests/test_lifecycle.py tests/test_fbink_bridge.py tests/test_input_bridge.py
+sh -n scripts/kindle_launch.sh

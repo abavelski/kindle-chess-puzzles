@@ -1,20 +1,18 @@
-//! Task 06 Kindle loop with collection discovery and durable progress.
-//!
-//! Filesystem paths live in kindle-platform and are configurable through
-//! KINDLE_CHESS_PUZZLE_DIR / KINDLE_CHESS_PROGRESS_FILE. Exit through the
-//! controlling shell with Ctrl-C/SIGTERM; lifecycle ownership remains Task 07.
+//! Kindle collection/progress loop with pixel-verified partial presentation.
+//! Launch through scripts/kindle_launch.sh for single-instance signal cleanup.
 
 #![forbid(unsafe_code)]
 
 use chess_core::{
     parse_puzzle_file, Action, ActiveCollection, AppState, Effect, Progress, PuzzleCollection,
 };
-use chess_render::{render, DisplayMetrics};
+use chess_render::{calculate_damage, compact_damage, render, DisplayMetrics};
 use kindle_platform::{
     task04_scribe_transform, DiscoveredCollection, FingerInput, KindleDisplay, KindleStorage,
-    ProgressStore, StoragePaths, TapPolicy, SCRIBE_DPI,
+    ProgressStore, RefreshPolicy, StoragePaths, TapPolicy, SCRIBE_DPI,
 };
 use std::collections::VecDeque;
+use std::time::Instant;
 
 const BUNDLED_PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/parity-puzzles.json");
 const BUNDLED_FALLBACK_KEY: &str = "bundled-examples.json";
@@ -29,6 +27,9 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let process_start = Instant::now();
+    eprintln!("kindle-chess: timing process_start=0ms");
+    let force_full = std::env::args().skip(1).any(|arg| arg == "--full-refresh");
     let storage = KindleStorage::new(StoragePaths::from_env());
     let discovered = storage.prepare_collections(BUNDLED_PUZZLES)?;
     let (mut progress_store, progress_load) =
@@ -66,6 +67,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut display = KindleDisplay::open()?;
+    eprintln!(
+        "kindle-chess: timing fbink_initialized={}ms",
+        process_start.elapsed().as_millis()
+    );
     let display_state = display.state();
     let metrics = DisplayMetrics {
         width: display_state.width,
@@ -74,6 +79,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
     let transform = task04_scribe_transform(metrics)?;
     let mut input = FingerInput::discover(transform, TapPolicy::scribe_default())?;
+    input.take_exclusive()?;
+    eprintln!("kindle-chess: exclusive finger input acquired before first frame");
 
     eprintln!(
         "kindle-chess: puzzles={} progress={} active={} persistent={}",
@@ -113,11 +120,41 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
     eprintln!("kindle-chess: tap FILES in the header to switch collections");
 
+    let mut previous = None;
+    let mut policy = RefreshPolicy::default();
+    let mut touch_received: Option<Instant> = None;
     loop {
-        let output = render(&app, metrics)?;
-        display.present(&output.frame)?;
+        let mut output = render(&app, metrics)?;
+        output.damage = compact_damage(
+            &calculate_damage(previous.as_ref(), &output.frame),
+            output.layout,
+        );
+        let timing = display.present_damage(
+            &output.frame,
+            previous.as_ref(),
+            &output.damage,
+            &mut policy,
+            force_full,
+        )?;
+        if previous.is_none() {
+            eprintln!(
+                "kindle-chess: timing first_usable_frame={}ms",
+                process_start.elapsed().as_millis()
+            );
+        }
+        if timing.regions > 0 {
+            let touch_to_submit = touch_received.map(|start| {
+                start
+                    .elapsed()
+                    .saturating_sub(timing.complete)
+                    .saturating_add(timing.submit)
+            });
+            eprintln!("kindle-chess: timing regions={} full={} submit={}ms complete={}ms recognized_touch_to_submit={:?}", timing.regions, timing.full, timing.submit.as_millis(), timing.complete.as_millis(), touch_to_submit);
+        }
+        previous = Some(output.frame);
 
         let (x, y) = input.next_tap()?;
+        touch_received = Some(Instant::now());
         if let Some(target) = output.layout.hit_test_app(x, y, &app) {
             eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
             let effects = app.dispatch(target.into_action());

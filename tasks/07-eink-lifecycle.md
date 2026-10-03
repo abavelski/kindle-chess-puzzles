@@ -1,7 +1,17 @@
 # Task 07 — Add damage tracking, e-ink refresh policy, and safe Kindle lifecycle
 
-**Status:** Ready  
+**Status:** Implemented — natural suspend/resume checkpoint deferred by user
+
 **Depends on:** Tasks 04-06
+
+**Completion record:** Damage tracking, batched regional presentation,
+provisional AUTO refresh policy, timings, exclusive finger input, and native
+exit repaint are implemented and host-tested. On 2026-10-03 the user confirmed
+that only the sleeping test remains and explicitly requested committing Task
+07 now, with that test deferred to a later session. The other checkpoint E
+items are accepted by that confirmation and the existing device records.
+Natural suspend/resume remains unverified; this status does not claim resume
+support. See [implementation notes](../docs/EINK_LIFECYCLE.md).
 
 ## Outcome
 

@@ -742,3 +742,318 @@ For manual launch from a computer, connect with `ssh -tt -p 2222 root@192.168.1.
 All app instances were stopped through Ctrl-C, with no app PIDs remaining. All three valid source collection hashes remained unchanged; progress is separate at `/mnt/us/kindle-chess/state/progress.json`. The added promotion collection remains available, and only the deliberately malformed test file was removed. No stock-service, input-grab, framebuffer-mode, rotation, or power-policy changes were made. Existing Task 04 stock-UI/refresh limitations remain unresolved by this storage task.
 
 Completion checks: `scripts/check.sh` passed formatting, clippy, workspace tests, asset regeneration, and Python/tooling checks. `scripts/check-kindle.sh` passed using the previously verified Zig/glibc-2.35 toolchain overrides. Logs and final progress are retained in ignored `probe-output/task06/`. Task 06 is **Implemented**; later task files remain untouched.
+
+
+---
+
+# Task 07 — read-only investigation and checkpoint preparation
+
+**Status:** In progress; HUMAN CHECKPOINT E has not run.
+
+On 2026-10-02, read-only SSH access at the previously recorded address/port
+succeeded with root/empty-password authentication. The device reported kernel
+4.9.77-lab126, ARMv7, and Kindle firmware 5.19.6. Inspected the actual Upstart
+configuration for `x`, `lab126_gui`, `framework`, `kppmainapp`, and `pillow`:
+
+- `x` runs lxinit and manages Xorg, awesome, and blanket; its stop path kills
+  these components.
+- `kppmainapp` uses respawn and KPPMainAppCrashRecovery on stop.
+- `pillow` uses respawn.
+- `lab126_gui` includes restart/reboot monitoring and additional recovery side
+  effects; it is not an established minimal handoff boundary.
+
+No service stop/suspension, input grab, framebuffer change, power change, or
+app launch was performed during this investigation. The safe foreground
+transition remains unverified. Host-tested implementation and the overlay
+supervisor's exact cleanup/manual recovery procedure are documented in
+[Task 07 notes](../EINK_LIFECYCLE.md).
+
+All nine physical checkpoint items, waveform/ghosting measurements, timing
+observations, and resume behavior remain **pending**, not passed. Task 07 must
+not be marked Implemented from the automated changes alone.
+
+Prepared local artifact: `probe-output/task07/kindle-chess`, SHA-256
+`70db0fe48077d2db06e75a254238d14f0ef49d82e2880dbe2e129850e4e39f49`.
+This is the uncommitted Task 07 working-tree build, not a deployed/tested device
+binary. The overlay supervisor is beside it as `kindle_launch.sh`. Both
+`scripts/check.sh` and `scripts/check-kindle.sh` passed; the cross-build used the
+previously verified Zig/glibc-2.35 wrappers. Logs are retained in the same ignored
+artifact directory. No physical checkpoint result is implied by these checks.
+
+
+## Task 07 device staging — 2026-10-02
+
+At the user's request to begin checkpoint testing, staged the host-tested binary
+and supervisor at `/mnt/us/kindle-chess-task07/`. Device SHA-256 matched the
+prepared artifact (`70db0fe48077d2db06e75a254238d14f0ef49d82e2880dbe2e129850e4e39f49`).
+The device loader resolved all dependencies. Reconfirmed firmware 5.19.6,
+ARMv7, visible 1860×2480 / virtual 1872×4960 / 8 bpp, no app process, and
+`powerd.state=active`. No stale supervisor lock was present.
+
+The installed `/mnt/us/koreader/koreader.sh` uses pillow disable/enable and
+awesome STOP/CONT for its overlay handoff. These are investigation references,
+not yet verified chess lifecycle transitions. The current awesome PID was
+3509, sleeping rather than stopped. Read-only winmgr probes returned
+`liglPause=0`; `eatTapMode` read failed with `lipcErrNoSuchProperty` despite
+appearing in the property listing. Do not rely on that property.
+
+No app launch or stock-service/property transition has occurred yet. The first
+observed overlay test awaits the user's disposable-notebook readiness.
+
+
+## HUMAN CHECKPOINT E: baseline partial updates and first exit
+
+Initial app PID 32489, supervisor PID 32483. User confirmed Reset, g6
+selection/deselection, NOTE reveal/hide, and FILES open/close all worked fine.
+This passes the first visual smoke checks; it does not establish 30-interaction
+ghosting acceptance, exclusive foreground ownership, or suspend/resume.
+
+First usable frame: 996 ms from process entry; FBInk initialization: 20 ms.
+Initial whole-frame submit/completion: 97/466 ms. Selection used four partial
+regions: recognized-tap-to-final-submit approximately 1.17–1.62 seconds,
+completion 828–1440 ms. NOTE changes used two regions: approximately 761 ms
+recognized-tap-to-final-submit, completion 448 ms. FILES open/close used one
+region: completion 312/599 ms. These include serialized region waits as
+specified in the timing documentation; selection latency warrants later
+measurement before changing batching.
+
+Exited through Ctrl-C in the controlling SSH PTY. Supervisor forwarded TERM
+to the child, logged exit 130, and removed its lock. `pidof kindle-chess`
+returned no PID; framebuffer remains visible 1860×2480, virtual 1872×4960,
+8 bpp. This is exit cycle 1 of the required five. Native finger/menu/pen/display
+recovery awaits user confirmation. No stock-service or input-grab changes were
+made in this run. Log: `/mnt/us/kindle-chess-task07/checkpoint-e-baseline.log`.
+
+
+Baseline exit recovery: **PASS** by user confirmation. Native menu/finger,
+pen stroke, and display worked normally after returning to the disposable
+notebook. The first observed partial-refresh launch/exit cycle is complete.
+
+
+SIGTERM case: launched one instance with app PID 358; first usable frame
+995 ms, initial submit/completion 97/466 ms. Confirmed the child PID against
+`pidof kindle-chess`, then sent TERM directly to the app process from the
+second SSH shell. The supervisor logged exit 143 and released the lock.
+No app PID remained. Framebuffer geometry/depth were unchanged and awesome
+PID 3509 remained running (Sl). Native recovery confirmation is pending for
+this specific abnormal-exit test. Log:
+`/mnt/us/kindle-chess-task07/checkpoint-e-sigterm.log`.
+
+
+### SIGTERM recovery finding: stale framebuffer contents
+
+User confirmed native interaction works, but chess pixels remained behind the
+native menu and partly visible after navigating Home. Rechecked: no app PID,
+no supervisor lock; awesome remained running. Thus process/lock cleanup passed,
+but **visual restoration failed**. Earlier native recovery confirmations must
+not be interpreted as evidence that the entire chess frame was erased.
+
+Verified X display from awesome's environment: `DISPLAY=:0.0`, socket X0.
+Executed `/usr/bin/xrefresh -display :0` on the device; exit status 0. The user's
+visual confirmation of its effectiveness is pending. BusyBox timeout usage
+was probed: `timeout [-s SIG] [-k KILL_SECS] SECS PROG ARGS` is supported.
+
+A host-tested, opt-in native repaint cleanup hook is being prepared. It runs
+only if this supervisor started its child, runs before releasing the lock,
+preserves the app's exit status, and bounds repaint to TERM after five seconds
+and KILL one second later. No service stop, framebuffer mode change, or input
+grab is involved. Do not enable the hook on-device before visual verification.
+
+
+Native repaint probe: **PASS** by user confirmation. After the explicit
+xrefresh request the screen was fully native, with no remaining chess pixels.
+The supervisor's repaint hook is now enabled by default (`xrefresh -display
+:0.0`, bounded by `/usr/bin/timeout -k 1 5`). Host tests first failed for the
+missing default repaint, then passed after enabling it. An explicitly empty
+`KINDLE_CHESS_XREFRESH` disables the hook for host tests. No stock services or
+framebuffer modes are changed. Retest automatic restoration on exit, SIGTERM,
+and app SIGKILL before treating cleanup as fully verified.
+
+
+Updated supervisor staged with matching host/device SHA-256:
+`87352b4bcb57a2de4d204a383224e3b57dab40e7531125a0a7c6fb9c17eec6b2`.
+The binary is unchanged. `scripts/check.sh` passed after the default-repaint
+change. Launched app PID 1069; first usable frame 993 ms, initial
+submit/completion 97/465 ms. Verified its PID against the supervisor's child
+record, then sent SIGKILL only to the app from the recovery SSH shell.
+Automatic native display restoration is now under observation. Log:
+`/mnt/us/kindle-chess-task07/checkpoint-e-sigkill-repaint.log`.
+
+
+SIGKILL with automatic repaint: **PASS** by user confirmation. Screen returned
+fully to native UI with no chess remnants and no Home/back action needed;
+native touch worked. Independently verified no app PID or lock remained,
+exit 137, native repaint requested without a logged error, and unchanged
+framebuffer geometry/depth. This completes the intentional app-kill checkpoint
+for the updated supervisor. Remaining exit types and other checklist items
+still need their own verification.
+
+
+Updated-supervisor SIGTERM retest: process cleanup and automatic repaint
+request completed with exit 143, no remaining app or lock. First usable frame
+996 ms, initial submit/completion 97/466 ms. User visual recovery confirmation
+for this retest is pending. Log: `checkpoint-e-sigterm-repaint.log` in the
+Task 07 device staging directory.
+
+Five consecutive normal launcher exit cycles were run with the updated
+supervisor. Each launched one app, displayed its initial frame, exited through
+Ctrl-C in the controlling SSH PTY, requested native repaint, and logged exit
+130. The operator checked no app PID or lock remained after every cycle.
+App PIDs: 1119, 1137, 1156, 1172, 1190. Initial submit times 96–98 ms,
+completion 465–466 ms. The device was left on the native screen for about
+12 seconds after each exit for user menu/display observations. Visual/native
+recovery confirmation for all five remains pending. Logs are
+`checkpoint-e-normal-1.log` through `checkpoint-e-normal-5.log` in
+`/mnt/us/kindle-chess-task07/`.
+
+
+Updated-supervisor SIGTERM retest and five repeated normal exits: **PASS** by
+user confirmation. All six exits returned to a clean native screen with
+working native touch. A clean disposable notebook is open for the extended
+interaction run. Existing host/process checks and unchanged framebuffer
+geometry/depth apply; no service or input-grab transitions have been introduced.
+
+The next app run logs to `checkpoint-e-interactions.log`. Power probes returned
+`screenSaverTimeout=600`, `preventScreenSaver=0`, and `state=active`. A passive
+`lipc-wait-event -m -t -s 1800 com.lab126.powerd '*'` listener records actual
+power events to `checkpoint-e-power-events.log`; it is finite (30 minutes),
+does not alter power policy, and its PID is recorded separately as
+`power-listener.pid` for cleanup. Extended ghosting/modal and natural
+idle/suspend/resume observations remain pending.
+
+
+Natural 10-minute idle/suspend/resume check: **DEFERRED at the user's request**.
+The user asked to perform it later. Stop the passive power-event listener;
+do not alter power settings or force suspend as a substitute for this check.
+The interaction/ghosting/modal run remains active and its results are still
+pending. Task 07 remains in progress; no resume behavior has been established.
+
+
+### Extended interaction run: responsiveness regression
+
+User reported very slow piece rendering and an unresponsive UI. Retrieved
+`checkpoint-e-interactions.log`: alternating Next/Previous submitted **38
+partial regions per action**, waiting after every submission. Submission to
+last-update completion took 10.36–10.55 seconds; recognized-tap-to-final-submit
+was approximately 10.53–10.71 seconds. Selection used 4 regions (~1.16 seconds
+to final submit), and a subsequent attempt used 6 (~2.14 seconds). This run
+**FAILS responsiveness acceptance** and does not pass the extended visual test.
+
+Stopped app PID 1300 through the supervisor; no app PID or lock remained, and
+automatic native repaint was requested. Natural idle/suspend remains deferred.
+
+Host regression tests now require one selection region, at most six navigation
+regions at measured Scribe geometry, and one completion wait after all batch
+submissions. Renderer compaction stays within board/header/toolbar/navigation/
+status groups; it does not replace regional updates with a whole-screen update.
+Pixel replay still reconstructs every visible transition. Failed/invalid batches
+are covered by mocked platform tests. The upcoming retest will also use an
+optimized Rust release build; the original artifact was a development build.
+Neither batching reliability nor improved physical latency is claimed verified
+until the new device run is observed.
+
+
+Batching fix prepared and staged: host/device SHA-256
+`39c7312e0bcc37c5b1bd940c0a607e2c55a4684d01bff9193a59afd5c0bf177e`.
+Local artifact `probe-output/task07/kindle-chess-batched-release`, optimized
+ARMv7/glibc-2.35 build. Dynamic loader resolved all dependencies before launch.
+`scripts/check.sh`, the standard cross-build, and the additional release
+cross-build passed. Supervisor is unchanged from the verified repaint version.
+The new run logs to `checkpoint-e-batched-release.log`; physical responsiveness
+and visual reliability are pending retest. All natural-idle work stays deferred.
+
+
+Batching/release responsiveness retest: **PASS** by user confirmation. App
+PID 1852; first usable frame 437 ms (FBInk initialization 10 ms). The log
+records seven navigation taps and four NOTE toggles so far (11 total).
+Navigation now submits **3 regions**, with submit 10–12 ms, completion 390 ms,
+and recognized-tap-to-final-submit 48–51 ms (approximately 0.43 seconds to final
+completion, versus roughly 10.7 seconds before). NOTE uses two regions,
+completion 214–226 ms, and recognized-tap-to-final-submit 33–35 ms. User reports
+responsive UI and clean piece redraws. The longer promotion/modal/ghosting
+sequence remains pending; the failed old-artifact run is not counted as passing
+this checkpoint. No stock-service, input-grab, power-policy, rotation, or
+bit-depth changes were introduced.
+
+
+### Verified input contention and revised Task 07 plan
+
+During the optimized promotion test, user reported tapping a8 also opened a
+native Kindle menu. The menu later disappeared, leaving a white area where
+the board was not repainted. The app log confirms the a8 action reached
+`Square(0)` and promotion/cancel updates were submitted; pixel damage history
+cannot account for an external writer. Thus responsiveness passed, but
+foreground touch/display isolation **FAILED**.
+
+Stopped app PID 1852; supervisor requested native repaint, no app/lock remains.
+Before further promotion testing, the plan is to test exclusive evdev ownership
+of the capability-selected finger device only, using EVIOCGRAB and a scoped
+owned descriptor. Acquisition errors must fail before presenting the first
+frame. Release is explicit on guard drop; process exit/kill closes its owned
+file descriptors. Power buttons and pen devices must not be grabbed. Keep
+recovery SSH available and use a finite first probe; verify native input after
+normal and killed exits before enabling this behavior by default.
+
+Kernel reference for the proposed grab semantics:
+https://docs.kernel.org/driver-api/input.html#c.input_grab_device . This is a
+reference, not evidence of successful behavior on the Scribe. No stock-service
+suspension or shutdown is proposed for this first isolation experiment.
+
+
+Exclusive-input probe staged (opt-in, not yet accepted): release SHA-256
+`3655eccb9a401d50ee804570bb57b7d3bbf8fe9bfd1887832ef1461d224b0f7c`.
+Host C ioctl contract covers acquisition/release and EBUSY propagation;
+platform error-context test, full host checks and Kindle debug/release builds
+pass. Command: supervisor launches `/usr/bin/timeout -k 1 120
+/mnt/us/kindle-chess-task07/kindle-chess --exclusive-input`, log
+`checkpoint-f-exclusive.log`, with second recovery SSH shell retained.
+Physical isolation and native recovery results remain pending user observation.
+
+
+2026-10-03: User was away for the first exclusive-input probe; its physical
+results are unobserved and are not counted as a pass. On reconnect, no app or
+lock remained, powerd reported active, and the binary hash matched the staged
+exclusive-input release. Restarted the same 120-second probe with recovery SSH
+retained; log `checkpoint-f-exclusive-repeat.log`. User observations pending.
+
+2026-10-03 exclusive-input repeat: **PASS** by user confirmation: repeated
+promotion/cancel works, no native menu or white patch, native touch/display
+works after automatic timeout exit. Log confirms a8 and CancelPromotion taps,
+followed by native repaint and supervisor exit 143. Reconnect confirms no app
+PID or lock remains. Hard-kill input-release verification is next.
+
+Exclusive-input hard-kill probe: verified app PID 7886 matched the owned
+child PID before SIGKILL. Log `checkpoint-f-exclusive-kill.log` records native
+repaint and exit 137; no app PID or lock remains. Native finger/pen and display
+recovery await user confirmation before making exclusive input the default.
+
+2026-10-03 exclusive-input hard-kill recovery: **PASS** by user confirmation.
+Native screen, finger touch and pen work after SIGKILL and automatic repaint.
+Exclusive finger ownership is now required on ordinary launches, before the
+first frame; acquisition failure aborts startup. The natural suspend checkpoint
+remains deferred and is not inferred from these exit tests.
+
+Default-exclusive release built and deployed: SHA-256
+`e2a49bbc7169b4ee8b3d23069d5074b7b63bab3ae983189dd54391c2934a2e41`.
+Full host checks (fmt, clippy, workspace tests, snapshots, Python contracts),
+Kindle debug cross-build and optimized release build pass.
+
+Default-launch smoke: no exclusive-input flag supplied; log
+`checkpoint-f-default-smoke.log` confirms the grab before first frame, followed
+by timeout, native repaint and exit 143. No app PID or lock remains. The device
+is left in its native UI.
+
+
+## Task 07 completion with deferred sleep checkpoint — 2026-10-03
+
+The user confirmed that **only the sleeping test remains** and instructed
+committing/pushing Task 07 now, with that test left for a later session. This
+accepts the remaining non-sleep checkpoint E observations, including extended
+interaction/ghosting and repeated modal checks. Existing records above retain
+the measured exit/recovery, exclusive-input and responsiveness evidence.
+
+Task 07 is marked Implemented with this explicit user-authorized deferral.
+Natural suspend/resume, screensaver repaint invalidation and evdev descriptor
+survival remain unverified. No new power transition is performed or implied by
+this completion record. The release binary remains
+`e2a49bbc7169b4ee8b3d23069d5074b7b63bab3ae983189dd54391c2934a2e41`.

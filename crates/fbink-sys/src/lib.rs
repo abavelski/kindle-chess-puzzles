@@ -4,6 +4,8 @@
 //! All unsafe FFI calls are contained in this crate.
 
 use std::fmt;
+mod input;
+pub use input::ExclusiveInput;
 
 pub const PINNED_FBINK_REVISION: &str = env!("KCP_FBINK_REVISION");
 
@@ -20,7 +22,7 @@ impl fmt::Display for ValidationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
             Self::EmptyFrame => "frame dimensions must be non-zero",
-            Self::DimensionTooLarge => "frame dimensions exceed FBInk's signed integer API",
+            Self::DimensionTooLarge => "dimensions or offsets exceed FBInk's signed integer API",
             Self::BufferLength => "Gray8 buffer length does not match width times height",
             Self::EmptyRect => "rectangle dimensions must be non-zero",
             Self::RectOutOfBounds => "rectangle lies outside the framebuffer",
@@ -48,6 +50,14 @@ pub fn validate_frame(width: u32, height: u32, len: usize) -> Result<(), Validat
         .ok_or(ValidationError::BufferLength)?;
     if expected != len {
         return Err(ValidationError::BufferLength);
+    }
+    Ok(())
+}
+
+/// Raw-data destination offsets use signed short integers in the pinned API.
+pub fn validate_offset(left: u32, top: u32) -> Result<(), ValidationError> {
+    if left > i16::MAX as u32 || top > i16::MAX as u32 {
+        return Err(ValidationError::DimensionTooLarge);
     }
     Ok(())
 }
@@ -111,6 +121,16 @@ impl From<ValidationError> for FbInkError {
     fn from(value: ValidationError) -> Self {
         Self::Validation(value)
     }
+}
+
+/// Values are project-owned; the C bridge maps to pinned FBInk enums.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum RefreshMode {
+    Full = 0,
+    AutoPartial = 1,
+    GrayPartial = 2,
+    FastMono = 3,
 }
 
 #[derive(Debug)]
@@ -180,16 +200,53 @@ impl FbInk {
         height: u32,
         pixels: &[u8],
     ) -> Result<(), FbInkError> {
-        validate_frame(width, height, pixels.len())?;
+        self.present_region(0, 0, width, height, pixels, RefreshMode::Full)?;
+        self.wait_for_complete()
+    }
 
+    pub fn present_region(
+        &mut self,
+        left: u32,
+        top: u32,
+        width: u32,
+        height: u32,
+        pixels: &[u8],
+        mode: RefreshMode,
+    ) -> Result<(), FbInkError> {
+        validate_frame(width, height, pixels.len())?;
+        validate_offset(left, top)?;
+        let state = self.state()?;
+        validate_rect(left, top, width, height, state.width, state.height)?;
         #[cfg(all(target_os = "linux", target_arch = "arm"))]
         {
             let code = unsafe {
-                ffi::kcp_fbink_present_gray8(self.fd, pixels.as_ptr(), width, height, pixels.len())
+                ffi::kcp_fbink_present_region(
+                    self.fd,
+                    pixels.as_ptr(),
+                    width,
+                    height,
+                    pixels.len(),
+                    left,
+                    top,
+                    mode as u8,
+                )
             };
-            call_result("fbink_print_raw_data/full refresh", code)
+            call_result("fbink_print_raw_data/region", code)
         }
+        #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
+        {
+            let _ = mode;
+            Err(FbInkError::UnsupportedPlatform)
+        }
+    }
 
+    pub fn wait_for_complete(&mut self) -> Result<(), FbInkError> {
+        #[cfg(all(target_os = "linux", target_arch = "arm"))]
+        {
+            call_result("fbink_wait_for_complete", unsafe {
+                ffi::kcp_fbink_wait(self.fd)
+            })
+        }
         #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
         {
             Err(FbInkError::UnsupportedPlatform)
@@ -258,13 +315,17 @@ mod ffi {
         pub fn kcp_fbink_open() -> c_int;
         pub fn kcp_fbink_reinit(fbfd: c_int) -> c_int;
         pub fn kcp_fbink_get_state(out: *mut RawState) -> c_int;
-        pub fn kcp_fbink_present_gray8(
+        pub fn kcp_fbink_present_region(
             fbfd: c_int,
             data: *const u8,
             width: u32,
             height: u32,
             len: usize,
+            left: u32,
+            top: u32,
+            mode: u8,
         ) -> c_int;
+        pub fn kcp_fbink_wait(fbfd: c_int) -> c_int;
         pub fn kcp_fbink_close(fbfd: c_int) -> c_int;
         pub fn kcp_fbink_version() -> *const c_char;
     }

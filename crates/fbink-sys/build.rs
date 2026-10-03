@@ -4,6 +4,7 @@ const PINNED_FBINK_REVISION: &str = "92e127008145b2a22fba7c59815d810d716310dd";
 
 fn main() {
     println!("cargo:rerun-if-changed=c/fbink_bridge.c");
+    println!("cargo:rerun-if-changed=c/input_bridge.c");
     println!("cargo:rerun-if-changed=../../vendor/FBInk");
     println!("cargo:rustc-env=KCP_FBINK_REVISION={PINNED_FBINK_REVISION}");
 
@@ -65,12 +66,25 @@ fn main() {
         "compile FBInk bridge",
     );
 
+    let input_obj = out.join("input_bridge.o");
+    run(
+        Command::new(&cc)
+            .arg("-O2")
+            .arg("-std=gnu11")
+            .arg("-c")
+            .arg(manifest.join("c/input_bridge.c"))
+            .arg("-o")
+            .arg(&input_obj),
+        "compile input ioctl bridge",
+    );
+
     let bridge_lib = out.join("libkcp_fbink_bridge.a");
     run(
         Command::new(&ar)
             .arg("crs")
             .arg(&bridge_lib)
-            .arg(&bridge_obj),
+            .arg(&bridge_obj)
+            .arg(&input_obj),
         "archive FBInk bridge",
     );
 

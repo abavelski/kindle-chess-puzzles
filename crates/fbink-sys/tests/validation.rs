@@ -32,3 +32,11 @@ fn dimensions_must_fit_the_fbink_signed_integer_api() {
         Err(ValidationError::DimensionTooLarge)
     );
 }
+
+#[test]
+fn region_offsets_fit_fbinks_signed_short_coordinates() {
+    use fbink_sys::validate_offset;
+    assert!(validate_offset(32767, 32767).is_ok());
+    assert!(validate_offset(32768, 0).is_err());
+    assert!(validate_offset(0, u32::MAX).is_err());
+}

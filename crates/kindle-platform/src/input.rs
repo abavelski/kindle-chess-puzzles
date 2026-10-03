@@ -450,6 +450,7 @@ impl TapRecognizer {
 #[derive(Debug)]
 pub enum InputError {
     Io(io::Error),
+    ExclusiveGrab(io::Error),
     NoFingerTouchscreen,
     AmbiguousFingerTouchscreen(Vec<String>),
 }
@@ -458,6 +459,7 @@ impl fmt::Display for InputError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(error) => write!(formatter, "input I/O: {error}"),
+            Self::ExclusiveGrab(error) => write!(formatter, "exclusive finger input: {error}"),
             Self::NoFingerTouchscreen => {
                 formatter.write_str("no unique finger touchscreen matched name/capabilities")
             }
@@ -480,6 +482,7 @@ impl From<io::Error> for InputError {
 
 pub struct FingerInput {
     file: File,
+    exclusive: Option<fbink_sys::ExclusiveInput>,
     decoder: MtDecoder,
     transform: TouchTransform,
     taps: TapRecognizer,
@@ -512,12 +515,25 @@ impl FingerInput {
         let file = File::open(dev_root.join(&selected.event_name))?;
         Ok(Self {
             file,
+            exclusive: None,
             decoder: MtDecoder::default(),
             transform,
             taps: TapRecognizer::new(policy),
             selected,
             diagnostics,
         })
+    }
+
+    /// Own only the discovered finger stream until this input object is dropped.
+    /// Acquisition failure is fatal to callers; never fall back to shared input.
+    pub fn take_exclusive(&mut self) -> Result<(), InputError> {
+        if self.exclusive.is_none() {
+            let handle = self.file.try_clone().map_err(InputError::ExclusiveGrab)?;
+            self.exclusive = Some(
+                fbink_sys::ExclusiveInput::acquire(handle).map_err(InputError::ExclusiveGrab)?,
+            );
+        }
+        Ok(())
     }
 
     pub fn selected(&self) -> &InputCandidate {
