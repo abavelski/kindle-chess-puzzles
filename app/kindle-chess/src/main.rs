@@ -158,13 +158,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(target) = output.layout.hit_test_app(x, y, &app) {
             eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
             let effects = app.dispatch(target.into_action());
-            apply_effects(
+            if apply_effects(
                 &mut app,
                 &storage,
                 &mut progress_store,
                 persistence_enabled,
                 effects,
-            );
+            ) {
+                eprintln!("kindle-chess: Exit requested; releasing display and input");
+                return Ok(());
+            }
         } else {
             eprintln!("kindle-chess: tap ({x},{y}) -> no target");
             retry_dirty_progress(&mut app, &mut progress_store, persistence_enabled);
@@ -229,11 +232,13 @@ fn apply_effects(
     progress_store: &mut ProgressStore,
     persistence_enabled: bool,
     effects: Vec<Effect>,
-) {
+) -> bool {
     let mut queue = VecDeque::from(effects);
+    let mut exit_requested = false;
 
     while let Some(effect) = queue.pop_front() {
         match effect {
+            Effect::ExitRequested => exit_requested = true,
             Effect::ProgressChanged => {
                 if persistence_enabled {
                     progress_store.mark_dirty();
@@ -256,6 +261,7 @@ fn apply_effects(
     }
 
     retry_dirty_progress(app, progress_store, persistence_enabled);
+    exit_requested
 }
 
 fn retry_dirty_progress(
@@ -291,5 +297,36 @@ fn append_message(message: &mut Option<String>, addition: String) {
             existing.push_str(&addition);
         }
         None => *message = Some(addition),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exit_flushes_dirty_progress_and_requests_normal_return() {
+        let root = std::env::temp_dir().join(format!("kcp-exit-{}", std::process::id()));
+        let storage = KindleStorage::new(StoragePaths::new(
+            root.join("puzzles"),
+            root.join("state/progress.json"),
+        ));
+        let (mut store, _) = ProgressStore::open(storage.paths().progress_file.clone());
+        let mut app = AppState::new(
+            ActiveCollection::from_collection(
+                "puzzles.json",
+                parse_puzzle_file(BUNDLED_PUZZLES).unwrap(),
+            ),
+            Progress::new(),
+        );
+        store.mark_dirty();
+        let effects = app.dispatch(Action::Exit);
+        assert!(apply_effects(&mut app, &storage, &mut store, true, effects));
+        assert!(!store.dirty());
+        assert_eq!(
+            Progress::parse(&std::fs::read(store.path()).unwrap()).unwrap(),
+            *app.progress()
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

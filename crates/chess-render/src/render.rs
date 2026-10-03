@@ -92,7 +92,7 @@ fn draw_header(
     if state.is_current_solved() {
         let badge_width = layout.minimum_touch_px().saturating_mul(2);
         let right = if state.collection_entries().is_empty() {
-            layout.header.right()
+            layout.exit.x
         } else {
             layout.collection_button.x
         };
@@ -110,6 +110,7 @@ fn draw_header(
     if !state.collection_entries().is_empty() {
         draw_button(frame, layout.collection_button, "FILES", false, small_scale);
     }
+    draw_button(frame, layout.exit, "X", false, header_scale * 2);
 }
 
 fn draw_board(frame: &mut Gray8, state: &AppState, layout: Layout, coordinate_scale: u32) {

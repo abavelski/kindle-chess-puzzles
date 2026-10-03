@@ -109,6 +109,7 @@ impl PendingPromotion {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Action {
+    Exit,
     TapSquare(usize),
     ChoosePromotion(PromotionChoice),
     CancelPromotion,
@@ -130,6 +131,7 @@ pub enum Action {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Effect {
+    ExitRequested,
     ProgressChanged,
     CollectionRequested(String),
 }
@@ -297,7 +299,8 @@ impl AppState {
         if self.collection_picker_open
             && !matches!(
                 &action,
-                Action::CloseCollectionPicker
+                Action::Exit
+                    | Action::CloseCollectionPicker
                     | Action::CollectionPickerPreviousPage
                     | Action::CollectionPickerNextPage
                     | Action::SelectCollection(_)
@@ -309,6 +312,7 @@ impl AppState {
         }
 
         match action {
+            Action::Exit => vec![Effect::ExitRequested],
             Action::OpenCollectionPicker => {
                 self.open_collection_picker();
                 Vec::new()

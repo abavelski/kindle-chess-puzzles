@@ -37,6 +37,7 @@ pub enum HitTarget {
     ToggleOrientationLock,
     Reset,
     Flip,
+    Exit,
     Previous,
     Next,
     Promotion(PromotionChoice),
@@ -57,6 +58,7 @@ impl HitTarget {
             Self::ToggleOrientationLock => Action::ToggleOrientationLock,
             Self::Reset => Action::Reset,
             Self::Flip => Action::Flip,
+            Self::Exit => Action::Exit,
             Self::Previous => Action::PreviousPuzzle,
             Self::Next => Action::NextPuzzle,
             Self::Promotion(choice) => Action::ChoosePromotion(choice),
@@ -86,6 +88,7 @@ pub struct Layout {
     pub board: Rect,
     pub toolbar: Rect,
     pub toolbar_targets: [ControlTarget; 5],
+    pub exit: Rect,
     pub previous: Rect,
     pub next: Rect,
     pub status: Rect,
@@ -158,8 +161,16 @@ impl Layout {
         let collection_button_width = minimum_touch_px
             .saturating_mul(2)
             .min(header.width.saturating_div(3).max(minimum_touch_px));
+        let exit = Rect::new(
+            header.right().saturating_sub(minimum_touch_px),
+            header.y,
+            minimum_touch_px,
+            header.height,
+        );
         let collection_button = Rect::new(
-            header.right().saturating_sub(collection_button_width),
+            exit.x
+                .saturating_sub(small_gap)
+                .saturating_sub(collection_button_width),
             header.y,
             collection_button_width,
             header.height,
@@ -190,15 +201,14 @@ impl Layout {
         }
 
         let nav_y = toolbar.bottom().saturating_add(gap);
-        let nav_total_gap = small_gap;
-        let nav_width = board_outer.width.saturating_sub(nav_total_gap) / 2;
+        let nav_width = board_outer.width.saturating_sub(small_gap) / 2;
         let previous = Rect::new(board_outer.x, nav_y, nav_width, nav_height);
         let next = Rect::new(
-            previous.right().saturating_add(nav_total_gap),
+            previous.right().saturating_add(small_gap),
             nav_y,
             board_outer
                 .right()
-                .saturating_sub(previous.right().saturating_add(nav_total_gap)),
+                .saturating_sub(previous.right().saturating_add(small_gap)),
             nav_height,
         );
         if previous.width < minimum_touch_px || next.width < minimum_touch_px {
@@ -317,6 +327,7 @@ impl Layout {
             toolbar,
             toolbar_targets,
             previous,
+            exit,
             next,
             status,
             promotion_modal,
@@ -335,6 +346,7 @@ impl Layout {
             || !layout.viewport.contains_rect(layout.header)
             || !layout.viewport.contains_rect(layout.collection_button)
             || !layout.viewport.contains_rect(layout.toolbar)
+            || !layout.viewport.contains_rect(layout.exit)
             || !layout.viewport.contains_rect(layout.previous)
             || !layout.viewport.contains_rect(layout.next)
             || !layout.viewport.contains_rect(layout.status)
@@ -371,6 +383,9 @@ impl Layout {
     }
 
     pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
+        if self.exit.contains(x, y) {
+            return Some(HitTarget::Exit);
+        }
         if state.pending_promotion().is_some() {
             return self.hit_test(x, y, state.flipped(), true);
         }
@@ -411,6 +426,9 @@ impl Layout {
             return None;
         }
 
+        if self.exit.contains(x, y) {
+            return Some(HitTarget::Exit);
+        }
         if promotion_open {
             const CHOICES: [PromotionChoice; 4] = [
                 PromotionChoice::Queen,

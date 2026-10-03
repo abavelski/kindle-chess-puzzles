@@ -161,3 +161,38 @@ fn collection_picker_targets_are_touch_sized_and_block_the_board() {
         Some(HitTarget::Collection(6))
     );
 }
+
+#[test]
+fn exit_is_touch_sized_and_accessible_even_during_promotion_and_collection_modals() {
+    let layout = Layout::new(SCRIBE).expect("Scribe layout");
+    assert!(layout.exit.width >= layout.minimum_touch_px());
+    assert!(layout.exit.height >= layout.minimum_touch_px());
+    for rect in [
+        layout.board_outer,
+        layout.previous,
+        layout.next,
+        layout.status,
+    ] {
+        assert!(!layout.exit.intersects(rect));
+    }
+    assert_eq!(layout.exit.right(), layout.header.right());
+    assert_eq!(layout.exit.y, layout.header.y);
+    assert!(!layout.exit.intersects(layout.collection_button));
+    let (x, y) = center(layout.exit);
+    assert_eq!(layout.hit_test(x, y, false, true), Some(HitTarget::Exit));
+    let mut app = AppState::new(
+        ActiveCollection::from_collection(
+            "puzzles.json",
+            parse_puzzle_file(include_bytes!(
+                "../../../tests/fixtures/promotion-puzzles.json"
+            ))
+            .unwrap(),
+        ),
+        Progress::new(),
+    );
+    assert_eq!(layout.hit_test_app(x, y, &app), Some(HitTarget::Exit));
+    app.set_collection_entries(vec![CollectionEntry::valid("puzzles.json", "Puzzles")]);
+    app.dispatch(Action::OpenCollectionPicker);
+    assert_eq!(layout.hit_test_app(x, y, &app), Some(HitTarget::Exit));
+    assert_eq!(HitTarget::Exit.into_action(), Action::Exit);
+}

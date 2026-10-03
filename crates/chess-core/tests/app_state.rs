@@ -486,3 +486,21 @@ fn restart_restores_active_file_current_puzzle_and_solved_ids_per_file() {
     ));
     assert_eq!(restarted.active_puzzle().id, "lichess-000hf");
 }
+
+#[test]
+fn exit_requests_platform_shutdown_without_mutating_board_progress_or_modal_state() {
+    let mut app = state("puzzles.json", PROMOTIONS);
+    app.dispatch(Action::TapSquare(square("a7")));
+    app.dispatch(Action::TapSquare(square("a8")));
+    assert!(app.pending_promotion().is_some());
+    let before = app.clone();
+    assert_eq!(app.dispatch(Action::Exit), vec![Effect::ExitRequested]);
+    assert_eq!(app, before);
+    app.dispatch(Action::CancelPromotion);
+    app.set_collection_entries(vec![CollectionEntry::valid("puzzles.json", "Puzzles")]);
+    app.dispatch(Action::OpenCollectionPicker);
+    assert!(app.collection_picker_open());
+    let before = app.clone();
+    assert_eq!(app.dispatch(Action::Exit), vec![Effect::ExitRequested]);
+    assert_eq!(app, before);
+}

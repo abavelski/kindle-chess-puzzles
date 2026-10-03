@@ -159,3 +159,15 @@ events, descriptor survival and recovery/invalidation findings in
 non-sleep checklist covers repeated exits, app kill, SIGTERM, interaction/
 ghosting and modals, native recovery, unchanged rotation/depth/input ownership,
 and timing observations. Do not infer resume reliability from those checks.
+
+
+## Task 08 library regression
+
+The later library launch exposed a missing in-app exit and stock white
+overpainting while the app still accepted taps. Stopping the verified supervisor
+restored stock UI/touch, confirmed by the user. The earlier bounded direct-shell
+checks do not establish library display ownership. Task 08 remains open for this
+regression and reboot/relaunch. The header X now requests normal app return
+through a platform effect, accessible in both modals, and retries dirty progress
+before releasing the scoped input/display handles. Automated tests and reviewed
+header snapshots cover this behavior; device verification is still pending.

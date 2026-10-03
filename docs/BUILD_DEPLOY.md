@@ -131,7 +131,7 @@ sh /mnt/us/kindle-chess/runtime/launch.sh
 ```
 
 The package launcher validates `uname -m` and the hard-float loader before
-starting the app, logs failures, then calls the unchanged Task 07 lifecycle
+starting the app, logs failures, then calls the Task 07 lifecycle
 supervisor. No stock-service, rotation, framebuffer-mode, or power-policy logic
 is duplicated. Exit through the app's EXIT control or terminate the supervised
 shell as described in [lifecycle notes](EINK_LIFECYCLE.md). Keep recovery SSH
@@ -179,3 +179,12 @@ build, stage/deploy, library launch/exit, second-build update with unchanged
 puzzle/progress content, reboot/relaunch, and uninstall/reinstall preservation.
 Do not mark Task 08 Implemented until these pass. Task 07's non-sleep checks are accepted; its natural suspend/resume check
 remains deferred by the user and must not be inferred from checkpoint F. Host tests do not substitute for this checkpoint.
+
+
+The app grabs finger input while open, so native swipe menus are unavailable.
+Use the **X** in the top-right header to exit; it remains accessible during
+promotion and collection selection. Exit retries pending progress persistence,
+returns normally to release input/display resources, and lets the supervisor
+request the stock screen repaint. SSH recovery remains documented in
+[EINK_LIFECYCLE.md](EINK_LIFECYCLE.md). The library white-overpaint regression is
+under investigation; host-tested Exit alone does not pass that checkpoint.

@@ -1,6 +1,6 @@
 # Task 08 — Make build, deployment, and Kindle packaging reproducible
 
-**Status:** In progress — library launch/exit and reboot checkpoint pending
+**Status:** In progress — library exit/display ownership regression; reboot checkpoint pending
 
 **Depends on:** Tasks 04-07
 
@@ -122,3 +122,14 @@ The remaining checkpoint F checks are library launch/exit and post-reboot
 library launch. Task 08 must not be marked Implemented until those observations
 are recorded. No reboot or successful library launch is inferred from host,
 loader, or package-install checks.
+
+
+Library checkpoint regression (2026-10-03): the user reported blocked native
+swipe/menu access and native white overpainting while the app still accepted
+taps. Supervisor termination restored normal stock UI/touch, confirmed by the
+user. Exclusive finger input requires an explicit in-app Exit control; the
+previous UI had none. Add host-tested Exit routing and progress flush, then
+verify normal supervisor cleanup through the library launch. Investigate native
+launcher repaint timing before choosing a display ownership handoff; do not
+mask the problem with full-screen redraws on every tap. Reboot and the separately
+deferred natural suspend/resume check remain outstanding.

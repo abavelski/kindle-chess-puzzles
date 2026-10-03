@@ -1164,3 +1164,29 @@ logged. No app PID or lock remained; framebuffer geometry/depth and all
 puzzle/progress hashes were unchanged afterward. Logs are in
 `probe-output/task08/`. This passes the on-device CLI entrypoint/cleanup smoke;
 it does not substitute for the pending library UI and post-reboot observations.
+
+
+2026-10-03 library regression: user observed that top swipe could not open the
+native menu, and a white stock overlay covered part of the app while its controls
+still worked. The running app held exclusive finger input, as designed, but had
+no in-app exit. Verified supervisor/child PIDs before TERM; supervisor forwarded
+TERM, requested xrefresh, and removed its lock. The user confirmed normal stock
+UI/touch after stopping the app. No service, rotation or power changes were made.
+Library launch/exit checkpoint is therefore failing, not accepted. Planned fix:
+explicit Exit accessible through modals, followed by investigation of native
+launcher/display ownership and a bounded on-device regression check.
+
+
+Exit fix build/deploy: host fmt/clippy/workspace tests, rendering snapshots,
+Python/C/platform/package contracts and pinned Kindle release cross-build all
+passed. Reviewed all 16 before/after visual states: changed pixels are confined
+to header rows 38–149; the new X is touch-sized at the header right edge and
+FILES/solved badge reserve its area. Exit routing is available through modals;
+a binary host test verifies dirty progress is persisted before normal return.
+The documented stage/deploy installed release SHA256
+`cc6b60a4dbd71c1fc3417959410775f3e7e087421b1e90e9693a91205cd15e52`.
+All four prior puzzle/progress hashes remained unchanged afterward. Device
+library X exit and white-overpaint regression checks are awaiting observation.
+Read-only stock logs show SH Integration 4.1.0 waits for its child before stop,
+unload and xrefresh; no verified evidence yet attributes the white overlay to
+an early launcher exit. No stock service suspension or power change was added.
