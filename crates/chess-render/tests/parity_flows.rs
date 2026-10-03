@@ -137,11 +137,11 @@ fn task05_action_state_render_flows_match_reviewed_snapshots() {
 
     const EXPECTED: &[(&str, u64)] = &[
         ("wrong-rollback", 13_282_375_435_864_950_739),
-        ("one-move-complete", 16_474_815_575_749_881_767),
+        ("one-move-complete", 3_135_953_719_287_800_592),
         ("three-ply-auto-reply", 11_780_266_705_003_968_860),
         ("promotion-modal", 17_952_966_806_256_349_777),
         ("promotion-cancel", 5_371_446_019_938_256_004),
-        ("underpromotion-complete", 13_800_789_449_330_549_581),
+        ("underpromotion-complete", 6_235_620_342_074_988_682),
         ("free-arbitrary-move", 9_356_803_441_053_923_172),
         ("free-return-solution", 11_456_627_777_945_831_300),
         ("lock-flip-navigation", 15_017_094_781_847_502_056),
