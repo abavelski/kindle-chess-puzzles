@@ -36,45 +36,24 @@ fn font(face: Face) -> &'static Font {
 }
 
 fn load_font(bytes: &'static [u8], label: &str) -> Font {
-    Font::from_bytes(bytes, FontSettings::default())
-        .unwrap_or_else(|error| panic!("embedded Atkinson Hyperlegible {label} font is invalid: {error}"))
+    Font::from_bytes(bytes, FontSettings::default()).unwrap_or_else(|error| {
+        panic!("embedded Atkinson Hyperlegible {label} font is invalid: {error}")
+    })
 }
 
 fn text_px(scale: u32) -> f32 {
     scale.max(1) as f32 * PIXELS_PER_SCALE
 }
 
-pub(crate) fn draw_text(
-    canvas: &mut Gray8,
-    x: u32,
-    y: u32,
-    text: &str,
-    scale: u32,
-    tone: u8,
-) {
+pub(crate) fn draw_text(canvas: &mut Gray8, x: u32, y: u32, text: &str, scale: u32, tone: u8) {
     draw_text_at(canvas, x, y, text, scale, tone, Face::Regular);
 }
 
-pub(crate) fn draw_text_bold(
-    canvas: &mut Gray8,
-    x: u32,
-    y: u32,
-    text: &str,
-    scale: u32,
-    tone: u8,
-) {
+pub(crate) fn draw_text_bold(canvas: &mut Gray8, x: u32, y: u32, text: &str, scale: u32, tone: u8) {
     draw_text_at(canvas, x, y, text, scale, tone, Face::Bold);
 }
 
-fn draw_text_at(
-    canvas: &mut Gray8,
-    x: u32,
-    y: u32,
-    text: &str,
-    scale: u32,
-    tone: u8,
-    face: Face,
-) {
+fn draw_text_at(canvas: &mut Gray8, x: u32, y: u32, text: &str, scale: u32, tone: u8, face: Face) {
     let settings = LayoutSettings {
         x: x as f32,
         y: y as f32,
@@ -101,13 +80,7 @@ pub(crate) fn draw_text_bold_vertically_centered(
     draw_with_settings(canvas, text, scale, tone, Face::Bold, settings, Some(rect));
 }
 
-pub(crate) fn draw_text_centered(
-    canvas: &mut Gray8,
-    rect: Rect,
-    text: &str,
-    scale: u32,
-    tone: u8,
-) {
+pub(crate) fn draw_text_centered(canvas: &mut Gray8, rect: Rect, text: &str, scale: u32, tone: u8) {
     let settings = LayoutSettings {
         x: rect.x as f32,
         y: rect.y as f32,
@@ -120,13 +93,7 @@ pub(crate) fn draw_text_centered(
     draw_with_settings(canvas, text, scale, tone, Face::Bold, settings, Some(rect));
 }
 
-pub(crate) fn draw_wrapped_text(
-    canvas: &mut Gray8,
-    rect: Rect,
-    text: &str,
-    scale: u32,
-    tone: u8,
-) {
+pub(crate) fn draw_wrapped_text(canvas: &mut Gray8, rect: Rect, text: &str, scale: u32, tone: u8) {
     draw_wrapped_text_with_line_spacing(canvas, rect, text, scale, tone, 0);
 }
 
