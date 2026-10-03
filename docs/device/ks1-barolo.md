@@ -1308,3 +1308,42 @@ User confirmed the board stayed visible, interaction/exit and native UI worked.
 This resolves the reported white-overlay regression and library launch/exit
 portion of checkpoint F. Post-reboot library launch and the separately deferred
 natural suspend/resume test remain unverified.
+
+
+---
+
+# Task 09 — phase-one parity/reliability closure — 2026-10-03
+
+Task 09 adds tests and documentation only; it does not change the runtime puzzle,
+rendering, input, storage, display, or lifecycle behavior that was physically exercised
+in Tasks 04-08. The final installed runtime baseline therefore remains the Task 08
+release described above while Task 09 is validated by the host suite and pinned
+ARMv7/glibc-2.35 cross-build.
+
+The reliability threshold is supported by cumulative real-device use rather than a new
+synthetic session. Task 04 logged 53 accepted finger taps and a repeated-move sequence
+without coordinate drift or misses. The nine scripted Task 05 parity groups require more
+than 50 additional physical taps before counting their navigation between cases. Tasks
+06-08 then add repeated collection browsing, promotion/cancel, navigation, normal and
+abnormal exit, package launch, and library launch/exit. The cumulative phase-one record
+therefore exceeds 100 physical touch interactions. Later checks also verified exclusive
+finger ownership after an observed stock-UI contention bug, and the user accepted the
+batched release's responsiveness/ghosting behavior.
+
+Checkpoint G ordinary-use criteria are recorded as **PASS**: reference parity rows are
+covered, normal restart preserves progress, no frequent coordinate/input failure remains
+in the verified final path, non-sleep ghosting is acceptable, launch/exit/recovery is
+repeatable, and the library Scriptlet makes normal use independent of an SSH terminal.
+The app is also being used on real puzzles; product improvements from that feedback are
+reserved for the next phase rather than folded into parity closure.
+
+Two lifecycle observations remain **UNVERIFIED** and are not converted into passes by
+this closure:
+
+- natural idle suspend/resume, including framebuffer invalidation and evdev descriptor
+  survival;
+- library launch after a full device reboot.
+
+No device power transition or reboot was performed for Task 09. If either behavior
+becomes relevant in later real-user testing, repeat the dedicated lifecycle observation
+and append the result here.
