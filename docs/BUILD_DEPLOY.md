@@ -194,5 +194,7 @@ Use the **X** in the top-right header to exit; it remains accessible during
 promotion and collection selection. Exit retries pending progress persistence,
 returns normally to release input/display resources, and lets the supervisor
 request the stock screen repaint. SSH recovery remains documented in
-[EINK_LIFECYCLE.md](EINK_LIFECYCLE.md). The library white-overpaint regression is
-under investigation; host-tested Exit alone does not pass that checkpoint.
+[EINK_LIFECYCLE.md](EINK_LIFECYCLE.md). The earlier library white-overpaint regression
+was resolved by the verified paired awesome/Xorg display handoff; ordinary library
+launch/interaction/X-exit and native repaint now pass. Post-reboot launch remains the
+explicitly deferred observation described above.
