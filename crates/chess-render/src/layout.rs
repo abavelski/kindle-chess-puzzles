@@ -103,6 +103,7 @@ pub struct Layout {
     square_size: u32,
     minimum_touch_px: u32,
     coordinate_gutter: u32,
+    control_visual_inset: u32,
 }
 
 impl Layout {
@@ -117,20 +118,20 @@ impl Layout {
         let coordinate_gutter = px_for_mm(metrics.dpi, 4).max(16);
         let header_height = px_for_mm(metrics.dpi, 10).max(48);
         let minimum_touch_px = px_for_mm(metrics.dpi, MIN_TOUCH_MM);
-        let toolbar_height = minimum_touch_px;
-        let nav_height = minimum_touch_px;
+        let compact_control_height = minimum_touch_px.saturating_sub(gap);
+        let control_visual_inset =
+            minimum_touch_px.saturating_sub(compact_control_height) / 2;
         let status_min = px_for_mm(metrics.dpi, 14).max(64);
 
         let horizontal_reserved = margin
             .saturating_mul(2)
             .saturating_add(coordinate_gutter.saturating_mul(2));
         let vertical_reserved = margin
-            .saturating_mul(2)
             .saturating_add(header_height)
-            .saturating_add(gap.saturating_mul(4))
+            .saturating_add(small_gap.saturating_mul(3))
             .saturating_add(coordinate_gutter.saturating_mul(2))
-            .saturating_add(toolbar_height)
-            .saturating_add(nav_height)
+            .saturating_add(compact_control_height.saturating_mul(2))
+            .saturating_add(gap)
             .saturating_add(status_min);
 
         if metrics.width <= horizontal_reserved || metrics.height <= vertical_reserved {
@@ -146,9 +147,8 @@ impl Layout {
         let square_size = board_size / 8;
 
         let board_x = (metrics.width - board_size) / 2;
-        let board_y = margin
-            .saturating_add(header_height)
-            .saturating_add(gap)
+        let board_y = header_height
+            .saturating_add(small_gap)
             .saturating_add(coordinate_gutter);
         let board = Rect::new(board_x, board_y, board_size, board_size);
         let board_outer = Rect::new(
@@ -157,7 +157,7 @@ impl Layout {
             board_size.saturating_add(coordinate_gutter.saturating_mul(2)),
             board_size.saturating_add(coordinate_gutter.saturating_mul(2)),
         );
-        let header = Rect::new(board_outer.x, margin, board_outer.width, header_height);
+        let header = Rect::new(0, 0, metrics.width, header_height);
         let collection_button_width = minimum_touch_px
             .saturating_mul(2)
             .min(header.width.saturating_div(3).max(minimum_touch_px));
@@ -179,11 +179,22 @@ impl Layout {
         let toolbar_y = board
             .bottom()
             .saturating_add(coordinate_gutter)
-            .saturating_add(gap);
-        let toolbar = Rect::new(board_outer.x, toolbar_y, board_outer.width, toolbar_height);
+            .saturating_add(small_gap);
+        let toolbar = Rect::new(
+            board_outer.x,
+            toolbar_y,
+            board_outer.width,
+            compact_control_height,
+        );
+        let toolbar_touch = Rect::new(
+            toolbar.x,
+            toolbar.y.saturating_sub(control_visual_inset),
+            toolbar.width,
+            minimum_touch_px,
+        );
 
         let toolbar_targets = split_targets(
-            toolbar,
+            toolbar_touch,
             small_gap,
             [
                 HitTarget::ToggleMode,
@@ -201,21 +212,24 @@ impl Layout {
         }
 
         let nav_y = toolbar.bottom().saturating_add(gap);
+        let nav_touch_y = nav_y.saturating_sub(control_visual_inset);
         let nav_width = board_outer.width.saturating_sub(small_gap) / 2;
-        let previous = Rect::new(board_outer.x, nav_y, nav_width, nav_height);
+        let previous = Rect::new(board_outer.x, nav_touch_y, nav_width, minimum_touch_px);
         let next = Rect::new(
             previous.right().saturating_add(small_gap),
-            nav_y,
+            nav_touch_y,
             board_outer
                 .right()
                 .saturating_sub(previous.right().saturating_add(small_gap)),
-            nav_height,
+            minimum_touch_px,
         );
         if previous.width < minimum_touch_px || next.width < minimum_touch_px {
             return Err(LayoutError::TooSmall);
         }
 
-        let status_y = previous.bottom().saturating_add(gap);
+        let status_y = nav_y
+            .saturating_add(compact_control_height)
+            .saturating_add(small_gap);
         let status_bottom = metrics.height.saturating_sub(margin);
         if status_bottom <= status_y {
             return Err(LayoutError::TooSmall);
@@ -341,6 +355,7 @@ impl Layout {
             square_size,
             minimum_touch_px,
             coordinate_gutter,
+            control_visual_inset,
         };
         if !layout.viewport.contains_rect(layout.board_outer)
             || !layout.viewport.contains_rect(layout.header)
@@ -368,6 +383,18 @@ impl Layout {
 
     pub const fn coordinate_gutter(&self) -> u32 {
         self.coordinate_gutter
+    }
+
+    pub fn control_visual_rect(&self, touch_rect: Rect) -> Rect {
+        let inset = self.control_visual_inset.min(touch_rect.height / 2);
+        Rect::new(
+            touch_rect.x,
+            touch_rect.y.saturating_add(inset),
+            touch_rect.width,
+            touch_rect
+                .height
+                .saturating_sub(inset.saturating_mul(2)),
+        )
     }
 
     pub fn square_rect(&self, display_square: usize) -> Rect {

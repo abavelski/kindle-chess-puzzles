@@ -32,7 +32,7 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     draw_board(&mut frame, state, layout, small_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
-    draw_status(&mut frame, state, layout, small_scale);
+    draw_status(&mut frame, state, layout, small_scale, text_scale);
 
     match state.feedback() {
         SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
@@ -173,25 +173,43 @@ fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32)
             HitTarget::Flip => ("FLIP", false),
             _ => continue,
         };
-        draw_button(frame, target.rect, label, selected, scale);
+        draw_button(
+            frame,
+            layout.control_visual_rect(target.rect),
+            label,
+            selected,
+            scale,
+        );
     }
 }
 
 fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
     draw_navigation_button(
         frame,
-        layout.previous,
+        layout.control_visual_rect(layout.previous),
         "< PREV",
         state.can_previous_puzzle(),
         scale,
     );
-    draw_navigation_button(frame, layout.next, "NEXT >", state.can_next_puzzle(), scale);
+    draw_navigation_button(
+        frame,
+        layout.control_visual_rect(layout.next),
+        "NEXT >",
+        state.can_next_puzzle(),
+        scale,
+    );
 }
 
-fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+fn draw_status(
+    frame: &mut Gray8,
+    state: &AppState,
+    layout: Layout,
+    status_scale: u32,
+    body_scale: u32,
+) {
     frame.stroke_rect(layout.status, 3, INK);
     let padding = (layout.status.height / 12).max(8);
-    let line_height = 8 * scale;
+    let line_height = 8 * status_scale;
     let status_line = match state.mode() {
         BoardMode::FreeBoard => "FREE BOARD".to_owned(),
         BoardMode::Solution => {
@@ -211,7 +229,7 @@ fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) 
         layout.status.x.saturating_add(padding),
         layout.status.y.saturating_add(padding),
         &status_line,
-        scale,
+        status_scale,
         INK,
     );
 
@@ -237,7 +255,13 @@ fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) 
     if let Some(message) = state.transient_message() {
         frame.fill_rect(body, SOFT_GRAY);
         frame.stroke_rect(body, 2, INK);
-        draw_wrapped_text(frame, body.inset(8), &format!("! {message}"), scale, INK);
+        draw_wrapped_text(
+            frame,
+            body.inset(8),
+            &format!("! {message}"),
+            body_scale,
+            INK,
+        );
     } else if state.description_visible() {
         if let Some(description) = state
             .active_puzzle()
@@ -245,7 +269,7 @@ fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) 
             .as_deref()
             .filter(|text| !text.trim().is_empty())
         {
-            draw_wrapped_text(frame, body, description, scale, INK);
+            draw_wrapped_text(frame, body, description, body_scale, INK);
         }
     }
 
@@ -411,20 +435,36 @@ fn draw_navigation_button(frame: &mut Gray8, rect: Rect, label: &str, enabled: b
     if enabled {
         draw_button(frame, rect, label, false, scale);
     } else {
-        frame.fill_rect(rect, SOFT_GRAY);
-        frame.stroke_rect(rect, 3, DISABLED_INK);
+        draw_button_chrome(frame, rect, SOFT_GRAY, DISABLED_INK, false);
         draw_text_centered(frame, rect.inset(6), label, scale, DISABLED_INK);
     }
 }
 
 fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
     let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
-    frame.fill_rect(rect, background);
-    frame.stroke_rect(rect, 3, INK);
-    if selected {
-        frame.stroke_rect(rect.inset(5), 2, WHITE);
-    }
+    draw_button_chrome(frame, rect, background, INK, selected);
     draw_text_centered(frame, rect.inset(6), label, scale, foreground);
+}
+
+fn draw_button_chrome(
+    frame: &mut Gray8,
+    rect: Rect,
+    background: u8,
+    border: u8,
+    selected: bool,
+) {
+    let radius = (rect.height / 6).clamp(6, 18);
+    frame.fill_rounded_rect(rect, radius, border);
+
+    let inner = rect.inset(3);
+    frame.fill_rounded_rect(inner, radius.saturating_sub(3), background);
+
+    if selected {
+        let accent = rect.inset(6);
+        frame.fill_rounded_rect(accent, radius.saturating_sub(6), WHITE);
+        let accent_inner = rect.inset(8);
+        frame.fill_rounded_rect(accent_inner, radius.saturating_sub(8), background);
+    }
 }
 
 fn draw_check(frame: &mut Gray8, rect: Rect, thickness: u32, tone: u8) {

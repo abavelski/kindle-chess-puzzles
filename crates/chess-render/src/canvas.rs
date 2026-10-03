@@ -107,6 +107,64 @@ impl Gray8 {
         }
     }
 
+    pub fn fill_rounded_rect(&mut self, rect: Rect, radius: u32, tone: u8) {
+        if rect.width == 0 || rect.height == 0 {
+            return;
+        }
+        let radius = radius.min(rect.width / 2).min(rect.height / 2);
+        if radius == 0 {
+            self.fill_rect(rect, tone);
+            return;
+        }
+
+        self.fill_rect(
+            Rect::new(
+                rect.x,
+                rect.y.saturating_add(radius),
+                rect.width,
+                rect.height.saturating_sub(radius.saturating_mul(2)),
+            ),
+            tone,
+        );
+
+        let radius_squared = u64::from(radius) * u64::from(radius);
+        for local_y in 0..radius {
+            let dy = radius.saturating_sub(local_y);
+            let mut inset = 0;
+            while inset < radius {
+                let dx = radius.saturating_sub(inset);
+                if u64::from(dx) * u64::from(dx) + u64::from(dy) * u64::from(dy)
+                    <= radius_squared
+                {
+                    break;
+                }
+                inset += 1;
+            }
+            let row_width = rect.width.saturating_sub(inset.saturating_mul(2));
+            if row_width == 0 {
+                continue;
+            }
+            self.fill_rect(
+                Rect::new(
+                    rect.x.saturating_add(inset),
+                    rect.y.saturating_add(local_y),
+                    row_width,
+                    1,
+                ),
+                tone,
+            );
+            self.fill_rect(
+                Rect::new(
+                    rect.x.saturating_add(inset),
+                    rect.bottom().saturating_sub(local_y).saturating_sub(1),
+                    row_width,
+                    1,
+                ),
+                tone,
+            );
+        }
+    }
+
     pub fn stroke_rect(&mut self, rect: Rect, thickness: u32, tone: u8) {
         if thickness == 0 || rect.width == 0 || rect.height == 0 {
             return;

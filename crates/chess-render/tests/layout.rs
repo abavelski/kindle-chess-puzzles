@@ -196,3 +196,31 @@ fn exit_is_touch_sized_and_accessible_even_during_promotion_and_collection_modal
     assert_eq!(layout.hit_test_app(x, y, &app), Some(HitTarget::Exit));
     assert_eq!(HitTarget::Exit.into_action(), Action::Exit);
 }
+
+
+#[test]
+fn scribe_header_compact_controls_and_status_prioritize_description_space() {
+    let layout = Layout::new(SCRIBE).expect("Scribe metrics fit");
+
+    assert_eq!(layout.header.x, 0);
+    assert_eq!(layout.header.y, 0);
+    assert_eq!(layout.header.right(), SCRIBE.width);
+    assert!(!layout.header.intersects(layout.board_outer));
+
+    for target in layout.toolbar_targets {
+        let visual = layout.control_visual_rect(target.rect);
+        assert!(target.rect.height >= layout.minimum_touch_px());
+        assert!(visual.height < target.rect.height);
+        assert_eq!(visual.height, layout.toolbar.height);
+    }
+
+    for target in [layout.previous, layout.next] {
+        let visual = layout.control_visual_rect(target);
+        assert!(target.height >= layout.minimum_touch_px());
+        assert!(visual.height < target.height);
+        assert_eq!(visual.height, layout.toolbar.height);
+    }
+
+    assert!(layout.board.y < 200);
+    assert!(layout.status.height >= 280);
+}
