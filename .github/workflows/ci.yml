@@ -6,7 +6,7 @@ on:
 
 jobs:
   host:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,10 +18,9 @@ jobs:
       - name: Check host code and tests
         run: scripts/check.sh
 
-  kindle-cross-smoke:
-    # Scribe firmware 5.19.6 has glibc 2.35; newer runners produced
-    # an artifact requiring GLIBC_2.38 that failed before app startup.
-    runs-on: ubuntu-22.04
+  kindle-release:
+    # Zig pins the target glibc baseline to 2.35 independently of runner libc.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,14 +28,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.85.1
         with:
           targets: armv7-unknown-linux-gnueabihf
-      - name: Install ARMv7 hard-float cross linker
-        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf
-      - name: Cross-build minimal Kindle binary
-        run: scripts/check-kindle.sh
-      - name: Publish Task 06 checkpoint binary
+      - name: Build tested pinned Scribe release
+        run: scripts/build-kindle.sh
+      - name: Stage runtime and KPM package
+        run: scripts/stage-kindle.sh
+      - name: Publish inspectable installation artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kindle-chess-task06-armv7
-          path: target/armv7-unknown-linux-gnueabihf/debug/kindle-chess
+          name: kindle-chess-armv7-glibc235
+          path: |
+            target/kindle/kindle-chess.tar
+            target/kindle/kindle_chess_0.1.0_kindlehf.kpkg
+            target/kindle/build.json
           if-no-files-found: error
           retention-days: 14

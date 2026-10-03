@@ -1,6 +1,7 @@
 # Task 08 — Make build, deployment, and Kindle packaging reproducible
 
-**Status:** Ready  
+**Status:** In progress — library launch/exit and reboot checkpoint pending
+
 **Depends on:** Tasks 04-07
 
 ## Outcome
@@ -102,3 +103,22 @@ From a clean local checkout:
 ## Suggested commit
 
 `build: add reproducible Kindle build and package workflow`
+
+## Implementation record
+
+Build/stage/deploy automation, Scriptlet/KPM payloads, 13 host package/build
+contracts and CI artifacts are implemented. A clean local checkout passed the
+documented checks, pinned ARMv7/glibc-2.35 build and stage workflow. scp deployment,
+a second independent build installed through KPM 0.2.2, and actual KPM
+uninstall/reinstall all passed without changing puzzle or progress hashes.
+
+Commands and verified installation/data policy are in
+[BUILD_DEPLOY.md](../docs/BUILD_DEPLOY.md); evidence is recorded in
+[the device document](../docs/device/ks1-barolo.md). Task 07 is committed/pushed
+with the user-authorized natural suspend/resume deferral, which packaging tests
+do not claim to resolve.
+
+The remaining checkpoint F checks are library launch/exit and post-reboot
+library launch. Task 08 must not be marked Implemented until those observations
+are recorded. No reboot or successful library launch is inferred from host,
+loader, or package-install checks.

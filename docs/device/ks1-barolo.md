@@ -1057,3 +1057,110 @@ Natural suspend/resume, screensaver repaint invalidation and evdev descriptor
 survival remain unverified. No new power transition is performed or implied by
 this completion record. The release binary remains
 `e2a49bbc7169b4ee8b3d23069d5074b7b63bab3ae983189dd54391c2934a2e41`.
+
+## Task 08 automation preparation — 2026-10-03
+
+Task 08 host contracts and a pinned Zig 0.13.0/ARMv7/glibc-2.35 release build
+passed in the existing working tree. This is not a clean-checkout physical
+checkpoint. The executable SHA-256 is
+`e2a49bbc7169b4ee8b3d23069d5074b7b63bab3ae983189dd54391c2934a2e41`, matching
+the previously tested default-exclusive Task 07 binary; Task 08 changes its
+build/install/launch integration rather than application behavior.
+
+Prepared commands, Scriptlet/KPM payloads, installation/data preservation
+policy, and licensing status are documented in [BUILD_DEPLOY.md](../BUILD_DEPLOY.md).
+A read-only, five-second BatchMode SSH connection to the recorded
+`192.168.1.20:2222` timed out. No new files were transferred, no runtime/package
+was installed on the Scribe, and no launch or lifecycle transition occurred.
+
+All HUMAN CHECKPOINT F items remain **pending**, including clean-checkout
+execution, deployment, library launch/exit, a second-build update, reboot launch,
+and uninstall/reinstall. Scriptlets/KPM availability remains unestablished on
+the target Véra setup. The remaining Task 07 lifecycle checkpoint is also
+pending. Host package/source/ELF checks do not establish these physical facts.
+
+
+## Task 08 clean checkout and device installation — 2026-10-03
+
+Reconnected to the awake Scribe at `192.168.1.20:2222`. Reconfirmed ARMv7,
+firmware 5.19.6, glibc 2.35, baseline framebuffer geometry/depth, no active app
+or supervisor lock. Boot ID before reboot testing:
+`7e7361dd-10db-4020-a4ff-d0bacca87d6d`.
+
+KPM is installed at `/var/local/kmc/bin/kpm`: CLI v1.0.0, libkpm v0.2.2,
+`kindlehf`. It was absent from the earlier SSH PATH, not absent from the device.
+SH_Integration's registered launcher and the existing KOReader library scriptlet
+are installed. KOReader's scriptlet uses `# DontUseFBInk`; chess now includes
+the same directive to prevent the integration layer from drawing over the app.
+
+Task 07 was independently checked/cross-built from its staged source tree,
+committed as `522cf69`, and pushed to origin/main. Natural suspend/resume is
+explicitly deferred by the user; packaging checks do not establish that behavior.
+
+For checkpoint F, a separate clean local checkout at candidate commit
+`ef60a14c5a502e7d833a92442288921cb054b543` ran exactly:
+
+```sh
+git submodule update --init --recursive
+scripts/check.sh
+scripts/build-kindle.sh
+scripts/stage-kindle.sh
+```
+
+All passed, including 13 packaging/build contracts. `git status --short` was
+empty after generation/build/staging. The candidate contains the Task 08 code
+pending the final checkpoint documentation/commit. Its tested source fingerprint
+is `42839c315598c42c80c84d65fd4809490486e3d6ba04e94048a7367de27bea6f`.
+The clean-checkout release matches the independent working-tree release exactly:
+`e2a49bbc7169b4ee8b3d23069d5074b7b63bab3ae983189dd54391c2934a2e41`.
+
+First installation used the documented command:
+
+```sh
+scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222
+```
+
+It installed runtime at `/mnt/us/kindle-chess/runtime` and the library scriptlet
+at `/mnt/us/documents/kindle-chess.sh`. Device loader tracing resolved all
+libraries. The second independently built artifact was copied from the clean
+checkout and installed through the actual KPM stack:
+
+```sh
+scp -O -P 2222 target/kindle/kindle_chess_0.1.0_kindlehf.kpkg root@192.168.1.20:/mnt/us/
+/var/local/kmc/bin/kpm -y install file:///mnt/us/kindle_chess_0.1.0_kindlehf.kpkg
+```
+
+KPM accepted the manifest-v2 package and installed it under
+`/mnt/us/kmc/kpm/packages/kindle_chess`. Both builds are byte-identical;
+installation exercised runtime replacement without source edits. No puzzle or
+progress bytes changed across either installation.
+
+Tested KPM uninstall/reinstall with the same local package. Uninstall removed
+runtime, its package registration/files and the exact matching library scriptlet;
+puzzles/progress remained. Reinstall restored runtime/package/scriptlet.
+Baseline hashes remained identical at every measured stage:
+
+- `puzzles-endgames.json`: `e6376ecd34dbd6f8a47072c42d191c2c99f5478b2d8c2989aed4f5efcbb28da2`
+- `puzzles-promotions.json`: `1df84295fe7b8e657bfd9a4eb05565ded5451c36d1e5970290b828ca84fe62b4`
+- `puzzles.json`: `95d9f37c13f9df9ce686a75bee0288c2c54c1f84e53d292a619de4a53e95a9bf`
+- `state/progress.json`: `1492a13a56d822be90388ec3601ff36186af143bad306b1c86cf93e89de30baf`
+
+Progress still refers to the promotion collection/current
+`promotion-white-queen`, with the prior solved IDs in Endgames and Lichess.
+Logs and the pre-install progress copy are retained in ignored
+`probe-output/task08/`; clean-checkout check/build/stage logs are in `/tmp`.
+
+Checkpoint F's automated/build/install/data-preservation items pass.
+Library launch/exit and post-reboot library launch are pending the user's
+physical observations. No reboot or new app launch is claimed by this record.
+
+
+Task 08 packaged launch smoke: ran the actual installed KPM launch entrypoint
+under a 15-second timeout. The app acquired the discovered finger device,
+rendered its first usable frame in 440 ms, and completed its first full update
+(submit 35 ms, completion 397 ms). Timeout termination propagated through the
+supervisor: TERM forwarding, native `xrefresh`, exit 143, and lock removal were
+logged. No app PID or lock remained; framebuffer geometry/depth and all
+puzzle/progress hashes were unchanged afterward. Logs are in
+`probe-output/task08/`. This passes the on-device CLI entrypoint/cleanup smoke;
+it does not substitute for the pending library UI and post-reboot observations.

@@ -75,3 +75,12 @@ Task 07 is **Implemented with the natural suspend/resume checkpoint deferred by 
 For the exact safe device-probe procedure, use [docs/device/ks1-barolo.md](docs/device/ks1-barolo.md). It covers the read-only environment report, minimal FBInk smoke test, finger/stylus event capture, host-side evdev decoding, recovery checks, and the verified Task 00 measurements.
 
 The initial target is the Kindle Scribe first generation. Reuse for Kobo is an architectural constraint, not an active implementation target for the first milestone.
+
+## Build and install
+
+Task 08 provides a pinned release build, inspected stage, scp deployment and
+Scriptlet/KPM artifacts. See [build/deploy commands](docs/BUILD_DEPLOY.md).
+Clean-checkout builds and Scribe deployment, KPM installation/update, and
+uninstall/reinstall preserve puzzle/progress data. Checkpoint F still needs
+library launch/exit and post-reboot launch observations. Task 07's natural
+suspend/resume test is deferred by the user.

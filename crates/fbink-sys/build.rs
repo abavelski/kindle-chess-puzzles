@@ -3,6 +3,9 @@ use std::{env, path::PathBuf, process::Command};
 const PINNED_FBINK_REVISION: &str = "92e127008145b2a22fba7c59815d810d716310dd";
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=KINDLE_CC");
+    println!("cargo:rerun-if-env-changed=KINDLE_AR");
+    println!("cargo:rerun-if-env-changed=KINDLE_RANLIB");
     println!("cargo:rerun-if-changed=c/fbink_bridge.c");
     println!("cargo:rerun-if-changed=c/input_bridge.c");
     println!("cargo:rerun-if-changed=../../vendor/FBInk");
@@ -25,6 +28,10 @@ fn main() {
 
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is set by Cargo"));
     let fbink_out = out.join("fbink");
+    // Make does not track compiler changes; rebuild C objects after Cargo reruns.
+    if fbink_out.exists() {
+        std::fs::remove_dir_all(&fbink_out).expect("remove previous FBInk objects");
+    }
     let cc = env::var("KINDLE_CC").unwrap_or_else(|_| "arm-linux-gnueabihf-gcc".to_owned());
     let ar = env::var("KINDLE_AR").unwrap_or_else(|_| "arm-linux-gnueabihf-ar".to_owned());
     let ranlib =

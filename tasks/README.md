@@ -14,7 +14,7 @@ Implement one task at a time.
 | [05](05-parity-features.md) | Promotion, Free Board, navigation, flip/lock, descriptions, feedback | Implemented |
 | [06](06-persistence-and-collections.md) | Multi-collection workflow and durable progress on Kindle | Implemented |
 | [07](07-eink-lifecycle.md) | Damage/refresh policy plus safe Kindle launch/exit lifecycle | Implemented — sleep checkpoint deferred |
-| [08](08-build-deploy-package.md) | Reproducible cross-build, deploy, scriptlet/KPM package | Ready |
+| [08](08-build-deploy-package.md) | Reproducible cross-build, deploy, scriptlet/KPM package | In progress — checkpoint F pending |
 | [09](09-parity-validation.md) | Full reference-parity and reliability validation | Ready |
 
 ## Milestones
