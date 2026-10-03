@@ -59,6 +59,41 @@ fn board_outer_frame_is_thin_gray() {
 }
 
 #[test]
+fn status_panel_is_rounded_and_shows_one_large_primary_content() {
+    let normal = render(&state(PUZZLES), SCRIBE).expect("render succeeds");
+    let status = normal.layout.status;
+    let padding = (status.height / 12).max(8);
+    let x = status.x + padding;
+    let y = status.y + padding;
+
+    assert_eq!(normal.frame.pixel(status.x, status.y), Some(255));
+    assert_eq!(normal.frame.pixel(x + 2, y + 2), Some(0));
+
+    let dot = br#"{
+      "version":1,
+      "puzzles":[{
+        "id":"dot-description",
+        "fen":"7k/8/5KQ1/8/8/8/8/8 w - - 0 1",
+        "description":".",
+        "solution":["g6g7"]
+      }]
+    }"#;
+
+    let mut described = state(dot);
+    described.dispatch(Action::ToggleDescription);
+    let described = render(&described, SCRIBE).expect("render succeeds");
+    assert_eq!(described.frame.pixel(x, y), Some(255));
+    assert_eq!(described.frame.pixel(x + 9, y + 15), Some(0));
+
+    let mut free_described = state(dot);
+    free_described.dispatch(Action::ToggleMode);
+    free_described.dispatch(Action::ToggleDescription);
+    let free_described = render(&free_described, SCRIBE).expect("render succeeds");
+    assert_eq!(free_described.frame.pixel(x, y), Some(255));
+    assert_eq!(free_described.frame.pixel(x + 9, y + 15), Some(0));
+}
+
+#[test]
 fn parity_visual_states_match_reviewed_gray8_snapshots() {
     let mut actual = Vec::new();
 
