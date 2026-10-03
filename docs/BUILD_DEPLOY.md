@@ -133,7 +133,7 @@ sh /mnt/us/kindle-chess/runtime/launch.sh
 The package launcher validates `uname -m` and the hard-float loader before
 starting the app, logs failures, then calls the Task 07 lifecycle
 supervisor. No stock-service, rotation, framebuffer-mode, or power-policy logic
-is duplicated. Exit through the app's EXIT control or terminate the supervised
+is duplicated. Exit through the app's top-right X control or terminate the supervised
 shell as described in [lifecycle notes](EINK_LIFECYCLE.md). Keep recovery SSH
 available for the first library-launch test.
 

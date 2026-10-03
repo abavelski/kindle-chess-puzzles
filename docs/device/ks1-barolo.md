@@ -1190,3 +1190,41 @@ library X exit and white-overpaint regression checks are awaiting observation.
 Read-only stock logs show SH Integration 4.1.0 waits for its child before stop,
 unload and xrefresh; no verified evidence yet attributes the white overlay to
 an early launcher exit. No stock service suspension or power change was added.
+
+
+## Top-right exit fix deployed — 2026-10-03
+
+At the user's request, stopped the stuck app first: verified child PID 11729
+against `/tmp/kindle-chess.lock/child.pid` and `pidof kindle-chess`, then sent
+SIGTERM to that child. Supervisor logged native repaint and exit 143; no app
+or supervisor lock remained.
+
+Completed the partially prepared Exit action/effect and runtime handling.
+The header now contains a touch-sized X at the top right, alongside FILES.
+Exit hit testing precedes promotion/collection modal handling. The runtime
+retries dirty progress, returns normally, and releases owned display/input
+resources; the existing supervisor performs the native repaint.
+
+The top-right position regression test failed before the layout correction.
+Core exit/modal tests, runtime progress-flush test, all layout tests, reviewed
+render/parity snapshots, fmt, clippy, workspace tests and Python/C/package
+contracts passed through `scripts/build-kindle.sh`. Reviewed normal, solved,
+promotion and collection-picker frames with the X visible.
+
+Built, staged and deployed using the documented commands:
+
+```sh
+scripts/build-kindle.sh
+scripts/stage-kindle.sh
+scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222
+```
+
+Installed runtime SHA-256 matches the local release:
+`cc6b60a4dbd71c1fc3417959410775f3e7e087421b1e90e9693a91205cd15e52`.
+The device loader resolved all libraries. All three puzzle files and progress
+retain the baseline hashes above. No app or lock remains after deployment;
+the updated library scriptlet is ready for the user to launch.
+
+Physical X exit: **PASS**, confirmed by the user on 2026-10-03 after
+launching the deployed update. This change does not establish a fix for stock
+white overpainting, reboot launch, or the deferred suspend/resume checkpoint.

@@ -170,4 +170,5 @@ checks do not establish library display ownership. Task 08 remains open for this
 regression and reboot/relaunch. The header X now requests normal app return
 through a platform effect, accessible in both modals, and retries dirty progress
 before releasing the scoped input/display handles. Automated tests and reviewed
-header snapshots cover this behavior; device verification is still pending.
+header snapshots cover this behavior. The user confirmed the deployed X exit
+works on 2026-10-03; white-overpaint and reboot verification remain pending.

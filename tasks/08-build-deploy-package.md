@@ -1,6 +1,6 @@
 # Task 08 — Make build, deployment, and Kindle packaging reproducible
 
-**Status:** In progress — library exit/display ownership regression; reboot checkpoint pending
+**Status:** In progress — top-right X exit fix deployed; library verification/display ownership and reboot checkpoint pending
 
 **Depends on:** Tasks 04-07
 
@@ -133,3 +133,11 @@ verify normal supervisor cleanup through the library launch. Investigate native
 launcher repaint timing before choosing a display ownership handoff; do not
 mask the problem with full-screen redraws on every tap. Reboot and the separately
 deferred natural suspend/resume check remain outstanding.
+
+
+Top-right X fix deployed on 2026-10-03: host tests cover top-right geometry,
+modal exit routing and progress flush; updated render/parity snapshots were
+reviewed. Full checks and pinned release build passed, documented stage/deploy
+commands installed the matching binary, and device hashes confirmed unchanged
+puzzles/progress. The user confirmed the deployed X exit works on 2026-10-03.
+Later display, reboot and suspend issues were not included in this fix.
