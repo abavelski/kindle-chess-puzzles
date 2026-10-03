@@ -48,7 +48,7 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     }
 
     if state.collection_picker_open() {
-        draw_collection_picker(&mut frame, state, layout, small_scale);
+        draw_collection_picker(&mut frame, state, layout, text_scale);
     }
 
     Ok(RenderOutput {
