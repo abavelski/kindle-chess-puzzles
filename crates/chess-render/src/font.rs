@@ -190,7 +190,6 @@ fn glyph(character: char) -> &'static [u8; 35] {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::draw_wrapped_text_with_line_spacing;
