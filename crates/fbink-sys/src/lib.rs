@@ -131,6 +131,7 @@ pub enum RefreshMode {
     AutoPartial = 1,
     GrayPartial = 2,
     FastMono = 3,
+    Clean = 4,
 }
 
 #[derive(Debug)]

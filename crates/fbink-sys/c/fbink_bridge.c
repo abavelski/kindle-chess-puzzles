@@ -85,9 +85,9 @@ kcp_fbink_present_region(
 
     FBInkConfig cfg = { 0 };
     cfg.ignore_alpha = true;
-    cfg.is_flashing = mode == 0U;
+    cfg.is_flashing = mode == 0U || mode == 4U;
     switch (mode) {
-        case 0U: case 1U: cfg.wfm_mode = WFM_AUTO; break;
+        case 0U: case 1U: case 4U: cfg.wfm_mode = WFM_AUTO; break;
         case 2U: cfg.wfm_mode = WFM_GC16; break;
         case 3U: cfg.wfm_mode = WFM_DU; break;
         default: return -EINVAL;

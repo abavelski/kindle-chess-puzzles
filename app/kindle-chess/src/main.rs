@@ -8,8 +8,9 @@ use chess_core::{
 };
 use chess_render::{calculate_damage, compact_damage, render, DisplayMetrics};
 use kindle_platform::{
-    task04_scribe_transform, DiscoveredCollection, FingerInput, KindleDisplay, KindleStorage,
-    ProgressStore, RefreshPolicy, StoragePaths, TapPolicy, SCRIBE_DPI,
+    clean_regions_for_board_change, task04_scribe_transform, DiscoveredCollection, FingerInput,
+    KindleDisplay, KindleStorage, ProgressStore, RefreshPolicy, StoragePaths, TapPolicy,
+    SCRIBE_DPI,
 };
 use std::collections::VecDeque;
 use std::time::Instant;
@@ -123,6 +124,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut previous = None;
     let mut policy = RefreshPolicy::default();
     let mut touch_received: Option<Instant> = None;
+    let mut clean_regions = Vec::new();
     loop {
         let mut output = render(&app, metrics)?;
         output.damage = compact_damage(
@@ -133,6 +135,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             &output.frame,
             previous.as_ref(),
             &output.damage,
+            &clean_regions,
             &mut policy,
             force_full,
         )?;
@@ -152,11 +155,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("kindle-chess: timing regions={} full={} submit={}ms complete={}ms recognized_touch_to_submit={:?}", timing.regions, timing.full, timing.submit.as_millis(), timing.complete.as_millis(), touch_to_submit);
         }
         previous = Some(output.frame);
+        clean_regions.clear();
 
         let (x, y) = input.next_tap()?;
         touch_received = Some(Instant::now());
         if let Some(target) = output.layout.hit_test_app(x, y, &app) {
             eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
+            let board_before = app.board().clone();
+            let flipped_before = app.flipped();
             let effects = app.dispatch(target.into_action());
             if apply_effects(
                 &mut app,
@@ -168,6 +174,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("kindle-chess: Exit requested; releasing display and input");
                 return Ok(());
             }
+            clean_regions = clean_regions_for_board_change(
+                &board_before,
+                app.board(),
+                flipped_before,
+                app.flipped(),
+                output.layout,
+            );
         } else {
             eprintln!("kindle-chess: tap ({x},{y}) -> no target");
             retry_dirty_progress(&mut app, &mut progress_store, persistence_enabled);
