@@ -1,8 +1,8 @@
 //! Pure application state for solving and exploring puzzle collections.
 
 use crate::{
-    parse_uci_move, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle, PuzzleCollection,
-    TapResult, UciMove,
+    parse_uci_move, AnalysisNodeIndex, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle,
+    PuzzleCollection, TapResult, UciMove,
 };
 
 pub const COLLECTIONS_PER_PAGE: usize = 6;
@@ -50,6 +50,22 @@ pub enum SolutionFeedback {
     Correct,
     Wrong,
     Complete,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct AnalysisBrowserState {
+    selected_node: Option<AnalysisNodeIndex>,
+    page: usize,
+}
+
+impl AnalysisBrowserState {
+    pub const fn selected_node(&self) -> Option<AnalysisNodeIndex> {
+        self.selected_node
+    }
+
+    pub const fn page(&self) -> usize {
+        self.page
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -113,6 +129,11 @@ pub enum Action {
     TapSquare(usize),
     ChoosePromotion(PromotionChoice),
     CancelPromotion,
+    OpenAnalysis,
+    CloseAnalysis,
+    SelectAnalysisNode(AnalysisNodeIndex),
+    AnalysisPreviousPage,
+    AnalysisNextPage,
     PreviousPuzzle,
     NextPuzzle,
     Reset,
@@ -153,6 +174,8 @@ pub struct AppState {
     collection_entries: Vec<CollectionEntry>,
     collection_picker_open: bool,
     collection_picker_page: usize,
+    analysis_browser: Option<AnalysisBrowserState>,
+    analysis_preview_board: Option<Board>,
 }
 
 impl AppState {
@@ -186,6 +209,8 @@ impl AppState {
             collection_entries: Vec::new(),
             collection_picker_open: false,
             collection_picker_page: 0,
+            analysis_browser: None,
+            analysis_preview_board: None,
         }
     }
 
@@ -209,8 +234,42 @@ impl AppState {
         &self.active_collection.puzzles[self.puzzle_index]
     }
 
-    pub const fn board(&self) -> &Board {
+    pub fn board(&self) -> &Board {
+        self.analysis_preview_board.as_ref().unwrap_or(&self.board)
+    }
+
+    pub const fn live_board(&self) -> &Board {
         &self.board
+    }
+
+    pub fn analysis_available(&self) -> bool {
+        self.active_puzzle().analysis.is_some()
+    }
+
+    pub const fn analysis_browser_open(&self) -> bool {
+        self.analysis_browser.is_some()
+    }
+
+    pub fn analysis_browser(&self) -> Option<&AnalysisBrowserState> {
+        self.analysis_browser.as_ref()
+    }
+
+    pub fn selected_analysis_node(&self) -> Option<AnalysisNodeIndex> {
+        self.analysis_browser
+            .as_ref()
+            .and_then(|browser| browser.selected_node())
+    }
+
+    pub fn analysis_page(&self) -> usize {
+        self.analysis_browser
+            .as_ref()
+            .map_or(0, AnalysisBrowserState::page)
+    }
+
+    pub fn analysis_can_previous_page(&self) -> bool {
+        self.analysis_browser
+            .as_ref()
+            .is_some_and(|browser| browser.page() > 0)
     }
 
     pub const fn mode(&self) -> BoardMode {
@@ -311,6 +370,15 @@ impl AppState {
             return Vec::new();
         }
 
+        if self.analysis_browser.is_some()
+            && matches!(
+                &action,
+                Action::TapSquare(_) | Action::ChoosePromotion(_) | Action::CancelPromotion
+            )
+        {
+            return Vec::new();
+        }
+
         match action {
             Action::Exit => vec![Effect::ExitRequested],
             Action::OpenCollectionPicker => {
@@ -336,6 +404,26 @@ impl AppState {
             Action::ChoosePromotion(choice) => Self::progress_effect(self.finish_promotion(choice)),
             Action::CancelPromotion => {
                 self.cancel_promotion();
+                Vec::new()
+            }
+            Action::OpenAnalysis => {
+                self.open_analysis();
+                Vec::new()
+            }
+            Action::CloseAnalysis => {
+                self.close_analysis();
+                Vec::new()
+            }
+            Action::SelectAnalysisNode(index) => {
+                self.select_analysis_node(index);
+                Vec::new()
+            }
+            Action::AnalysisPreviousPage => {
+                self.analysis_previous_page();
+                Vec::new()
+            }
+            Action::AnalysisNextPage => {
+                self.analysis_next_page();
                 Vec::new()
             }
             Action::PreviousPuzzle => Self::progress_effect(self.turn_puzzle(false)),
@@ -379,6 +467,56 @@ impl AppState {
             vec![Effect::ProgressChanged]
         } else {
             Vec::new()
+        }
+    }
+
+    fn open_analysis(&mut self) {
+        if self.analysis_browser.is_some()
+            || self.pending_promotion.is_some()
+            || !self.analysis_available()
+        {
+            return;
+        }
+
+        self.analysis_browser = Some(AnalysisBrowserState::default());
+        self.analysis_preview_board = None;
+    }
+
+    fn close_analysis(&mut self) {
+        self.analysis_browser = None;
+        self.analysis_preview_board = None;
+    }
+
+    fn select_analysis_node(&mut self, index: AnalysisNodeIndex) {
+        if self.analysis_browser.is_none() {
+            return;
+        }
+
+        let preview_board = self
+            .active_puzzle()
+            .analysis
+            .as_ref()
+            .and_then(|analysis| analysis.node(index))
+            .map(|node| Board::from_fen(&node.fen).expect("parsed analysis FEN remains valid"));
+        let Some(preview_board) = preview_board else {
+            return;
+        };
+
+        if let Some(browser) = self.analysis_browser.as_mut() {
+            browser.selected_node = Some(index);
+        }
+        self.analysis_preview_board = Some(preview_board);
+    }
+
+    fn analysis_previous_page(&mut self) {
+        if let Some(browser) = self.analysis_browser.as_mut() {
+            browser.page = browser.page.saturating_sub(1);
+        }
+    }
+
+    fn analysis_next_page(&mut self) {
+        if let Some(browser) = self.analysis_browser.as_mut() {
+            browser.page = browser.page.saturating_add(1);
         }
     }
 
@@ -539,6 +677,7 @@ impl AppState {
     }
 
     fn toggle_mode(&mut self) {
+        self.close_analysis();
         self.pending_promotion = None;
         self.description_visible = false;
         self.board.clear_selection();
@@ -596,6 +735,7 @@ impl AppState {
     }
 
     fn reset_attempt(&mut self) {
+        self.close_analysis();
         self.description_visible = false;
         self.solution_ply = 0;
         self.feedback = SolutionFeedback::None;

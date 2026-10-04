@@ -21,8 +21,8 @@ pub use analysis::{
     Nag,
 };
 pub use app::{
-    Action, ActiveCollection, AppState, BoardMode, Effect, PendingPromotion, PromotionChoice,
-    SolutionFeedback, COLLECTIONS_PER_PAGE,
+    Action, ActiveCollection, AnalysisBrowserState, AppState, BoardMode, Effect, PendingPromotion,
+    PromotionChoice, SolutionFeedback, COLLECTIONS_PER_PAGE,
 };
 pub use board::{Board, Color, Piece, PieceKind, TapResult};
 pub use collection::{
