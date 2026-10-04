@@ -1525,3 +1525,29 @@ The installed hash matched; supervised startup completed at 509ms (23ms
 submission, 387ms completion). The user reported “fonts look much better” and
 requested a squash merge to main. This records visual font acceptance, without
 claiming any improvement in physical ghosting or additional lifecycle checks.
+
+## Task 26 — stylus tap preparation (2026-10-04)
+
+Checkpoint 26A is **pending human testing**; Task 26 remains Ready.
+Read-only SSH reconnected with the recorded `root@192.168.1.20:2222`
+transport and an empty password. Firmware remains 5.19.6, architecture armv7l.
+Input names/capabilities still expose `WacomDigitizer`, `pt_mt`, and
+`stylus-custom`; no chess process was running before deployment preparation.
+
+The prepared adapter selects only `stylus-custom` using its name and ABS_X/Y
+plus key-event capabilities, regardless of event-node number. It reuses the
+Task-00 inclusive virtual pen ranges and direct portrait axes. The physical
+Wacom stream is never opened. Pen input is read-only with no grab; the existing
+owned finger grab and supervisor handoff/cleanup are unchanged. Synthetic tests
+and the reviewed Task-00 virtual trace cover tap aggregation, hover, movement,
+invalid coordinates, repeated contacts, eraser filtering, and contact duration.
+The poll bridge is tested with mock readiness, interruption, and error results.
+
+A prerequisite gap was found: no rendered control opened the analysis browser.
+The minimal repair adds an ANALYSIS button in a rich puzzle's closed status
+area. Existing NOTE/toolbar actions remain intact. Its geometry/action and a
+visually reviewed Gray8 snapshot are covered on the host.
+
+Deployment/build identifiers and the human pass/fail observations will be
+appended after preparation. Host checks do not establish real pen targeting or
+native pen recovery.

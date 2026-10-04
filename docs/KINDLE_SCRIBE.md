@@ -98,7 +98,8 @@ FBInk documents raw image/pixel support and rectangular refresh APIs; use those 
 
 ## Input
 
-The Scribe is a touch/stylus device. Initial app scope is finger touch.
+The Scribe is a touch/stylus device. Phase one supports finger touch; Task 26
+adds read-only tap decoding from the verified virtual pen stream.
 
 Input discovery must use evdev capabilities/name rather than a fixed `eventN` path. Record all plausible devices during Task 00.
 
@@ -109,7 +110,12 @@ The first implementation should support:
 - tap modal item;
 - previous/next puzzle through visible controls.
 
-Swipe navigation is optional until raw-to-screen coordinate transforms and gesture thresholds are stable. Stylus support is explicitly deferred; it should not accidentally trigger duplicate finger actions.
+Swipe navigation is optional until raw-to-screen coordinate transforms and gesture thresholds are stable.
+Task 26 selects only `stylus-custom` (ABS_X/Y and key-event capabilities), never
+both physical and virtual pen streams. Its measured inclusive ranges are
+0–1860 and 0–2480, normalized to 1860×2480 display pixels. Pen contact/release
+uses the same shared hit targets as finger taps; hover and drawing data are ignored.
+Physical checkpoint 26A remains required before declaring stylus support verified.
 
 ## Stock UI and lifecycle
 

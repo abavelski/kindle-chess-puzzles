@@ -138,3 +138,12 @@ e-ink readability/affordance, and final native-UI recovery.
 - no automatic conversion of SAN-looking prose into tappable moves;
 - no progress change just because a line is browsed;
 - no requirement to accept alternative branches during grading in phase two.
+
+## Task 26 prerequisite finding — 2026-10-04
+
+Task 25's chip hit testing is implemented, but inspection during Task 26 found
+no visible control dispatching `OpenAnalysis`. Task 26 therefore includes the
+minimal prerequisite repair: a monochrome ANALYSIS button in the closed rich
+puzzle's status area, with shared hit testing and a host test. Existing NOTE
+and other toolbar controls retain their behavior. This makes checkpoint 26A
+reachable without adding later-task behavior.

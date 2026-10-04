@@ -26,6 +26,7 @@ pub struct RenderOutput {
     pub layout: Layout,
     pub damage: Vec<Rect>,
     pub analysis: Option<AnalysisPanelOutput>,
+    pub analysis_entry: Option<Rect>,
 }
 
 impl RenderOutput {
@@ -43,6 +44,12 @@ impl RenderOutput {
             }
         }
 
+        if !state.collection_picker_open()
+            && state.pending_promotion().is_none()
+            && self.analysis_entry.is_some_and(|rect| rect.contains(x, y))
+        {
+            return Some(HitTarget::OpenAnalysis);
+        }
         self.layout.hit_test_app(x, y, state)
     }
 }
@@ -57,7 +64,21 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     draw_board(&mut frame, state, layout, coordinate_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
-    let analysis = draw_status(&mut frame, state, layout, text_scale);
+    let analysis_entry =
+        (state.active_puzzle().analysis.is_some() && !state.analysis_browser_open()).then(|| {
+            let area = layout.status.inset((layout.status.height / 12).max(8));
+            let height = layout.minimum_touch_px();
+            Rect::new(
+                area.x,
+                area.bottom().saturating_sub(height),
+                area.width,
+                height,
+            )
+        });
+    let analysis = draw_status(&mut frame, state, layout, text_scale, analysis_entry);
+    if let Some(rect) = analysis_entry {
+        draw_button(&mut frame, rect, "ANALYSIS", false, text_scale);
+    }
 
     match state.feedback() {
         SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
@@ -78,6 +99,7 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
         layout,
         damage: vec![layout.viewport],
         analysis,
+        analysis_entry,
     })
 }
 
@@ -235,6 +257,7 @@ fn draw_status(
     state: &AppState,
     layout: Layout,
     scale: u32,
+    analysis_entry: Option<Rect>,
 ) -> Option<AnalysisPanelOutput> {
     draw_button_chrome(frame, layout.status, WHITE, INK, false);
 
@@ -245,6 +268,9 @@ fn draw_status(
         return draw_analysis_panel(frame, state, layout, content, scale.min(3));
     }
 
+    if let Some(rect) = analysis_entry {
+        content.height = rect.y.saturating_sub(content.y).saturating_sub(padding);
+    }
     if state.feedback() == SolutionFeedback::Correct {
         content.width = content.width.saturating_sub(layout.minimum_touch_px());
     }
@@ -275,6 +301,9 @@ fn draw_status(
                     Color::White => "WHITE TO MOVE",
                     Color::Black => "BLACK TO MOVE",
                 };
+                if let Some(rect) = analysis_entry {
+                    content.height = rect.y.saturating_sub(content.y).saturating_sub(padding);
+                }
                 if state.feedback() == SolutionFeedback::Correct {
                     format!("{side} - CORRECT")
                 } else {
@@ -285,6 +314,9 @@ fn draw_status(
         draw_text_bold(frame, content.x, content.y, &status_line, scale, INK);
     }
 
+    if let Some(rect) = analysis_entry {
+        content.height = rect.y.saturating_sub(content.y).saturating_sub(padding);
+    }
     if state.feedback() == SolutionFeedback::Correct {
         let mark = Rect::new(
             layout

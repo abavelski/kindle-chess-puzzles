@@ -8,9 +8,8 @@ use chess_core::{
 };
 use chess_render::{calculate_damage, compact_damage, render, DisplayMetrics, HitTarget};
 use kindle_platform::{
-    clean_regions_for_board_change, task04_scribe_transform, DiscoveredCollection, FingerInput,
-    KindleDisplay, KindleStorage, ProgressStore, RefreshPolicy, StoragePaths, TapPolicy,
-    SCRIBE_DPI,
+    clean_regions_for_board_change, DiscoveredCollection, KindleDisplay, KindleStorage,
+    ProgressStore, RefreshPolicy, ScribeInput, StoragePaths, TapPolicy, SCRIBE_DPI,
 };
 use std::collections::VecDeque;
 use std::time::Instant;
@@ -78,8 +77,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         height: display_state.height,
         dpi: SCRIBE_DPI,
     };
-    let transform = task04_scribe_transform(metrics)?;
-    let mut input = FingerInput::discover(transform, TapPolicy::scribe_default())?;
+    let mut input = ScribeInput::discover(metrics, TapPolicy::scribe_default())?;
     input.take_exclusive()?;
     eprintln!("kindle-chess: exclusive finger input acquired before first frame");
 
@@ -118,6 +116,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "kindle-chess: selected /dev/input/{} ({})",
         input.selected().event_name,
         input.selected().name
+    );
+    eprintln!(
+        "kindle-chess: selected pen /dev/input/{} ({})",
+        input.selected_pen().event_name,
+        input.selected_pen().name
     );
     eprintln!("kindle-chess: tap FILES in the header to switch collections");
 

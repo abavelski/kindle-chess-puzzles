@@ -13,10 +13,12 @@ pub use display::{
     SCRIBE_DPI, SCRIBE_HEIGHT, SCRIBE_ROTATION, SCRIBE_WIDTH,
 };
 pub use input::{
-    input_device_path, is_finger_touchscreen_candidate, scan_input_candidates,
-    select_finger_touchscreen, task04_scribe_transform, AxisRange, DeviceCapabilities, FingerInput,
-    InputCandidate, InputError, MtDecoder, RawInputEvent, Rotation, TapPolicy, TapRecognizer,
-    TouchEvent, TouchPhase, TouchTransform, TransformError, SCRIBE_TOUCH_X, SCRIBE_TOUCH_Y,
+    input_device_path, is_finger_touchscreen_candidate, is_scribe_pen_candidate,
+    scan_input_candidates, scribe_pen_transform, select_finger_touchscreen,
+    task04_scribe_transform, AxisRange, DeviceCapabilities, FingerInput, InputCandidate,
+    InputError, MtDecoder, PenTapDecoder, RawInputEvent, Rotation, ScribeInput, TapPolicy,
+    TapRecognizer, TouchEvent, TouchPhase, TouchTransform, TransformError, SCRIBE_TOUCH_X,
+    SCRIBE_TOUCH_Y,
 };
 pub use storage::{
     DiscoveredCollection, KindleStorage, ProgressLoad, ProgressStore, StorageError, StoragePaths,

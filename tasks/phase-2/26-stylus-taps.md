@@ -46,3 +46,27 @@ No handwriting, annotations, eraser, or pressure-sensitive UI.
 
 ## Suggested commit
 `kindle: map Scribe pen contacts to UI taps`
+
+## Implementation preparation — 2026-10-04
+
+Host implementation is prepared on `phase-2`; checkpoint 26A is pending.
+The adapter discovers exactly one `stylus-custom` device by name and ABS_X/Y +
+key-event capabilities. It never consumes the duplicate physical Wacom stream.
+The Task-00 virtual pen ranges (X 0–1860, Y 0–2480, inclusive) normalize to the
+existing display coordinates and shared hit targets. SYN_REPORT batches contact
+movement; BTN_TOUCH release produces at most one tap. Hover, pressure, tilt,
+eraser/tool departure, invalid positions, drags, and long contacts do not activate
+UI targets. The existing finger grab and lifecycle cleanup remain in place;
+pen input is read-only and has no exclusive grab.
+
+Tests cover synthetic pen tap/hover/movement/out-of-range/repeated contacts,
+the recorded five-contact Task-00 trace, matching finger/pen move-chip targets,
+and the narrow two-file poll boundary including interruption and errors.
+
+Do not change status to Implemented until the human confirms all six checkpoint
+items and the tested build and observations are recorded below/in the device notes.
+
+A prerequisite repair adds the missing visible ANALYSIS entry button in rich
+puzzles' status area. The finding is recorded in `docs/PHASE_2.md`; existing
+NOTE/toolbar behavior is preserved. A geometry/action test and a visually
+reviewed closed-panel snapshot cover this entry point.

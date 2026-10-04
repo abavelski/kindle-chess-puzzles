@@ -339,3 +339,10 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
 
     assert_eq!(actual.as_slice(), EXPECTED);
 }
+
+#[test]
+fn closed_rich_analysis_entry_matches_reviewed_snapshot() {
+    let app = state(RICH);
+    let output = render(&app, SCRIBE).unwrap();
+    assert_eq!(output.frame.checksum64(), 12_658_795_962_515_466_202);
+}

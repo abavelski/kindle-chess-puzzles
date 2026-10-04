@@ -1,4 +1,4 @@
-//! Kindle finger-touch discovery, decoding, normalization, and tap recognition.
+//! Kindle finger/pen discovery, decoding, normalization, and tap recognition.
 
 use chess_render::DisplayMetrics;
 use std::{
@@ -566,6 +566,191 @@ pub fn task04_scribe_transform(metrics: DisplayMetrics) -> Result<TouchTransform
 
 pub fn input_device_path(dev_root: &Path, candidate: &InputCandidate) -> PathBuf {
     dev_root.join(&candidate.event_name)
+}
+
+/// Consume only the virtual pen stream; the physical Wacom stream duplicates it.
+pub fn is_scribe_pen_candidate(candidate: &InputCandidate) -> bool {
+    candidate.name == "stylus-custom"
+        && has_bit(candidate.capabilities.event_types_low64, 1)
+        && has_bit(candidate.capabilities.event_types_low64, 3)
+        && has_bit(candidate.capabilities.abs_low64, 0)
+        && has_bit(candidate.capabilities.abs_low64, 1)
+}
+
+pub fn scribe_pen_transform(metrics: DisplayMetrics) -> Result<TouchTransform, TransformError> {
+    let mut transform = task04_scribe_transform(metrics)?;
+    // Task 00 measured inclusive virtual pen ranges, unlike the finger ranges.
+    transform.raw_x = AxisRange { min: 0, max: 1860 };
+    transform.raw_y = AxisRange { min: 0, max: 2480 };
+    Ok(transform)
+}
+
+pub struct PenTapDecoder {
+    transform: TouchTransform,
+    taps: TapRecognizer,
+    x: Option<i32>,
+    y: Option<i32>,
+    contact: bool,
+    eraser: bool,
+    active: bool,
+    cancelled: bool,
+}
+
+impl PenTapDecoder {
+    pub fn new(transform: TouchTransform, policy: TapPolicy) -> Self {
+        Self {
+            transform,
+            taps: TapRecognizer::new(policy),
+            x: None,
+            y: None,
+            contact: false,
+            eraser: false,
+            active: false,
+            cancelled: false,
+        }
+    }
+
+    pub fn push(&mut self, event: RawInputEvent) -> Option<(u32, u32)> {
+        match (event.event_type, event.code) {
+            (EV_ABS, 0) => self.x = Some(event.value),
+            (EV_ABS, 1) => self.y = Some(event.value),
+            (1, 0x14a) => self.contact = event.value != 0,
+            (1, 0x140) if event.value == 0 => {
+                self.contact = false;
+                self.cancelled = true;
+            }
+            (1, 0x141) => {
+                self.eraser = event.value != 0;
+                if self.eraser {
+                    self.cancelled = true;
+                }
+            }
+            (EV_SYN, 3) => {
+                self.contact = false;
+                self.active = false;
+                self.cancelled = true;
+                self.x = None;
+                self.y = None;
+            }
+            _ => {}
+        }
+        let valid = self.x.zip(self.y).filter(|&(x, y)| {
+            (self.transform.raw_x.min..=self.transform.raw_x.max).contains(&x)
+                && (self.transform.raw_y.min..=self.transform.raw_y.max).contains(&y)
+        });
+        if self.contact && valid.is_none() && self.active {
+            self.cancelled = true;
+        }
+        if event.event_type != EV_SYN || event.code != SYN_REPORT {
+            return None;
+        }
+        let phase = match (self.contact, self.active) {
+            (true, false) => {
+                self.active = true;
+                if valid.is_none() || self.eraser {
+                    self.cancelled = true;
+                }
+                TouchPhase::Down
+            }
+            (true, true) => TouchPhase::Move,
+            (false, true) => {
+                self.active = false;
+                TouchPhase::Up
+            }
+            (false, false) => {
+                self.cancelled = false;
+                return None;
+            }
+        };
+        let tap = valid.and_then(|(x, y)| {
+            let (x, y) = self.transform.map(x, y);
+            self.taps
+                .push(TouchEvent::new(phase, x as i32, y as i32, event.time_ms()))
+        });
+        if phase == TouchPhase::Up {
+            let cancelled = std::mem::take(&mut self.cancelled);
+            if !cancelled {
+                return tap.map(|(x, y)| (x as u32, y as u32));
+            }
+        }
+        None
+    }
+}
+
+/// Multiplex finger and one pen stream without background readers or leaked handles.
+pub struct ScribeInput {
+    finger: FingerInput,
+    pen: File,
+    pen_decoder: PenTapDecoder,
+    selected_pen: InputCandidate,
+}
+
+impl ScribeInput {
+    pub fn discover(metrics: DisplayMetrics, policy: TapPolicy) -> Result<Self, InputError> {
+        let finger = FingerInput::discover(
+            task04_scribe_transform(metrics)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?,
+            policy,
+        )?;
+        let candidates = scan_input_candidates(Path::new("/sys/class/input"))?;
+        let matches = candidates
+            .iter()
+            .filter(|candidate| is_scribe_pen_candidate(candidate))
+            .collect::<Vec<_>>();
+        let [selected_pen] = matches.as_slice() else {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "expected exactly one stylus-custom input stream with ABS_X/Y and key events",
+            )
+            .into());
+        };
+        let pen = File::open(input_device_path(Path::new("/dev/input"), selected_pen))?;
+        let transform = scribe_pen_transform(metrics)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+        Ok(Self {
+            finger,
+            pen,
+            pen_decoder: PenTapDecoder::new(transform, policy),
+            selected_pen: (*selected_pen).clone(),
+        })
+    }
+
+    pub fn take_exclusive(&mut self) -> Result<(), InputError> {
+        // Preserve the verified finger grab. Pen is read-only; never grab Wacom.
+        self.finger.take_exclusive()
+    }
+
+    pub fn diagnostics(&self) -> &[String] {
+        self.finger.diagnostics()
+    }
+    pub fn selected(&self) -> &InputCandidate {
+        self.finger.selected()
+    }
+    pub fn selected_pen(&self) -> &InputCandidate {
+        &self.selected_pen
+    }
+
+    pub fn next_tap(&mut self) -> Result<(u32, u32), InputError> {
+        loop {
+            let ready = fbink_sys::wait_input(&self.finger.file, &self.pen)?;
+            let mut bytes = [0_u8; 16];
+            let tap = if ready == 0 {
+                self.finger.file.read_exact(&mut bytes)?;
+                self.finger
+                    .decoder
+                    .push(RawInputEvent::from_32bit_bytes(bytes))
+                    .and_then(|touch| self.finger.taps.push(touch))
+                    .map(|(x, y)| self.finger.transform.map(x, y))
+            } else {
+                self.pen.read_exact(&mut bytes)?;
+                self.pen_decoder
+                    .push(RawInputEvent::from_32bit_bytes(bytes))
+            };
+            if let Some(tap) = tap {
+                return Ok(tap);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

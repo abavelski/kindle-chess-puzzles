@@ -236,3 +236,213 @@ fn exclusive_input_failure_has_context_and_cannot_be_silently_shared() {
     let error = kindle_platform::InputError::ExclusiveGrab(std::io::Error::from_raw_os_error(16));
     assert!(error.to_string().starts_with("exclusive finger input: "));
 }
+
+fn pen_sequence(events: &[(u16, u16, i32)]) -> Vec<(u32, u32)> {
+    let mut decoder = kindle_platform::PenTapDecoder::new(
+        kindle_platform::scribe_pen_transform(METRICS).unwrap(),
+        TapPolicy::scribe_default(),
+    );
+    events
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &(kind, code, value))| {
+            decoder.push(RawInputEvent::new(1, i as u32 * 1_000, kind, code, value))
+        })
+        .collect()
+}
+
+#[test]
+fn pen_contact_noise_emits_one_tap_and_ignores_hover_pressure_tilt() {
+    assert_eq!(
+        pen_sequence(&[
+            (1, 0x140, 1),
+            (3, 0, 930),
+            (3, 1, 1240),
+            (0, 0, 0),
+            (1, 0x14a, 1),
+            (3, 0x18, 50),
+            (0, 0, 0),
+            (3, 0, 932),
+            (3, 0x1a, 20),
+            (0, 0, 0),
+            (1, 0x14a, 0),
+            (0, 0, 0),
+            (1, 0x140, 0),
+            (0, 0, 0),
+        ]),
+        vec![(931, 1240)]
+    );
+    assert!(pen_sequence(&[
+        (1, 0x140, 1),
+        (3, 0, 100),
+        (3, 1, 200),
+        (0, 0, 0),
+        (3, 0, 110),
+        (0, 0, 0),
+        (1, 0x140, 0),
+        (0, 0, 0)
+    ])
+    .is_empty());
+}
+
+#[test]
+fn pen_repeated_contacts_use_fresh_positions_and_reject_out_of_range_and_drag() {
+    assert_eq!(
+        pen_sequence(&[
+            (3, 0, 0),
+            (3, 1, 0),
+            (1, 0x14a, 1),
+            (0, 0, 0),
+            (1, 0x14a, 0),
+            (0, 0, 0),
+            (3, 0, 1860),
+            (3, 1, 2480),
+            (1, 0x14a, 1),
+            (0, 0, 0),
+            (1, 0x14a, 0),
+            (0, 0, 0),
+        ]),
+        vec![(0, 0), (1859, 2479)]
+    );
+    for bad in [
+        vec![
+            (3, 0, -1),
+            (3, 1, 100),
+            (1, 0x14a, 1),
+            (0, 0, 0),
+            (3, 0, 100),
+            (0, 0, 0),
+            (1, 0x14a, 0),
+            (0, 0, 0),
+        ],
+        vec![
+            (3, 0, 100),
+            (3, 1, 100),
+            (1, 0x14a, 1),
+            (0, 0, 0),
+            (3, 0, 200),
+            (0, 0, 0),
+            (3, 0, 100),
+            (1, 0x14a, 0),
+            (0, 0, 0),
+        ],
+    ] {
+        assert!(pen_sequence(&bad).is_empty());
+    }
+}
+
+#[test]
+fn pen_discovery_selects_only_the_verified_virtual_stream() {
+    let candidate = InputCandidate {
+        event_name: "event99".into(),
+        name: "stylus-custom".into(),
+        capabilities: DeviceCapabilities {
+            event_types_low64: bitmap(&[1, 3]),
+            abs_low64: bitmap(&[0, 1]),
+        },
+    };
+    assert!(kindle_platform::is_scribe_pen_candidate(&candidate));
+    assert!(!kindle_platform::is_scribe_pen_candidate(&InputCandidate {
+        name: "WacomDigitizer".into(),
+        ..candidate.clone()
+    }));
+    assert!(!kindle_platform::is_scribe_pen_candidate(&InputCandidate {
+        capabilities: DeviceCapabilities {
+            event_types_low64: bitmap(&[3]),
+            abs_low64: bitmap(&[0, 1])
+        },
+        ..candidate
+    }));
+}
+
+#[test]
+fn recorded_task00_pen_trace_emits_exactly_five_taps() {
+    let mut decoder = kindle_platform::PenTapDecoder::new(
+        kindle_platform::scribe_pen_transform(METRICS).unwrap(),
+        TapPolicy::scribe_default(),
+    );
+    let taps = include_bytes!("../../../tests/fixtures/input/scribe-virtual-pen.bin")
+        .chunks_exact(16)
+        .filter_map(|b| {
+            decoder.push(RawInputEvent::new(
+                u32::from_le_bytes(b[0..4].try_into().unwrap()),
+                u32::from_le_bytes(b[4..8].try_into().unwrap()),
+                u16::from_le_bytes(b[8..10].try_into().unwrap()),
+                u16::from_le_bytes(b[10..12].try_into().unwrap()),
+                i32::from_le_bytes(b[12..16].try_into().unwrap()),
+            ))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        taps,
+        vec![(64, 86), (1799, 518), (900, 1130), (46, 2431), (1808, 2424)]
+    );
+}
+
+#[test]
+fn pen_and_finger_resolve_the_same_rich_move_chip_targets() {
+    use chess_core::{parse_puzzle_file, Action, ActiveCollection, AppState, Progress};
+    let mut app = AppState::new(
+        ActiveCollection::from_collection(
+            "puzzles-test.json",
+            parse_puzzle_file(include_bytes!(
+                "../../../tests/fixtures/rich-analysis/valid-rich.json"
+            ))
+            .unwrap(),
+        ),
+        Progress::new(),
+    );
+    app.dispatch(Action::OpenAnalysis);
+    let output = chess_render::render(&app, METRICS).unwrap();
+    let panel = output.analysis.as_ref().unwrap();
+    assert!(!panel.move_chips.is_empty());
+    for chip in &panel.move_chips {
+        let x = chip.rect.x + chip.rect.width / 2;
+        let y = chip.rect.y + chip.rect.height / 2;
+        let raw_x = ((u64::from(x) * 1860 + 929) / 1859) as i32;
+        let raw_y = ((u64::from(y) * 2480 + 1239) / 2479) as i32;
+        let taps = pen_sequence(&[
+            (3, 0, raw_x),
+            (3, 1, raw_y),
+            (1, 0x14a, 1),
+            (0, 0, 0),
+            (1, 0x14a, 0),
+            (0, 0, 0),
+        ]);
+        assert_eq!(taps, vec![(x, y)]);
+        assert_eq!(
+            output.hit_test_app(x, y, &app),
+            output.hit_test_app(taps[0].0, taps[0].1, &app)
+        );
+        assert_eq!(
+            output.hit_test_app(x, y, &app),
+            Some(HitTarget::AnalysisMove(chip.node))
+        );
+    }
+}
+
+#[test]
+fn pen_eraser_and_long_contact_do_not_activate_targets() {
+    assert!(pen_sequence(&[
+        (1, 0x141, 1),
+        (0, 0, 0),
+        (3, 0, 100),
+        (3, 1, 100),
+        (1, 0x14a, 1),
+        (0, 0, 0),
+        (1, 0x14a, 0),
+        (0, 0, 0)
+    ])
+    .is_empty());
+    let mut decoder = kindle_platform::PenTapDecoder::new(
+        kindle_platform::scribe_pen_transform(METRICS).unwrap(),
+        TapPolicy::scribe_default(),
+    );
+    for (kind, code, value) in [(3, 0, 100), (3, 1, 100), (1, 0x14a, 1), (0, 0, 0)] {
+        assert!(decoder
+            .push(RawInputEvent::new(1, 0, kind, code, value))
+            .is_none());
+    }
+    decoder.push(RawInputEvent::new(2, 0, 1, 0x14a, 0));
+    assert!(decoder.push(RawInputEvent::new(2, 0, 0, 0, 0)).is_none());
+}

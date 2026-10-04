@@ -50,3 +50,33 @@ impl Drop for ExclusiveInput {
 extern "C" {
     fn kcp_input_grab(fd: std::os::raw::c_int, enabled: u8) -> std::os::raw::c_int;
 }
+
+/// Wait for one of two owned input files, returning its index.
+pub fn wait_input(first: &File, second: &File) -> Result<usize, io::Error> {
+    #[cfg(all(target_os = "linux", target_arch = "arm"))]
+    {
+        use std::os::fd::AsRawFd;
+        let code = unsafe { kcp_input_wait(first.as_raw_fd(), second.as_raw_fd()) };
+        if code < 0 {
+            Err(io::Error::from_raw_os_error(-code))
+        } else {
+            Ok(code as usize)
+        }
+    }
+    #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
+    {
+        let _ = (first, second);
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "evdev polling requires the Kindle target",
+        ))
+    }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "arm"))]
+extern "C" {
+    fn kcp_input_wait(
+        first: std::os::raw::c_int,
+        second: std::os::raw::c_int,
+    ) -> std::os::raw::c_int;
+}

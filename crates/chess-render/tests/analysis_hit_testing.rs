@@ -240,3 +240,19 @@ fn preview_selection_damage_is_regional_to_board_and_analysis_panel() {
         "preview selection should not dirty unrelated header/toolbar/navigation regions: {damage:?}"
     );
 }
+
+#[test]
+fn rich_analysis_has_a_visible_entry_control_with_a_working_action() {
+    let mut app = state(RICH);
+    let output = render(&app, SCRIBE).unwrap();
+    let rect = output
+        .analysis_entry
+        .expect("rich puzzle exposes analysis entry");
+    let (x, y) = center(rect);
+    let target = output.hit_test_app(x, y, &app).unwrap();
+    assert_eq!(target.into_action(), Some(Action::OpenAnalysis));
+    app.dispatch(target.into_action().unwrap());
+    assert!(render(&app, SCRIBE).unwrap().analysis.is_some());
+    let legacy = state(include_bytes!("../../../tests/fixtures/puzzles.json"));
+    assert!(render(&legacy, SCRIBE).unwrap().analysis_entry.is_none());
+}
