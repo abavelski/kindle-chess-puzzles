@@ -1802,3 +1802,39 @@ header remain unchanged.
   `61f5aef3786faa56ae8d2396c0447dfb5312272d765787ccff20d648456fd9c6`.
 - The user verified the deployed change on the Kindle on 2026-10-04 and
   requested commit and push. Physical visual acceptance is confirmed.
+
+## Task 34 — Redundant book analysis descriptions cleaned (2026-10-04)
+
+- User confirmed JSON cleanup was preferred. No renderer/runtime change remains.
+  Offline tools/clean_book_analysis.py removes complete structured main-path
+  summaries and Reference lines already in analysis comments from all 1,615
+  private book puzzles (500/500/500/115). Nine original no-PGN plain notes remain
+  available to NOTE. All analysis trees/comments, IDs/order, FENs, solutions,
+  topics, difficulty and PGN/source/reference metadata are unchanged.
+- Failing-first synthetic cleanup tests and complete scripts/build-kindle.sh
+  gates passed, including unchanged renderer snapshots. The host parser/renderer
+  audited all 1,615 cleaned puzzles and every analysis page: PGN starts at the
+  top, all tree moves/comment references remain, and preview does not alter
+  progress. Reviewed real 135b before/after: two redundant rows are removed.
+- Implementation/tools/tests/docs commit `a265f53` was pushed to main before
+  uploading the cleaned collection JSON via scp -O / SSH port 2222 to the verified
+  root@192.168.1.20. App/process/lock checks showed the app already stopped.
+  No lifecycle signal or service change was needed. Temporary install/app locks
+  protected replacement; original and uploaded hashes were checked before
+  same-filesystem renames, with rollback originals until success.
+- Installed hashes match the local cleaned files:
+  - 001: `b22b1b1b2bd4b331ee00ce154934b576ce1e31bc59867543c8b833d1e992edf3`
+  - 002: `8dfadf965472f5e6d744df85e10435c1bd1af887c125020af39f1042ba4bad0a`
+  - 003: `b8c0eaed5e01a19c023db746594d3ca024009a5daf09d8bb3e5fe8d0a65e5357`
+  - 004: `7685d3583e42855c80a760454223e9727623bffa881f18444cfe220e78ed5d6e`
+- Progress before/after SHA-256 is unchanged:
+  `61f5aef3786faa56ae8d2396c0447dfb5312272d765787ccff20d648456fd9c6`.
+  Stylus fixture hash remains
+  `3ddf457bbac3472c3f952ed082c46904023e644ddd2c814b9404729bfde27b84`.
+  The rebuilt release matches the installed Task 33 binary exactly:
+  `f63264af763fff428560de70b7e11739d80654a0791599e5b72728a4393a316e`;
+  it was not reinstalled for this data-only update.
+- Verified app/locks and remote upload files absent after installation, with
+  native Xorg/awesome present. Original private collections remain locally under
+  target/task34/original-collections/. Ready for library launch; physical visual
+  acceptance awaits user review.
