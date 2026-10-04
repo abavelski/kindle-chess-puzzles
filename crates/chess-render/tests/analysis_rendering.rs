@@ -327,13 +327,13 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("main-only", 0),
-        ("nested-sideline", 0),
-        ("black-promotion-rich", 0),
-        ("selected-move", 0),
-        ("long-comment-first", 0),
-        ("long-comment-middle", 0),
-        ("long-comment-last", 0),
+        ("main-only", 1_482_911_107_810_550_017),
+        ("nested-sideline", 6_567_349_012_092_091_101),
+        ("black-promotion-rich", 16_503_749_396_860_418_661),
+        ("selected-move", 11_321_429_571_968_384_316),
+        ("long-comment-first", 16_139_418_572_889_790_324),
+        ("long-comment-middle", 12_403_465_458_380_759_305),
+        ("long-comment-last", 17_956_680_023_420_241_123),
         ("no-analysis", 7_140_422_721_455_450_270),
     ];
 
