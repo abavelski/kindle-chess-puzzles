@@ -77,6 +77,10 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
         draw_collection_picker(&mut frame, state, layout, text_scale);
     }
 
+    if state.puzzle_goto_open() {
+        draw_puzzle_goto(&mut frame, state, layout, text_scale);
+    }
+
     Ok(RenderOutput {
         frame,
         layout,
@@ -280,6 +284,13 @@ fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u
         state.can_previous_puzzle(),
         scale,
     );
+    draw_button(
+        frame,
+        layout.control_visual_rect(layout.goto),
+        "GOTO",
+        false,
+        scale.min(3),
+    );
     draw_navigation_button(
         frame,
         layout.control_visual_rect(layout.next),
@@ -449,6 +460,61 @@ fn draw_promotion_modal(frame: &mut Gray8, layout: Layout, color: Color, scale: 
         draw_text_centered(frame, label, LABELS[index], scale.min(3), INK);
     }
     draw_button(frame, layout.promotion_cancel, "CANCEL", false, scale);
+}
+
+fn draw_puzzle_goto(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    frame.fill_rect(layout.goto_modal, WHITE);
+    frame.stroke_rect(layout.goto_modal, 6, INK);
+
+    let title = Rect::new(
+        layout.goto_modal.x,
+        layout.goto_modal.y,
+        layout.goto_modal.width,
+        layout.minimum_touch_px(),
+    );
+    draw_text_centered(frame, title, "GO TO PUZZLE", scale, INK);
+
+    draw_button_chrome(frame, layout.goto_input, WHITE, INK, false);
+    let input = state.puzzle_goto_input().unwrap_or_default();
+    let placeholder;
+    let (display, tone) = if input.is_empty() {
+        placeholder = format!("1 - {}", state.active_collection().puzzles().len());
+        (placeholder.as_str(), DISABLED_INK)
+    } else {
+        (input, INK)
+    };
+    draw_text_centered(
+        frame,
+        layout.goto_input.inset(8),
+        display,
+        (scale + 1).min(5),
+        tone,
+    );
+
+    for digit in 0..=9 {
+        draw_button(
+            frame,
+            layout.goto_digits[digit],
+            &digit.to_string(),
+            false,
+            scale,
+        );
+    }
+    draw_button(
+        frame,
+        layout.goto_backspace,
+        "DEL",
+        false,
+        scale.min(3),
+    );
+    draw_navigation_button(
+        frame,
+        layout.goto_confirm,
+        "CONFIRM",
+        state.puzzle_goto_number().is_some(),
+        scale.min(3),
+    );
+    draw_button(frame, layout.goto_cancel, "CANCEL", false, scale.min(3));
 }
 
 fn draw_collection_picker(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
