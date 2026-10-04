@@ -163,6 +163,66 @@ fn collection_picker_targets_are_touch_sized_and_block_the_board() {
     );
 }
 
+
+#[test]
+fn goto_button_is_small_between_prev_next_and_modal_captures_keypad() {
+    const PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/promotion-puzzles.json");
+    let layout = Layout::new(SCRIBE).expect("Scribe metrics fit");
+    assert_eq!(layout.goto.width, layout.minimum_touch_px());
+    assert!(layout.goto.width < layout.previous.width);
+    assert!(layout.goto.width < layout.next.width);
+    assert!(layout.previous.right() < layout.goto.x);
+    assert!(layout.goto.right() < layout.next.x);
+
+    let mut app = AppState::new(
+        ActiveCollection::from_collection(
+            "puzzles.json",
+            parse_puzzle_file(PUZZLES).expect("fixture parses"),
+        ),
+        Progress::new(),
+    );
+
+    let (x, y) = center(layout.goto);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::OpenPuzzleGoto)
+    );
+    app.dispatch(Action::OpenPuzzleGoto);
+
+    for rect in layout.goto_digits {
+        assert!(rect.width >= layout.minimum_touch_px());
+        assert!(rect.height >= layout.minimum_touch_px());
+    }
+    for rect in [layout.goto_backspace, layout.goto_confirm, layout.goto_cancel] {
+        assert!(rect.width >= layout.minimum_touch_px());
+        assert!(rect.height >= layout.minimum_touch_px());
+    }
+
+    let (x, y) = center(layout.goto_digits[3]);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::PuzzleGotoDigit(3))
+    );
+    let (x, y) = center(layout.goto_backspace);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::PuzzleGotoBackspace)
+    );
+    let (x, y) = center(layout.goto_confirm);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::ConfirmPuzzleGoto)
+    );
+    let (x, y) = center(layout.goto_cancel);
+    assert_eq!(
+        layout.hit_test_app(x, y, &app),
+        Some(HitTarget::CancelPuzzleGoto)
+    );
+
+    let (board_x, board_y) = center(layout.square_rect(0));
+    assert_eq!(layout.hit_test_app(board_x, board_y, &app), None);
+}
+
 #[test]
 fn header_edge_controls_are_touch_sized_and_accessible_during_modals() {
     let layout = Layout::new(SCRIBE).expect("Scribe layout");
