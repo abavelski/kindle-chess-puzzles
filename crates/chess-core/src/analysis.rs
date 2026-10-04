@@ -491,9 +491,7 @@ fn parse_move(value: &Value, context: &str, node_context: &str) -> Result<Analys
     if object.len() != 2 || !object.contains_key("uci") || !object.contains_key("san") {
         return Err(error(
             context,
-            &format!(
-                "{node_context}: move must contain exactly the uci and san fields."
-            ),
+            &format!("{node_context}: move must contain exactly the uci and san fields."),
         ));
     }
 
@@ -525,9 +523,7 @@ fn parse_role(
             "sideline" => Ok(AnalysisRole::Sideline),
             _ => Err(error(
                 context,
-                &format!(
-                    "{node_context}: role must be main, alternative, or sideline."
-                ),
+                &format!("{node_context}: role must be main, alternative, or sideline."),
             )),
         },
         Some(_) => Err(error(
@@ -642,9 +638,9 @@ fn resolve_spans_with_tree(
                 let analysis = analysis.ok_or_else(|| {
                     format!("{context}: move_ref target {node:?} requires an analysis tree.")
                 })?;
-                let target = analysis
-                    .node_index(&node)
-                    .ok_or_else(|| format!("{context}: move_ref target {node:?} does not exist."))?;
+                let target = analysis.node_index(&node).ok_or_else(|| {
+                    format!("{context}: move_ref target {node:?} does not exist.")
+                })?;
                 if target == analysis.root_index() {
                     return Err(format!(
                         "{context}: move_ref target {node:?} must not reference the root."
@@ -681,7 +677,9 @@ fn resolve_spans(
                 if target == root {
                     return Err(error(
                         context,
-                        &format!("{span_context}: move_ref target {node:?} must not reference root."),
+                        &format!(
+                            "{span_context}: move_ref target {node:?} must not reference root."
+                        ),
                     ));
                 }
                 spans.push(AnalysisTextSpan::MoveRef {
@@ -776,15 +774,12 @@ fn required_u64(
     context: &str,
     owner: &str,
 ) -> Result<u64, String> {
-    object
-        .get(key)
-        .and_then(Value::as_u64)
-        .ok_or_else(|| {
-            error(
-                context,
-                &format!("{owner}: {key} must be a non-negative integer."),
-            )
-        })
+    object.get(key).and_then(Value::as_u64).ok_or_else(|| {
+        error(
+            context,
+            &format!("{owner}: {key} must be a non-negative integer."),
+        )
+    })
 }
 
 fn error(context: &str, message: &str) -> String {

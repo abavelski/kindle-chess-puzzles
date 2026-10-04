@@ -219,9 +219,7 @@ mod tests {
         ),
         (
             "root FEN",
-            include_bytes!(
-                "../../../tests/fixtures/rich-analysis/invalid-root-fen-mismatch.json"
-            ),
+            include_bytes!("../../../tests/fixtures/rich-analysis/invalid-root-fen-mismatch.json"),
         ),
         (
             "invalid UCI",
@@ -235,9 +233,7 @@ mod tests {
         ),
         (
             "dangling move ref",
-            include_bytes!(
-                "../../../tests/fixtures/rich-analysis/invalid-move-ref-dangling.json"
-            ),
+            include_bytes!("../../../tests/fixtures/rich-analysis/invalid-move-ref-dangling.json"),
         ),
         (
             "root move ref",
@@ -245,15 +241,11 @@ mod tests {
         ),
         (
             "missing text",
-            include_bytes!(
-                "../../../tests/fixtures/rich-analysis/invalid-span-missing-text.json"
-            ),
+            include_bytes!("../../../tests/fixtures/rich-analysis/invalid-span-missing-text.json"),
         ),
         (
             "unknown span",
-            include_bytes!(
-                "../../../tests/fixtures/rich-analysis/invalid-span-unknown-type.json"
-            ),
+            include_bytes!("../../../tests/fixtures/rich-analysis/invalid-span-unknown-type.json"),
         ),
         (
             "bad label",
@@ -340,10 +332,7 @@ mod tests {
 
         let first = &collection.puzzles[0];
         assert_eq!(first.id, "lichess-001cr");
-        assert_eq!(
-            first.fen,
-            "8/3B2pp/p5k1/6P1/1ppp1K2/8/1P6/8 w - - 0 39"
-        );
+        assert_eq!(first.fen, "8/3B2pp/p5k1/6P1/1ppp1K2/8/1P6/8 w - - 0 39");
         assert_eq!(first.solution, vec!["d7e8".to_owned()]);
         assert_eq!(
             first.source.as_deref(),
