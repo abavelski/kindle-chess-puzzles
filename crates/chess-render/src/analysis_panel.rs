@@ -8,7 +8,7 @@ use crate::{
     },
     Gray8, HitTarget, Layout, Rect,
 };
-use chess_core::{AnalysisNodeIndex, AnalysisRole, AnalysisTextSpan, AnalysisTree, AppState};
+use chess_core::{AnalysisNodeIndex, AnalysisTextSpan, AnalysisTree, AppState, Color};
 
 const WHITE: u8 = 255;
 const INK: u8 = 0;
@@ -126,7 +126,6 @@ struct FlowBuilder {
     line_height: u32,
     row_height: u32,
     chip_height: u32,
-    indent_step: u32,
     chip_padding_x: u32,
     space_width: u32,
     lines: Vec<FlowLine>,
@@ -144,7 +143,6 @@ impl FlowBuilder {
             line_height,
             row_height: chip_height.saturating_add(4),
             chip_height,
-            indent_step: line_height.saturating_div(2).saturating_add(6),
             chip_padding_x: scale.saturating_mul(4).max(8),
             space_width: measure_text_regular(" ", scale).max(scale),
             lines: Vec::new(),
@@ -161,19 +159,6 @@ impl FlowBuilder {
             row_height: self.row_height,
             chip_height: self.chip_height,
         }
-    }
-
-    fn indent_for_depth(&self, depth: usize) -> u32 {
-        u32::try_from(depth)
-            .unwrap_or(u32::MAX)
-            .saturating_mul(self.indent_step)
-            .min(self.width / 3)
-    }
-
-    fn content_indent(&self, depth: usize) -> u32 {
-        self.indent_for_depth(depth)
-            .saturating_add(self.indent_step)
-            .min(self.width / 3)
     }
 
     fn force_break(&mut self) {
@@ -216,6 +201,38 @@ impl FlowBuilder {
             measure_text_regular(word, self.scale)
         }
         .max(1);
+        // Long prose words (URLs, for example) must wrap instead of being
+        // assigned a clipped rectangle and silently losing their suffix.
+        if width > self.width.saturating_sub(indent) {
+            let available = self.width.saturating_sub(indent).max(1);
+            let mut chunk = String::new();
+            for character in word.chars() {
+                let candidate = format!("{chunk}{character}");
+                let measured = if bold {
+                    measure_text_bold(&candidate, self.scale)
+                } else {
+                    measure_text_regular(&candidate, self.scale)
+                };
+                if measured > available && !chunk.is_empty() {
+                    self.push_word(indent, &chunk, bold);
+                    self.force_break();
+                    chunk.clear();
+                }
+                chunk.push(character);
+            }
+            let final_width = if bold {
+                measure_text_bold(&chunk, self.scale)
+            } else {
+                measure_text_regular(&chunk, self.scale)
+            };
+            // A single glyph may exceed a very small viewport; don't recurse.
+            self.push_fragment(
+                indent,
+                final_width.min(available).max(1),
+                FlowFragmentKind::Text { text: chunk, bold },
+            );
+            return;
+        }
         self.push_fragment(
             indent,
             width,
@@ -413,72 +430,94 @@ fn build_document(
     let mut builder = FlowBuilder::new(width, scale);
 
     if !description.is_empty() {
-        builder.push_text(0, "DESCRIPTION", true);
-        builder.force_break();
         push_spans(&mut builder, 0, description, analysis, selected);
         builder.force_break();
     }
 
     let root = analysis.root();
     if !root.content.is_empty() {
-        builder.push_text(0, "START", true);
-        builder.force_break();
-        push_spans(&mut builder, 0, root.content.as_slice(), analysis, selected);
+        push_spans(&mut builder, 0, &root.content, analysis, selected);
         builder.force_break();
     }
 
-    let mut stack = root
-        .children
-        .iter()
-        .rev()
-        .copied()
-        .map(|node| (node, 0usize))
-        .collect::<Vec<_>>();
-    while let Some((index, depth)) = stack.pop() {
-        let Some(node) = analysis.node(index) else {
-            continue;
-        };
-        let indent = builder.indent_for_depth(depth);
-        let role = match node.role {
-            Some(AnalysisRole::Main) => "MAIN",
-            Some(AnalysisRole::Alternative) => "ALTERNATIVE",
-            Some(AnalysisRole::Sideline) | None => "SIDELINE",
-        };
-        if selected == Some(index) {
-            builder.push_text(indent, "SELECTED", true);
-            builder.pending_space = true;
-        }
-        builder.push_text(indent, role, true);
-        builder.pending_space = true;
-
-        if let Some(movement) = node.movement.as_ref() {
-            builder.push_chip(
-                indent,
-                index,
-                &movement.san,
-                AnalysisMoveChipSource::TreeMove,
-                selected == Some(index),
-            );
-        }
-        for nag in &node.nags {
-            builder.push_text(indent, &format!(" ${}", nag.value()), false);
-        }
-        builder.force_break();
-
-        if !node.content.is_empty() {
-            let content_indent = builder.content_indent(depth);
-            push_spans(
-                &mut builder,
-                content_indent,
-                node.content.as_slice(),
-                analysis,
-                selected,
-            );
-            builder.force_break();
-        }
-
-        for child in node.children.iter().rev() {
-            stack.push((*child, depth.saturating_add(1)));
+    // A position emits its first move, then ordered sibling RAVs, then the
+    // first move's continuation. Roles are grading metadata, not PGN structure.
+    // Use a work stack so deeply nested input never consumes the call stack.
+    enum Work {
+        Position(AnalysisNodeIndex, bool),
+        Branch(AnalysisNodeIndex),
+        Move(AnalysisNodeIndex, bool),
+        Open,
+        Close,
+    }
+    let mut stack = vec![Work::Position(analysis.root_index(), true)];
+    while let Some(work) = stack.pop() {
+        match work {
+            Work::Position(parent, force_number) => {
+                let children = &analysis.node(parent).expect("validated node").children;
+                let Some((&first, variations)) = children.split_first() else {
+                    continue;
+                };
+                let first_node = analysis.node(first).expect("validated child");
+                stack.push(Work::Position(
+                    first,
+                    !variations.is_empty() || !first_node.content.is_empty(),
+                ));
+                for &sibling in variations.iter().rev() {
+                    stack.push(Work::Close);
+                    stack.push(Work::Branch(sibling));
+                    stack.push(Work::Open);
+                }
+                stack.push(Work::Move(first, force_number));
+            }
+            Work::Branch(index) => {
+                let node = analysis.node(index).expect("validated node");
+                stack.push(Work::Position(index, !node.content.is_empty()));
+                stack.push(Work::Move(index, true));
+            }
+            Work::Move(index, force_number) => {
+                let node = analysis.node(index).expect("validated node");
+                let parent = analysis.parent(index).expect("move has parent");
+                let position = &parent.position;
+                if position.active_color() == Color::White || force_number {
+                    let suffix = if position.active_color() == Color::White {
+                        "."
+                    } else {
+                        "..."
+                    };
+                    builder.push_text(
+                        0,
+                        &format!("{}{} ", position.fullmove_number(), suffix),
+                        false,
+                    );
+                }
+                let movement = node.movement.as_ref().expect("non-root move");
+                builder.push_chip(
+                    0,
+                    index,
+                    &movement.san,
+                    AnalysisMoveChipSource::TreeMove,
+                    selected == Some(index),
+                );
+                for nag in &node.nags {
+                    builder.push_text(0, &format!(" ${}", nag.value()), false);
+                }
+                if !node.content.is_empty() {
+                    builder.push_text(0, " {", false);
+                    push_spans(&mut builder, 0, &node.content, analysis, selected);
+                    builder.pending_space = false;
+                    builder.push_text(0, "}", false);
+                }
+                builder.pending_space = true;
+            }
+            Work::Open => {
+                builder.push_text(0, "(", false);
+            }
+            Work::Close => {
+                builder.pending_space = false;
+                builder.push_text(0, ")", false);
+                builder.pending_space = true;
+            }
         }
     }
 
@@ -599,4 +638,179 @@ fn draw_page_control(frame: &mut Gray8, rect: Rect, label: &str, scale: u32) {
     frame.fill_rect(rect, WHITE);
     frame.stroke_rect(rect, 2.min(rect.width).min(rect.height), INK);
     draw_text_centered(frame, rect.inset(4), label, scale, INK);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chess_core::parse_puzzle_file;
+
+    const BOOK: &[u8] = include_bytes!("../../../tests/fixtures/pgn-converter/valid-book.json");
+
+    // Inspect the actual flow fragments consumed by drawing, including punctuation.
+    // Spaces are normalized here so assertions are independent of physical wrapping.
+    fn notation(document: &FlowDocument) -> String {
+        document
+            .lines
+            .iter()
+            .flat_map(|line| &line.fragments)
+            .map(|fragment| match &fragment.kind {
+                FlowFragmentKind::Text { text, .. } => text.as_str(),
+                FlowFragmentKind::Chip { label, .. } => label.as_str(),
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    #[test]
+    fn book_movetext_serializes_ordered_nested_ravs_comments_nags_and_refs() {
+        let book = parse_puzzle_file(BOOK).unwrap();
+        let puzzle = &book.puzzles[0];
+        let tree = puzzle.analysis.as_ref().unwrap();
+        let document = build_document(&puzzle.description_content, tree, None, 1800, 3);
+        assert_eq!(
+            notation(&document),
+            concat!(
+                "Compare the main knight with c5 and plain Nd5/e2e4. ",
+                "1. e4 $1 { Central move. Compare 1...e5 with e2e4 in plain text. } ",
+                "1... e5 ( 1... c5 { Sicilian alternative. } 2. Nf3 Nc6 ",
+                "( 2... d6 { Nested sideline. } ) ) 2. Nf3 Nc6"
+            )
+        );
+        assert!(document.lines.len() <= 6, "compact wrapped flow");
+    }
+
+    #[test]
+    fn main_only_moves_share_lines_and_use_conventional_white_numbering() {
+        let book = parse_puzzle_file(BOOK).unwrap();
+        let tree = book.puzzles[2].analysis.as_ref().unwrap();
+        let document = build_document(&[], tree, None, 1800, 3);
+        assert_eq!(
+            notation(&document),
+            "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Bxc6 dxc6 5. O-O"
+        );
+        assert!(document.lines.len() <= 2);
+        assert!(
+            document.lines[0]
+                .fragments
+                .iter()
+                .filter(|f| matches!(f.kind, FlowFragmentKind::Chip { .. }))
+                .count()
+                > 1
+        );
+    }
+
+    #[test]
+    fn black_start_numbering_and_root_prose_survive() {
+        let book = parse_puzzle_file(BOOK).unwrap();
+        let mut tree = book.puzzles[1].analysis.as_ref().unwrap().clone();
+        let document = build_document(&[], &tree, None, 1800, 3);
+        assert_eq!(notation(&document), "1... h1=Q+ { Promotion comment with plain h1=Q+. } ( 1... h1=N { Underpromotion sideline. } ) 2. Ka2");
+        // Clone the parsed tree through JSON to change all starting counters coherently.
+        let mut value: serde_json::Value = serde_json::from_slice(BOOK).unwrap();
+        let puzzle = &mut value["puzzles"][1];
+        puzzle["fen"] = puzzle["fen"]
+            .as_str()
+            .unwrap()
+            .replace("0 1", "0 37")
+            .into();
+        for node in puzzle["analysis"]["nodes"].as_array_mut().unwrap() {
+            let fen = node["fen"].as_str().unwrap();
+            let mut fields = fen
+                .split_whitespace()
+                .map(str::to_owned)
+                .collect::<Vec<_>>();
+            fields[5] = (fields[5].parse::<u32>().unwrap() + 36).to_string();
+            node["fen"] = fields.join(" ").into();
+        }
+        puzzle["analysis"]["nodes"][0]["comment"] = "Root prose.".into();
+        let changed = parse_puzzle_file(&serde_json::to_vec(&value).unwrap()).unwrap();
+        tree = changed.puzzles[1].analysis.as_ref().unwrap().clone();
+        let document = build_document(&[], &tree, None, 1800, 3);
+        assert!(notation(&document).starts_with("Root prose. 37... h1=Q+"));
+        assert!(notation(&document).ends_with("38. Ka2"));
+    }
+
+    #[test]
+    fn multiple_sibling_variations_follow_source_order() {
+        let mut value: serde_json::Value = serde_json::from_slice(BOOK).unwrap();
+        let nodes = value["puzzles"][0]["analysis"]["nodes"]
+            .as_array_mut()
+            .unwrap();
+        let mut sibling = nodes.iter().find(|n| n["id"] == "n6").unwrap().clone();
+        sibling["id"] = "sibling".into();
+        sibling["move"]["san"] = "e6".into();
+        sibling["move"]["uci"] = "e7e6".into();
+        sibling["content"] = serde_json::json!([]);
+        nodes.iter_mut().find(|n| n["id"] == "n4").unwrap()["children"] =
+            serde_json::json!(["n5", "sibling", "n6"]);
+        nodes.push(sibling);
+        let book = parse_puzzle_file(&serde_json::to_vec(&value).unwrap()).unwrap();
+        let tree = book.puzzles[0].analysis.as_ref().unwrap();
+        let text = notation(&build_document(&[], tree, None, 1800, 3));
+        assert!(text.contains("2. Nf3 Nc6 ( 2... e6 ) ( 2... d6 { Nested sideline. } ) )"));
+    }
+    #[test]
+    fn overflow_wraps_all_punctuation_moves_and_long_comment_words_without_clipping() {
+        let book = parse_puzzle_file(BOOK).unwrap();
+        let tree = book.puzzles[0].analysis.as_ref().unwrap();
+        let wide = build_document(&[], tree, None, 1800, 3);
+        let narrow = build_document(&[], tree, None, 180, 3);
+        assert_eq!(
+            notation(&narrow),
+            notation(&wide),
+            "wrapping preserves token order"
+        );
+        let text = notation(&narrow);
+        assert_eq!(text.matches('(').count(), 2);
+        assert_eq!(text.matches(')').count(), 2);
+        assert_eq!(text.matches('{').count(), text.matches('}').count());
+        let mut builder = FlowBuilder::new(180, 3);
+        let long_word = "explanation".repeat(20);
+        builder.push_text(0, &long_word, false);
+        let document = builder.finish();
+        let mut recovered = String::new();
+        for line in &document.lines {
+            for fragment in &line.fragments {
+                if let FlowFragmentKind::Text { text, .. } = &fragment.kind {
+                    assert!(
+                        measure_text_regular(text, 3) <= fragment.width,
+                        "text must fit its fragment"
+                    );
+                    recovered.push_str(text);
+                }
+            }
+        }
+        assert_eq!(recovered, long_word);
+        assert!(document.lines.len() > 1);
+    }
+    #[test]
+    fn plain_move_looking_comment_fragments_are_inert() {
+        let book = parse_puzzle_file(BOOK).unwrap();
+        let tree = book.puzzles[0].analysis.as_ref().unwrap();
+        let document = build_document(&[], tree, None, 1800, 3);
+        let mut frame = Gray8::new(1800, 1000, WHITE);
+        let mut chips = Vec::new();
+        let mut inert_points = Vec::new();
+        for (i, line) in document.lines.iter().enumerate() {
+            let row = Rect::new(0, i as u32 * document.row_height, 1800, document.row_height);
+            draw_line(&mut frame, row, line, document.chip_height, 3, &mut chips);
+            for fragment in &line.fragments {
+                if matches!(&fragment.kind, FlowFragmentKind::Text {text, ..} if text == "e2e4") {
+                    inert_points.push((fragment.x + fragment.width / 2, row.y + row.height / 2));
+                }
+            }
+        }
+        assert!(!inert_points.is_empty());
+        let panel = AnalysisPanelOutput {
+            page: 0,
+            page_count: 1,
+            move_chips: chips,
+            previous_page: None,
+            next_page: None,
+        };
+        for (x, y) in inert_points {
+            assert_eq!(panel.hit_test(x, y), None);
+        }
+    }
 }

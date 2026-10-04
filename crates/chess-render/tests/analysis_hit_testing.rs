@@ -126,6 +126,18 @@ fn adjacent_padded_targets_resolve_to_the_chip_that_is_visibly_under_the_tap() {
     assert!(inline[0].hit_rect.intersects(inline[1].hit_rect));
     assert_eq!(inline[0].rect.right(), inline[1].rect.x);
 
+    let overlap_x = inline[1].rect.x;
+    let padding_y = inline[0].hit_rect.y;
+    assert!(inline[0].hit_rect.contains(overlap_x, padding_y));
+    assert!(inline[1].hit_rect.contains(overlap_x, padding_y));
+    assert!(!inline[0].rect.contains(overlap_x, padding_y));
+    assert!(!inline[1].rect.contains(overlap_x, padding_y));
+    assert_eq!(
+        output.hit_test_app(overlap_x, padding_y, &app),
+        None,
+        "ambiguous padding must never choose a different node"
+    );
+
     let y = inline[0].rect.y + inline[0].rect.height / 2;
     assert_eq!(
         output.hit_test_app(inline[0].rect.right() - 1, y, &app),
@@ -139,7 +151,11 @@ fn adjacent_padded_targets_resolve_to_the_chip_that_is_visibly_under_the_tap() {
 
 #[test]
 fn analysis_controls_dispatch_and_board_taps_are_disabled_without_moving_old_targets() {
-    let mut app = open(RICH);
+    let mut value: serde_json::Value = serde_json::from_slice(RICH).unwrap();
+    value["puzzles"][0]["analysis"]["nodes"][1]["content"] = serde_json::json!([
+        {"type":"text", "text":"Long overflow explanation. ".repeat(200)}
+    ]);
+    let mut app = open(&serde_json::to_vec(&value).unwrap());
     let first = render(&app, SCRIBE).expect("render succeeds");
     let first_panel = first.analysis.as_ref().expect("analysis panel");
 
@@ -163,7 +179,7 @@ fn analysis_controls_dispatch_and_board_taps_are_disabled_without_moving_old_tar
         assert_eq!(first.hit_test_app(point.0, point.1, &app), Some(target));
     }
 
-    let next = first_panel.next_page.expect("rich fixture spans pages");
+    let next = first_panel.next_page.expect("long explanation spans pages");
     let next_point = center(next);
     let next_target = first
         .hit_test_app(next_point.0, next_point.1, &app)

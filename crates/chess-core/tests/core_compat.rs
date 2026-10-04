@@ -359,3 +359,11 @@ fn progress_rejects_corrupt_and_future_versions() {
         .expect_err("future progress rejected")
         .contains("Unsupported progress version 2"));
 }
+
+#[test]
+fn fen_retains_validated_fullmove_number() {
+    for (color, number) in [("w", 1), ("b", 37), ("w", u32::MAX)] {
+        let position = parse_fen(&format!("8/8/8/8/8/8/8/8 {color} - - 0 {number}")).unwrap();
+        assert_eq!(position.fullmove_number(), number);
+    }
+}

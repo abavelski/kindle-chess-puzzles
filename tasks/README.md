@@ -4,7 +4,9 @@ Phase one is complete and archived under [`implemented/phase-1/`](implemented/ph
 Phase two is complete and archived under [`implemented/phase-2/`](implemented/phase-2/).
 Post-phase-two improvements are tracked under `improvements/`.
 [Task 29 — compact analysis toolbar toggle](improvements/29-analysis-toolbar-toggle.md)
-moves analysis into the first icon-only toolbar control. The former Task 10 ghosting
+moves analysis into the first icon-only toolbar control.
+[Task 30 — inline PGN analysis](improvements/30-inline-pgn-analysis.md) replaces
+vertical analysis-tree rows with conventional compact movetext. The former Task 10 ghosting
 investigation is archived: the top-left Refresh control is the accepted manual workaround
 when a residual physical-panel ghost becomes visible.
 

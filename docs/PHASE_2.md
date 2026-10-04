@@ -71,8 +71,13 @@ tapping it selects that node and displays its precomputed FEN. A plain text span
 to contain something looking like SAN (for example `Nd5`) is deliberately **not** tappable.
 The runtime never guesses move references from prose.
 
-Move chips get explicit hit rectangles; variations are indented/labeled; selection is visible
-without relying on color. Finger and stylus resolve to the same logical action. Stylus decoding
+Move chips get explicit hit rectangles and selection is visible without relying on color.
+Post-phase-two [Task 30](../tasks/improvements/30-inline-pgn-analysis.md) replaces
+indented/labeled rows with inline PGN movetext. Ordered first children continue each
+line; later children form recursive parenthesized variations. Move numbers come from
+the parent position's validated FEN side/fullmove fields. NAGs use $N and structured
+comments use braces; descriptions/root prose remain associated with the movetext.
+Wrapped lines retain the existing overflow page state and controls. Finger and stylus resolve to the same logical action. Stylus decoding
 belongs only in the Kindle input adapter; the shared app must not know Linux pen event codes.
 
 ## PGN authoring recommendation

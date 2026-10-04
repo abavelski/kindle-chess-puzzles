@@ -81,8 +81,26 @@ fn open(bytes: &[u8]) -> AppState {
     app
 }
 
+fn long_comment() -> AppState {
+    let mut value: serde_json::Value = serde_json::from_slice(LONG_COMMENT).unwrap();
+    let comment = value["puzzles"][0]["analysis"]["nodes"][1]["comment"]
+        .as_str()
+        .unwrap()
+        .repeat(4);
+    value["puzzles"][0]["analysis"]["nodes"][1]["comment"] = comment.into();
+    open(&serde_json::to_vec(&value).unwrap())
+}
+
 fn rendered(app: &AppState) -> (u64, AnalysisPanelOutput) {
     let output = render(app, SCRIBE).expect("render succeeds");
+    if let Ok(directory) = std::env::var("ANALYSIS_SNAPSHOT_DIR") {
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(
+            format!("{directory}/{}.pgm", output.frame.checksum64()),
+            output.frame.to_pgm(),
+        )
+        .unwrap();
+    }
     let checksum = output.frame.checksum64();
     let panel = output.analysis.expect("analysis panel");
     (checksum, panel)
@@ -111,6 +129,14 @@ fn tree_chip_page_hash(app: &mut AppState, node: chess_core::AnalysisNodeIndex) 
             .iter()
             .any(|chip| chip.source == AnalysisMoveChipSource::TreeMove && chip.node == node)
         {
+            if let Ok(directory) = std::env::var("ANALYSIS_SNAPSHOT_DIR") {
+                std::fs::create_dir_all(&directory).unwrap();
+                std::fs::write(
+                    format!("{directory}/{}.pgm", output.frame.checksum64()),
+                    output.frame.to_pgm(),
+                )
+                .unwrap();
+            }
             return output.frame.checksum64();
         }
         assert!(panel.next_page.is_some(), "tree node must appear on a page");
@@ -196,7 +222,7 @@ fn selected_move_is_inverted_and_remains_explicitly_selected() {
 }
 
 #[test]
-fn nested_sidelines_are_indented_and_all_chips_stay_in_status_region() {
+fn sidelined_continuation_flows_inline_and_all_chips_stay_in_status_region() {
     let mut app = open(NESTED);
     let analysis = app.active_puzzle().analysis.as_ref().expect("analysis");
     let s1 = analysis.node_index("s1").expect("s1");
@@ -226,12 +252,13 @@ fn nested_sidelines_are_indented_and_all_chips_stay_in_status_region() {
         .iter()
         .find(|chip| chip.source == AnalysisMoveChipSource::TreeMove && chip.node == s2)
         .expect("nested sideline chip");
-    assert!(nested.rect.x > first.rect.x);
+    assert_eq!(nested.rect.y, first.rect.y);
+    assert!(nested.rect.x > first.rect.x, "continuation follows inline");
 }
 
 #[test]
 fn pagination_controls_match_first_middle_and_last_pages() {
-    let mut app = open(LONG_COMMENT);
+    let mut app = long_comment();
     let first = render(&app, SCRIBE).expect("render succeeds");
     let first_panel = first.analysis.expect("analysis");
     assert!(first_panel.page_count >= 3);
@@ -303,7 +330,7 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
         tree_chip_page_hash(&mut selected, selected_node),
     ));
 
-    let first = open(LONG_COMMENT);
+    let first = long_comment();
     let (first_hash, first_panel) = rendered(&first);
     actual.push(("long-comment-first", first_hash));
     assert!(first_panel.page_count >= 3);
@@ -320,6 +347,14 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     }
     actual.push(("long-comment-last", rendered(&last).0));
 
+    let book_bytes = include_bytes!("../../../tests/fixtures/pgn-converter/valid-book.json");
+    let mut book = open(book_bytes);
+    actual.push(("book-nested-ravs", rendered(&book).0));
+    book.dispatch(Action::NextPuzzle);
+    book.dispatch(Action::NextPuzzle);
+    book.dispatch(Action::OpenAnalysis);
+    actual.push(("book-main-only", rendered(&book).0));
+
     let mut no_analysis = state(PUZZLES);
     no_analysis.dispatch(Action::OpenAnalysis);
     actual.push((
@@ -331,13 +366,15 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("main-only", 9_330_290_596_529_118_208),
-        ("nested-sideline", 2_378_351_759_370_397_198),
-        ("black-promotion-rich", 5_596_768_141_721_168_778),
-        ("selected-move", 5_411_247_496_960_919_579),
-        ("long-comment-first", 4_240_044_103_988_693_167),
-        ("long-comment-middle", 15_654_707_825_988_012_446),
-        ("long-comment-last", 1_591_444_611_766_583_814),
+        ("main-only", 16_268_235_993_930_268_492),
+        ("nested-sideline", 7_586_796_129_783_995_789),
+        ("black-promotion-rich", 3_808_645_822_449_026_446),
+        ("selected-move", 16_866_949_205_794_766_027),
+        ("long-comment-first", 1_851_324_665_915_336_687),
+        ("long-comment-middle", 4_970_615_056_441_855_072),
+        ("long-comment-last", 12_834_143_737_034_218_839),
+        ("book-nested-ravs", 3_077_854_477_354_637_003),
+        ("book-main-only", 1_639_012_404_601_690_886),
         ("no-analysis", 12_322_409_405_640_497_372),
     ];
 

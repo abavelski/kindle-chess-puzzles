@@ -24,11 +24,17 @@ impl std::error::Error for FenError {}
 pub struct FenPosition {
     squares: [Option<Piece>; 64],
     active_color: Color,
+    fullmove_number: u32,
 }
 
 impl FenPosition {
     pub const fn active_color(&self) -> Color {
         self.active_color
+    }
+
+    /// Validated sixth FEN field, used for presentation move numbering.
+    pub const fn fullmove_number(&self) -> u32 {
+        self.fullmove_number
     }
 
     pub fn piece_at(&self, square: usize) -> Option<Piece> {
@@ -100,6 +106,7 @@ pub fn parse_fen(fen: &str) -> Result<FenPosition, FenError> {
     Ok(FenPosition {
         squares,
         active_color,
+        fullmove_number: fullmove,
     })
 }
 

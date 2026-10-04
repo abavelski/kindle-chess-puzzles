@@ -11,3 +11,6 @@ fontdue = { version = "=0.9.3", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

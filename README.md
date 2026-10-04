@@ -127,7 +127,10 @@ For install/update/uninstall details, KPM commands, and manual recovery, follow
 
 The first toolbar button is an icon-only book toggle for analysis. Tap it again to
 return to the live puzzle board. It is inverted while analysis is open and disabled
-for collections without rich analysis.
+for collections without rich analysis. The solution panel shows compact inline PGN
+movetext: numbered SAN moves, parenthesized variations, $N annotations, and braced
+comments. Outlined SAN tokens and explicit prose move references are tappable;
+plain prose remains inert. Overflow uses previous/next analysis pages.
 
 Phase two keeps the app a physical-board puzzle tool rather than a chess engine. Existing
 version-1 collections remain valid. Rich solution data is designed as an additive extension
