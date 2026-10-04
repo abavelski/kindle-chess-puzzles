@@ -44,6 +44,11 @@ pub enum HitTarget {
     Refresh,
     Exit,
     Previous,
+    OpenPuzzleGoto,
+    PuzzleGotoDigit(u8),
+    PuzzleGotoBackspace,
+    ConfirmPuzzleGoto,
+    CancelPuzzleGoto,
     Next,
     Promotion(PromotionChoice),
     CancelPromotion,
@@ -70,6 +75,11 @@ impl HitTarget {
             Self::Refresh => None,
             Self::Exit => Some(Action::Exit),
             Self::Previous => Some(Action::PreviousPuzzle),
+            Self::OpenPuzzleGoto => Some(Action::OpenPuzzleGoto),
+            Self::PuzzleGotoDigit(digit) => Some(Action::PuzzleGotoDigit(digit)),
+            Self::PuzzleGotoBackspace => Some(Action::PuzzleGotoBackspace),
+            Self::ConfirmPuzzleGoto => Some(Action::ConfirmPuzzleGoto),
+            Self::CancelPuzzleGoto => Some(Action::CancelPuzzleGoto),
             Self::Next => Some(Action::NextPuzzle),
             Self::Promotion(choice) => Some(Action::ChoosePromotion(choice)),
             Self::CancelPromotion => Some(Action::CancelPromotion),
@@ -101,11 +111,18 @@ pub struct Layout {
     pub toolbar_targets: [ControlTarget; 6],
     pub exit: Rect,
     pub previous: Rect,
+    pub goto: Rect,
     pub next: Rect,
     pub status: Rect,
     pub promotion_modal: Rect,
     pub promotion_choices: [Rect; 4],
     pub promotion_cancel: Rect,
+    pub goto_modal: Rect,
+    pub goto_input: Rect,
+    pub goto_digits: [Rect; 10],
+    pub goto_backspace: Rect,
+    pub goto_confirm: Rect,
+    pub goto_cancel: Rect,
     pub collection_modal: Rect,
     pub collection_rows: [Rect; COLLECTIONS_PER_PAGE],
     pub collection_page_previous: Rect,
@@ -254,17 +271,36 @@ impl Layout {
 
         let nav_y = toolbar.bottom().saturating_add(gap);
         let nav_touch_y = nav_y.saturating_sub(control_visual_inset);
-        let nav_width = board_outer.width.saturating_sub(small_gap) / 2;
-        let previous = Rect::new(board_outer.x, nav_touch_y, nav_width, minimum_touch_px);
-        let next = Rect::new(
+        let goto_width = minimum_touch_px;
+        let side_nav_width = board_outer
+            .width
+            .saturating_sub(goto_width)
+            .saturating_sub(small_gap.saturating_mul(2))
+            / 2;
+        let previous = Rect::new(
+            board_outer.x,
+            nav_touch_y,
+            side_nav_width,
+            minimum_touch_px,
+        );
+        let goto = Rect::new(
             previous.right().saturating_add(small_gap),
+            nav_touch_y,
+            goto_width,
+            minimum_touch_px,
+        );
+        let next = Rect::new(
+            goto.right().saturating_add(small_gap),
             nav_touch_y,
             board_outer
                 .right()
-                .saturating_sub(previous.right().saturating_add(small_gap)),
+                .saturating_sub(goto.right().saturating_add(small_gap)),
             minimum_touch_px,
         );
-        if previous.width < minimum_touch_px || next.width < minimum_touch_px {
+        if previous.width < minimum_touch_px
+            || goto.width < minimum_touch_px
+            || next.width < minimum_touch_px
+        {
             return Err(LayoutError::TooSmall);
         }
 
@@ -319,6 +355,84 @@ impl Layout {
             promotion_modal.width,
             minimum_touch_px,
         );
+
+        let goto_modal_width = minimum_touch_px
+            .saturating_mul(4)
+            .min(board_outer.width);
+        let goto_modal_height = minimum_touch_px
+            .saturating_mul(7)
+            .saturating_add(gap.saturating_mul(3))
+            .saturating_add(small_gap.saturating_mul(3));
+        if goto_modal_width < minimum_touch_px.saturating_mul(3)
+            || goto_modal_height > board_outer.height
+        {
+            return Err(LayoutError::TooSmall);
+        }
+        let goto_modal = Rect::new(
+            board_outer.x + (board_outer.width - goto_modal_width) / 2,
+            board_outer.y + (board_outer.height - goto_modal_height) / 2,
+            goto_modal_width,
+            goto_modal_height,
+        );
+        let goto_inner = Rect::new(
+            goto_modal.x.saturating_add(gap),
+            goto_modal.y,
+            goto_modal.width.saturating_sub(gap.saturating_mul(2)),
+            goto_modal.height,
+        );
+        let goto_input = Rect::new(
+            goto_inner.x,
+            goto_modal.y.saturating_add(minimum_touch_px),
+            goto_inner.width,
+            minimum_touch_px,
+        );
+        let keypad_y = goto_input.bottom().saturating_add(gap);
+        let key_width = goto_inner
+            .width
+            .saturating_sub(small_gap.saturating_mul(2))
+            / 3;
+        if key_width < minimum_touch_px {
+            return Err(LayoutError::TooSmall);
+        }
+        let goto_digits = std::array::from_fn(|digit| {
+            let (row, column) = if digit == 0 {
+                (3_u32, 1_u32)
+            } else {
+                let offset = u32::try_from(digit - 1).expect("digit index fits");
+                (offset / 3, offset % 3)
+            };
+            Rect::new(
+                goto_inner.x + column * (key_width + small_gap),
+                keypad_y + row * (minimum_touch_px + small_gap),
+                key_width,
+                minimum_touch_px,
+            )
+        });
+        let goto_backspace = Rect::new(
+            goto_inner.x + 2 * (key_width + small_gap),
+            keypad_y + 3 * (minimum_touch_px + small_gap),
+            key_width,
+            minimum_touch_px,
+        );
+        let goto_actions_y = keypad_y
+            .saturating_add(minimum_touch_px.saturating_mul(4))
+            .saturating_add(small_gap.saturating_mul(3))
+            .saturating_add(gap);
+        let goto_action_targets = split_targets(
+            Rect::new(
+                goto_inner.x,
+                goto_actions_y,
+                goto_inner.width,
+                minimum_touch_px,
+            ),
+            small_gap,
+            [HitTarget::ConfirmPuzzleGoto, HitTarget::CancelPuzzleGoto],
+        );
+        let goto_confirm = goto_action_targets[0].rect;
+        let goto_cancel = goto_action_targets[1].rect;
+        if goto_cancel.bottom().saturating_add(gap) > goto_modal.bottom() {
+            return Err(LayoutError::TooSmall);
+        }
 
         let collection_modal = board_outer.inset(minimum_touch_px / 3);
         let collection_rows_y = collection_modal
@@ -383,12 +497,19 @@ impl Layout {
             toolbar,
             toolbar_targets,
             previous,
+            goto,
             exit,
             next,
             status,
             promotion_modal,
             promotion_choices,
             promotion_cancel,
+            goto_modal,
+            goto_input,
+            goto_digits,
+            goto_backspace,
+            goto_confirm,
+            goto_cancel,
             collection_modal,
             collection_rows,
             collection_page_previous,
@@ -406,9 +527,11 @@ impl Layout {
             || !layout.viewport.contains_rect(layout.toolbar)
             || !layout.viewport.contains_rect(layout.exit)
             || !layout.viewport.contains_rect(layout.previous)
+            || !layout.viewport.contains_rect(layout.goto)
             || !layout.viewport.contains_rect(layout.next)
             || !layout.viewport.contains_rect(layout.status)
             || !layout.viewport.contains_rect(layout.promotion_modal)
+            || !layout.viewport.contains_rect(layout.goto_modal)
             || !layout.viewport.contains_rect(layout.collection_modal)
         {
             return Err(LayoutError::TooSmall);
@@ -479,6 +602,26 @@ impl Layout {
             return None;
         }
 
+        if state.puzzle_goto_open() {
+            for digit in 0..=9 {
+                if self.goto_digits[digit].contains(x, y) {
+                    return Some(HitTarget::PuzzleGotoDigit(
+                        u8::try_from(digit).expect("0..=9 fits in u8"),
+                    ));
+                }
+            }
+            if self.goto_backspace.contains(x, y) {
+                return Some(HitTarget::PuzzleGotoBackspace);
+            }
+            if self.goto_confirm.contains(x, y) {
+                return Some(HitTarget::ConfirmPuzzleGoto);
+            }
+            if self.goto_cancel.contains(x, y) {
+                return Some(HitTarget::CancelPuzzleGoto);
+            }
+            return None;
+        }
+
         if !state.collection_entries().is_empty() && self.collection_button.contains(x, y) {
             return Some(HitTarget::OpenCollections);
         }
@@ -544,6 +687,9 @@ impl Layout {
         }
         if self.previous.contains(x, y) {
             return Some(HitTarget::Previous);
+        }
+        if self.goto.contains(x, y) {
+            return Some(HitTarget::OpenPuzzleGoto);
         }
         if self.next.contains(x, y) {
             return Some(HitTarget::Next);
