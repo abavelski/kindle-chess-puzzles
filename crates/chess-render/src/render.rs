@@ -1,12 +1,13 @@
 //! Deterministic monochrome-first chess application renderer.
 
 use crate::{
+    analysis_panel::draw_analysis_panel,
     font::{
         draw_text_bold, draw_text_bold_vertically_centered, draw_text_centered, draw_wrapped_text,
         draw_wrapped_text_with_line_spacing,
     },
     pieces::draw_piece,
-    DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
+    AnalysisPanelOutput, DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
 };
 use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback};
 
@@ -24,6 +25,7 @@ pub struct RenderOutput {
     pub frame: Gray8,
     pub layout: Layout,
     pub damage: Vec<Rect>,
+    pub analysis: Option<AnalysisPanelOutput>,
 }
 
 pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput, LayoutError> {
@@ -36,7 +38,7 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     draw_board(&mut frame, state, layout, coordinate_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
-    draw_status(&mut frame, state, layout, text_scale);
+    let analysis = draw_status(&mut frame, state, layout, text_scale);
 
     match state.feedback() {
         SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
@@ -56,6 +58,7 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
         frame,
         layout,
         damage: vec![layout.viewport],
+        analysis,
     })
 }
 
@@ -208,11 +211,20 @@ fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u
     );
 }
 
-fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+fn draw_status(
+    frame: &mut Gray8,
+    state: &AppState,
+    layout: Layout,
+    scale: u32,
+) -> Option<AnalysisPanelOutput> {
     draw_button_chrome(frame, layout.status, WHITE, INK, false);
 
     let padding = (layout.status.height / 12).max(8);
     let mut content = layout.status.inset(padding);
+
+    if state.analysis_browser_open() {
+        return draw_analysis_panel(frame, state, layout, content, scale.min(3));
+    }
 
     if state.feedback() == SolutionFeedback::Correct {
         content.width = content.width.saturating_sub(layout.minimum_touch_px());
@@ -266,6 +278,8 @@ fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) 
         );
         draw_check(frame, mark.inset(mark.width / 5), 5, INK);
     }
+
+    None
 }
 
 fn draw_wrong_overlay(frame: &mut Gray8, layout: Layout) {

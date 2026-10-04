@@ -49,6 +49,47 @@ pub(crate) fn draw_text_bold(canvas: &mut Gray8, x: u32, y: u32, text: &str, sca
     draw_text_at(canvas, x, y, text, scale, tone, Face::Bold);
 }
 
+pub(crate) fn draw_text_regular_vertically_centered(
+    canvas: &mut Gray8,
+    x: u32,
+    rect: Rect,
+    text: &str,
+    scale: u32,
+    tone: u8,
+) {
+    let settings = LayoutSettings {
+        x: x as f32,
+        y: rect.y as f32,
+        max_width: Some(rect.right().saturating_sub(x) as f32),
+        max_height: Some(rect.height as f32),
+        vertical_align: VerticalAlign::Middle,
+        ..LayoutSettings::default()
+    };
+    draw_with_settings(canvas, text, scale, tone, Face::Regular, settings, Some(rect));
+}
+
+pub(crate) fn measure_text_regular(text: &str, scale: u32) -> u32 {
+    measure_text(text, scale, Face::Regular)
+}
+
+pub(crate) fn measure_text_bold(text: &str, scale: u32) -> u32 {
+    measure_text(text, scale, Face::Bold)
+}
+
+pub(crate) const fn text_line_height(scale: u32) -> u32 {
+    scale.max(1).saturating_mul(12)
+}
+
+fn measure_text(text: &str, scale: u32, face: Face) -> u32 {
+    let selected_font = font(face);
+    let px = text_px(scale);
+    text.chars()
+        .filter(|character| !character.is_control())
+        .map(|character| selected_font.metrics(character, px).advance_width.max(0.0))
+        .sum::<f32>()
+        .ceil() as u32
+}
+
 fn draw_text_at(canvas: &mut Gray8, x: u32, y: u32, text: &str, scale: u32, tone: u8, face: Face) {
     let settings = LayoutSettings {
         x: x as f32,
