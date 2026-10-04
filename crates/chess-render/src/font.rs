@@ -84,7 +84,7 @@ pub(crate) fn measure_text_bold(text: &str, scale: u32) -> u32 {
     measure_text(text, scale, Face::Bold)
 }
 
-pub(crate) const fn text_line_height(scale: u32) -> u32 {
+pub(crate) fn text_line_height(scale: u32) -> u32 {
     scale.max(1).saturating_mul(12)
 }
 
