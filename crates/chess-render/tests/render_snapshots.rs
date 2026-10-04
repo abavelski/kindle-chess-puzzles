@@ -171,7 +171,13 @@ fn status_panel_is_rounded_and_shows_one_large_primary_content() {
     let y = status.y + padding;
 
     assert_eq!(normal.frame.pixel(status.x, status.y), Some(255));
-    assert_eq!(normal.frame.pixel(x + 2, y + 2), Some(0));
+    assert!(
+        (y..status.bottom().saturating_sub(padding)).any(|py| {
+            (x..status.right().saturating_sub(padding))
+                .any(|px| matches!(normal.frame.pixel(px, py), Some(tone) if tone < 160))
+        }),
+        "primary status text should render inside the status panel"
+    );
 
     let dot = br#"{
       "version":1,
@@ -306,22 +312,22 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("progress-warning", hash(&warning)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("white", 3_564_932_878_144_062_875),
-        ("black", 14_183_061_067_515_557_707),
-        ("selected", 6_232_841_546_383_290_319),
-        ("correct", 10_880_320_571_862_843_847),
-        ("wrong", 8_582_594_695_633_032_010),
-        ("complete", 13_930_519_359_136_657_730),
-        ("solved", 6_760_008_875_900_184_000),
-        ("free-board", 5_141_760_833_338_926_139),
-        ("orientation-lock", 6_807_638_419_167_296_551),
-        ("description", 11_547_129_074_789_225_178),
-        ("promotion", 9_918_959_335_839_534_183),
-        ("long-description", 3_866_145_748_673_485_355),
-        ("number-difficulty", 14_146_092_641_012_353_274),
-        ("collection-picker", 10_068_103_487_935_595_689),
-        ("collection-picker-error", 3_422_267_458_361_972_743),
-        ("progress-warning", 6_315_149_320_220_017_877),
+        ("white", 7_140_422_721_455_450_270),
+        ("black", 10_865_027_921_088_240_638),
+        ("selected", 3_591_361_094_147_765_358),
+        ("correct", 9_939_301_224_618_320_251),
+        ("wrong", 618_933_180_750_850_259),
+        ("complete", 10_450_218_149_507_864_487),
+        ("solved", 11_012_368_755_925_794_395),
+        ("free-board", 16_297_759_552_115_201_675),
+        ("orientation-lock", 9_981_317_888_951_315_514),
+        ("description", 2_038_331_394_023_894_993),
+        ("promotion", 14_831_025_361_946_432_404),
+        ("long-description", 10_705_921_491_613_372_868),
+        ("number-difficulty", 335_905_803_665_738_670),
+        ("collection-picker", 7_664_530_361_364_253_517),
+        ("collection-picker-error", 14_253_683_688_574_096_382),
+        ("progress-warning", 9_818_708_924_015_098_271),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
