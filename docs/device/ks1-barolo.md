@@ -1667,3 +1667,21 @@ is inferred from the user's overall acceptance.
 - App is installed for library launch. Physical readability, finger/stylus
   toggling, preview return, and exit remain pending user testing. Deployment
   and host snapshots do not establish those physical observations.
+
+## Task 30 — Inline PGN analysis deployed for testing (2026-10-04)
+
+- Implementation commit: `e041215` on `phase-2`; `main` remains at `ed26376`.
+- Full host gate and ARMv7/glibc-2.35 release build passed before deployment.
+- Staged the matching build receipt with `scripts/stage-kindle.sh`, then installed
+  using `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+- Read-only process inspection showed the app stopped before and after installation.
+  The installer completed successfully; the app is ready for library launch.
+- Installed binary SHA-256 matches the tested release:
+  `f1cc7aef1ccd588f6365722aec2040360119af1fee2aded2efb05fb107fdf419`.
+- Before/after SSH hashes matched for all five uploaded collections (the four
+  book collections and Task 26 stylus fixture) and progress. Progress SHA-256:
+  `cb51f7f172fb66aad317ee8d3094e19f0aacde1bfa72f4c6ae202b55588fb7bb`.
+- Physical readability, finger/stylus taps, inline nested variations, preview
+  return and exit are pending the user's validation. Deployment/hash checks do
+  not establish those physical observations. Open the book icon in the toolbar
+  to browse the new notation; use the same icon to return to the live board.

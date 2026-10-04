@@ -66,3 +66,8 @@ No schema, converter, application-state, grading, progress, device input or tool
 API changes. Core adds only the validated `FenPosition::fullmove_number()` accessor.
 No uploaded collections were modified. No deployment or physical Scribe check was
 performed; final physical e-ink readability/tap review remains a later human check.
+
+Deployed `e041215` to the Scribe on the user's subsequent request. Installed
+binary hash matches the release above, and all five collection hashes and progress
+hash are unchanged. The app is stopped and ready for library launch. Physical
+validation remains pending the user; see `docs/device/ks1-barolo.md`.
