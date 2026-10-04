@@ -31,3 +31,8 @@ Release validation: `scripts/build-kindle.sh` passed formatting, clippy, the ful
 workspace suite, Python/C/lifecycle/package contracts, asset checks, and the
 ARMv7/glibc-2.35 release build. Binary SHA-256:
 `dae7826d30e0aa4ec0f67603d3afb1f32a20bbe20367c2a547aa78771bb08fab`.
+
+Deployed successfully to the first-generation Scribe on 2026-10-04. Installed
+binary hash matches the tested release; all five collection hashes and progress
+hash are unchanged. Physical interaction remains pending user testing. See
+`docs/device/ks1-barolo.md` for the deployment record.

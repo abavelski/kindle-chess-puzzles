@@ -1649,3 +1649,21 @@ Git-ignored rather than being published.
 The top-left Refresh control remains the accepted residual-ghosting workaround.
 No new reboot, natural suspend/resume, crash recovery, or waveform observation
 is inferred from the user's overall acceptance.
+
+## Task 29 — Analysis toolbar toggle deployed for testing (2026-10-04)
+
+- Implementation commit: `476abee` on `main`, per explicit user request.
+- All repository checks and the ARMv7/glibc-2.35 release build passed. The first
+  build attempt lacked the pinned host-only `chess==1.11.2` test dependency;
+  after installing it in a temporary virtual environment, an existing lifecycle
+  readiness test failed once, passed its focused rerun, and passed the complete
+  build checks. No lifecycle code was changed.
+- Installed with `scripts/stage-kindle.sh` and
+  `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+- Device binary SHA-256 matches the tested host artifact:
+  `dae7826d30e0aa4ec0f67603d3afb1f32a20bbe20367c2a547aa78771bb08fab`.
+- Before/after SSH hashes matched for all five uploaded collections and progress
+  (`cb51f7f172fb66aad317ee8d3094e19f0aacde1bfa72f4c6ae202b55588fb7bb`).
+- App is installed for library launch. Physical readability, finger/stylus
+  toggling, preview return, and exit remain pending user testing. Deployment
+  and host snapshots do not establish those physical observations.
