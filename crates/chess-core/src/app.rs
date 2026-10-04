@@ -135,6 +135,11 @@ pub enum Action {
     SelectAnalysisNode(AnalysisNodeIndex),
     AnalysisPreviousPage,
     AnalysisNextPage,
+    OpenPuzzleGoto,
+    PuzzleGotoDigit(u8),
+    PuzzleGotoBackspace,
+    ConfirmPuzzleGoto,
+    CancelPuzzleGoto,
     PreviousPuzzle,
     NextPuzzle,
     Reset,
@@ -175,6 +180,7 @@ pub struct AppState {
     collection_entries: Vec<CollectionEntry>,
     collection_picker_open: bool,
     collection_picker_page: usize,
+    puzzle_goto_input: Option<String>,
     analysis_browser: Option<AnalysisBrowserState>,
     analysis_preview_board: Option<Board>,
 }
@@ -210,6 +216,7 @@ impl AppState {
             collection_entries: Vec::new(),
             collection_picker_open: false,
             collection_picker_page: 0,
+            puzzle_goto_input: None,
             analysis_browser: None,
             analysis_preview_board: None,
         }
@@ -229,6 +236,22 @@ impl AppState {
 
     pub fn can_next_puzzle(&self) -> bool {
         self.puzzle_index + 1 < self.active_collection.puzzles.len()
+    }
+
+    pub const fn puzzle_goto_open(&self) -> bool {
+        self.puzzle_goto_input.is_some()
+    }
+
+    pub fn puzzle_goto_input(&self) -> Option<&str> {
+        self.puzzle_goto_input.as_deref()
+    }
+
+    pub fn puzzle_goto_number(&self) -> Option<usize> {
+        self.puzzle_goto_input
+            .as_deref()
+            .filter(|input| !input.is_empty())
+            .and_then(|input| input.parse::<usize>().ok())
+            .filter(|number| *number > 0 && *number <= self.active_collection.puzzles.len())
     }
 
     pub fn active_puzzle(&self) -> &Puzzle {
@@ -356,6 +379,20 @@ impl AppState {
     }
 
     pub fn dispatch(&mut self, action: Action) -> Vec<Effect> {
+        if self.puzzle_goto_input.is_some()
+            && !matches!(
+                &action,
+                Action::Exit
+                    | Action::PuzzleGotoDigit(_)
+                    | Action::PuzzleGotoBackspace
+                    | Action::ConfirmPuzzleGoto
+                    | Action::CancelPuzzleGoto
+                    | Action::SetTransientMessage(_)
+            )
+        {
+            return Vec::new();
+        }
+
         if self.collection_picker_open
             && !matches!(
                 &action,
@@ -433,6 +470,23 @@ impl AppState {
             }
             Action::AnalysisNextPage => {
                 self.analysis_next_page();
+                Vec::new()
+            }
+            Action::OpenPuzzleGoto => {
+                self.open_puzzle_goto();
+                Vec::new()
+            }
+            Action::PuzzleGotoDigit(digit) => {
+                self.append_puzzle_goto_digit(digit);
+                Vec::new()
+            }
+            Action::PuzzleGotoBackspace => {
+                self.puzzle_goto_backspace();
+                Vec::new()
+            }
+            Action::ConfirmPuzzleGoto => Self::progress_effect(self.confirm_puzzle_goto()),
+            Action::CancelPuzzleGoto => {
+                self.puzzle_goto_input = None;
                 Vec::new()
             }
             Action::PreviousPuzzle => Self::progress_effect(self.turn_puzzle(false)),
@@ -527,6 +581,58 @@ impl AppState {
         if let Some(browser) = self.analysis_browser.as_mut() {
             browser.page = browser.page.saturating_add(1);
         }
+    }
+
+    fn open_puzzle_goto(&mut self) {
+        if self.puzzle_goto_input.is_some()
+            || self.pending_promotion.is_some()
+            || self.collection_picker_open
+        {
+            return;
+        }
+        self.puzzle_goto_input = Some(String::new());
+    }
+
+    fn append_puzzle_goto_digit(&mut self, digit: u8) {
+        if digit > 9 {
+            return;
+        }
+        let max_puzzle = self.active_collection.puzzles.len();
+        let Some(input) = self.puzzle_goto_input.as_mut() else {
+            return;
+        };
+        if input.is_empty() && digit == 0 {
+            return;
+        }
+
+        let mut candidate = input.clone();
+        candidate.push(char::from(b'0' + digit));
+        if candidate
+            .parse::<usize>()
+            .is_ok_and(|number| number > 0 && number <= max_puzzle)
+        {
+            *input = candidate;
+        }
+    }
+
+    fn puzzle_goto_backspace(&mut self) {
+        if let Some(input) = self.puzzle_goto_input.as_mut() {
+            input.pop();
+        }
+    }
+
+    fn confirm_puzzle_goto(&mut self) -> bool {
+        let Some(number) = self.puzzle_goto_number() else {
+            return false;
+        };
+        let index = number - 1;
+        self.puzzle_goto_input = None;
+        if index == self.puzzle_index {
+            return false;
+        }
+
+        self.select_puzzle(index);
+        self.remember_current_puzzle()
     }
 
     fn open_collection_picker(&mut self) {
@@ -749,6 +855,7 @@ impl AppState {
         self.solution_ply = 0;
         self.feedback = SolutionFeedback::None;
         self.pending_promotion = None;
+        self.puzzle_goto_input = None;
         self.board.clear_selection();
     }
 
