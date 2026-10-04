@@ -35,8 +35,7 @@ pub enum HitTarget {
     AnalysisMove(AnalysisNodeIndex),
     AnalysisPreviousPage,
     AnalysisNextPage,
-    CloseAnalysis,
-    OpenAnalysis,
+    ToggleAnalysis,
     ToggleMode,
     ToggleDescription,
     ToggleOrientationLock,
@@ -62,8 +61,7 @@ impl HitTarget {
             Self::AnalysisMove(node) => Some(Action::SelectAnalysisNode(node)),
             Self::AnalysisPreviousPage => Some(Action::AnalysisPreviousPage),
             Self::AnalysisNextPage => Some(Action::AnalysisNextPage),
-            Self::CloseAnalysis => Some(Action::CloseAnalysis),
-            Self::OpenAnalysis => Some(Action::OpenAnalysis),
+            Self::ToggleAnalysis => Some(Action::ToggleAnalysis),
             Self::ToggleMode => Some(Action::ToggleMode),
             Self::ToggleDescription => Some(Action::ToggleDescription),
             Self::ToggleOrientationLock => Some(Action::ToggleOrientationLock),
@@ -100,7 +98,7 @@ pub struct Layout {
     pub board_outer: Rect,
     pub board: Rect,
     pub toolbar: Rect,
-    pub toolbar_targets: [ControlTarget; 5],
+    pub toolbar_targets: [ControlTarget; 6],
     pub exit: Rect,
     pub previous: Rect,
     pub next: Rect,
@@ -211,8 +209,25 @@ impl Layout {
             minimum_touch_px,
         );
 
-        let toolbar_targets = split_targets(
-            toolbar_touch,
+        let analysis_target = ControlTarget {
+            rect: Rect::new(
+                toolbar_touch.x,
+                toolbar_touch.y,
+                minimum_touch_px,
+                minimum_touch_px,
+            ),
+            target: HitTarget::ToggleAnalysis,
+        };
+        let remaining_toolbar = Rect::new(
+            analysis_target.rect.right() + small_gap,
+            toolbar_touch.y,
+            toolbar_touch
+                .width
+                .saturating_sub(minimum_touch_px + small_gap),
+            toolbar_touch.height,
+        );
+        let other_targets = split_targets(
+            remaining_toolbar,
             small_gap,
             [
                 HitTarget::ToggleMode,
@@ -222,6 +237,14 @@ impl Layout {
                 HitTarget::Flip,
             ],
         );
+        let toolbar_targets = [
+            analysis_target,
+            other_targets[0],
+            other_targets[1],
+            other_targets[2],
+            other_targets[3],
+            other_targets[4],
+        ];
         if toolbar_targets
             .iter()
             .any(|target| target.rect.width < minimum_touch_px)
@@ -460,7 +483,12 @@ impl Layout {
             return Some(HitTarget::OpenCollections);
         }
 
-        self.hit_test(x, y, state.flipped(), false)
+        let target = self.hit_test(x, y, state.flipped(), false);
+        if target == Some(HitTarget::ToggleAnalysis) && !state.analysis_available() {
+            None
+        } else {
+            target
+        }
     }
 
     pub fn hit_test(

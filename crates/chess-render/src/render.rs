@@ -44,12 +44,6 @@ impl RenderOutput {
             }
         }
 
-        if !state.collection_picker_open()
-            && state.pending_promotion().is_none()
-            && self.analysis_entry.is_some_and(|rect| rect.contains(x, y))
-        {
-            return Some(HitTarget::OpenAnalysis);
-        }
         self.layout.hit_test_app(x, y, state)
     }
 }
@@ -64,21 +58,10 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     draw_board(&mut frame, state, layout, coordinate_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
-    let analysis_entry =
-        (state.active_puzzle().analysis.is_some() && !state.analysis_browser_open()).then(|| {
-            let area = layout.status.inset((layout.status.height / 12).max(8));
-            let height = layout.minimum_touch_px();
-            Rect::new(
-                area.x,
-                area.bottom().saturating_sub(height),
-                area.width,
-                height,
-            )
-        });
-    let analysis = draw_status(&mut frame, state, layout, text_scale, analysis_entry);
-    if let Some(rect) = analysis_entry {
-        draw_button(&mut frame, rect, "ANALYSIS", false, text_scale);
-    }
+    let analysis_entry = state
+        .analysis_available()
+        .then_some(layout.toolbar_targets[0].rect);
+    let analysis = draw_status(&mut frame, state, layout, text_scale);
 
     match state.feedback() {
         SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
@@ -217,6 +200,10 @@ fn draw_coordinates(frame: &mut Gray8, flipped: bool, layout: Layout, scale: u32
 
 fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
     for target in layout.toolbar_targets {
+        if target.target == HitTarget::ToggleAnalysis {
+            draw_analysis_toggle(frame, layout.control_visual_rect(target.rect), state);
+            continue;
+        }
         let (label, selected) = match target.target {
             HitTarget::ToggleMode => ("FREE", state.mode() == BoardMode::FreeBoard),
             HitTarget::ToggleDescription => ("NOTE", state.description_visible()),
@@ -232,6 +219,40 @@ fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32)
             selected,
             scale,
         );
+    }
+}
+
+fn draw_analysis_toggle(frame: &mut Gray8, rect: Rect, state: &AppState) {
+    let selected = state.analysis_browser_open();
+    let background = if selected { INK } else { WHITE };
+    let ink = if selected {
+        WHITE
+    } else if state.analysis_available() {
+        INK
+    } else {
+        DISABLED_INK
+    };
+    draw_button_chrome(frame, rect, background, ink, selected);
+    // An open book: two pages and a central spine, drawn without font glyphs.
+    let icon = rect.inset(rect.width.min(rect.height) / 4);
+    let thickness = (rect.height / 24).clamp(3, 6);
+    frame.stroke_rect(icon, thickness, ink);
+    frame.fill_rect(
+        Rect::new(icon.x + icon.width / 2, icon.y, thickness, icon.height),
+        ink,
+    );
+    for page in 0..2 {
+        for row in 1..=3 {
+            frame.fill_rect(
+                Rect::new(
+                    icon.x + page * icon.width / 2 + thickness * 2,
+                    icon.y + row * icon.height / 5,
+                    icon.width / 2 - thickness * 4,
+                    thickness,
+                ),
+                ink,
+            );
+        }
     }
 }
 
@@ -257,7 +278,6 @@ fn draw_status(
     state: &AppState,
     layout: Layout,
     scale: u32,
-    analysis_entry: Option<Rect>,
 ) -> Option<AnalysisPanelOutput> {
     draw_button_chrome(frame, layout.status, WHITE, INK, false);
 
@@ -268,9 +288,6 @@ fn draw_status(
         return draw_analysis_panel(frame, state, layout, content, scale.min(3));
     }
 
-    if let Some(rect) = analysis_entry {
-        content.height = rect.y.saturating_sub(content.y).saturating_sub(padding);
-    }
     if state.feedback() == SolutionFeedback::Correct {
         content.width = content.width.saturating_sub(layout.minimum_touch_px());
     }
@@ -301,9 +318,6 @@ fn draw_status(
                     Color::White => "WHITE TO MOVE",
                     Color::Black => "BLACK TO MOVE",
                 };
-                if let Some(rect) = analysis_entry {
-                    content.height = rect.y.saturating_sub(content.y).saturating_sub(padding);
-                }
                 if state.feedback() == SolutionFeedback::Correct {
                     format!("{side} - CORRECT")
                 } else {
@@ -314,9 +328,6 @@ fn draw_status(
         draw_text_bold(frame, content.x, content.y, &status_line, scale, INK);
     }
 
-    if let Some(rect) = analysis_entry {
-        content.height = rect.y.saturating_sub(content.y).saturating_sub(padding);
-    }
     if state.feedback() == SolutionFeedback::Correct {
         let mark = Rect::new(
             layout

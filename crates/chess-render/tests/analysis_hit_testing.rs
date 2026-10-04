@@ -185,11 +185,11 @@ fn analysis_controls_dispatch_and_board_taps_are_disabled_without_moving_old_tar
         Some(HitTarget::AnalysisPreviousPage)
     );
 
-    let close_point = center(second_panel.close);
+    let close_point = center(second.layout.toolbar_targets[0].rect);
     let close_target = second
         .hit_test_app(close_point.0, close_point.1, &app)
         .expect("close target");
-    assert_eq!(close_target, HitTarget::CloseAnalysis);
+    assert_eq!(close_target, HitTarget::ToggleAnalysis);
     app.dispatch(close_target.into_action().expect("close maps to action"));
     assert!(!app.analysis_browser_open());
     assert_eq!(app.board(), app.live_board());
@@ -248,11 +248,35 @@ fn rich_analysis_has_a_visible_entry_control_with_a_working_action() {
     let rect = output
         .analysis_entry
         .expect("rich puzzle exposes analysis entry");
+    assert!(output
+        .layout
+        .toolbar
+        .contains_rect(output.layout.control_visual_rect(rect)));
+    assert_eq!(rect.x, output.layout.toolbar.x);
+    assert_eq!(rect.width, output.layout.minimum_touch_px());
     let (x, y) = center(rect);
     let target = output.hit_test_app(x, y, &app).unwrap();
-    assert_eq!(target.into_action(), Some(Action::OpenAnalysis));
+    assert_eq!(target.into_action(), Some(Action::ToggleAnalysis));
     app.dispatch(target.into_action().unwrap());
     assert!(render(&app, SCRIBE).unwrap().analysis.is_some());
+    let open_output = render(&app, SCRIBE).unwrap();
+    assert_eq!(open_output.analysis_entry, Some(rect));
+    assert_eq!(
+        open_output.layout.control_visual_rect(rect).height,
+        output.layout.toolbar.height
+    );
+    assert!(rect.width < output.layout.toolbar_targets[1].rect.width);
+    app.dispatch(
+        open_output
+            .hit_test_app(x, y, &app)
+            .unwrap()
+            .into_action()
+            .unwrap(),
+    );
+    assert!(!app.analysis_browser_open());
+    assert_eq!(app.board(), app.live_board());
     let legacy = state(include_bytes!("../../../tests/fixtures/puzzles.json"));
-    assert!(render(&legacy, SCRIBE).unwrap().analysis_entry.is_none());
+    let legacy_output = render(&legacy, SCRIBE).unwrap();
+    assert!(legacy_output.analysis_entry.is_none());
+    assert_eq!(legacy_output.hit_test_app(x, y, &legacy), None);
 }

@@ -35,7 +35,6 @@ pub struct AnalysisPanelOutput {
     pub page_count: usize,
     pub move_chips: Vec<AnalysisMoveChip>,
     pub previous_page: Option<Rect>,
-    pub close: Rect,
     pub next_page: Option<Rect>,
 }
 
@@ -43,9 +42,6 @@ impl AnalysisPanelOutput {
     pub fn hit_test(&self, x: u32, y: u32) -> Option<HitTarget> {
         if self.previous_page.is_some_and(|rect| rect.contains(x, y)) {
             return Some(HitTarget::AnalysisPreviousPage);
-        }
-        if self.close.contains(x, y) {
-            return Some(HitTarget::CloseAnalysis);
         }
         if self.next_page.is_some_and(|rect| rect.contains(x, y)) {
             return Some(HitTarget::AnalysisNextPage);
@@ -389,11 +385,10 @@ pub(crate) fn draw_analysis_panel(
 
     let controls = split_footer(footer, gap);
     let previous_page = (page > 0).then_some(controls[0]);
-    let next_page = (page + 1 < page_count).then_some(controls[2]);
+    let next_page = (page + 1 < page_count).then_some(controls[1]);
     if let Some(rect) = previous_page {
         draw_page_control(frame, rect, "< PAGE", scale);
     }
-    draw_page_control(frame, controls[1], "CLOSE", scale);
     if let Some(rect) = next_page {
         draw_page_control(frame, rect, "PAGE >", scale);
     }
@@ -404,7 +399,6 @@ pub(crate) fn draw_analysis_panel(
         page_count,
         move_chips,
         previous_page,
-        close: controls[1],
         next_page,
     })
 }
@@ -586,20 +580,19 @@ fn draw_move_chip(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, sc
     draw_text_centered(frame, rect.inset(4), label, scale, foreground);
 }
 
-fn split_footer(rect: Rect, gap: u32) -> [Rect; 3] {
-    let available = rect.width.saturating_sub(gap.saturating_mul(2));
-    let width = available / 3;
+fn split_footer(rect: Rect, gap: u32) -> [Rect; 2] {
+    let width = rect.width.saturating_sub(gap) / 2;
     let first = Rect::new(rect.x, rect.y, width, rect.height);
     let second_x = first.right().saturating_add(gap);
-    let second = Rect::new(second_x, rect.y, width, rect.height);
-    let third_x = second.right().saturating_add(gap);
-    let third = Rect::new(
-        third_x,
-        rect.y,
-        rect.right().saturating_sub(third_x),
-        rect.height,
-    );
-    [first, second, third]
+    [
+        first,
+        Rect::new(
+            second_x,
+            rect.y,
+            rect.right().saturating_sub(second_x),
+            rect.height,
+        ),
+    ]
 }
 
 fn draw_page_control(frame: &mut Gray8, rect: Rect, label: &str, scale: u32) {

@@ -2,7 +2,9 @@
 
 Phase one is complete and archived under [`implemented/phase-1/`](implemented/phase-1/).
 Phase two is complete and archived under [`implemented/phase-2/`](implemented/phase-2/).
-No numbered product task is active; upcoming improvements will be planned separately. The former Task 10 ghosting
+Post-phase-two improvements are tracked under `improvements/`.
+[Task 29 — compact analysis toolbar toggle](improvements/29-analysis-toolbar-toggle.md)
+moves analysis into the first icon-only toolbar control. The former Task 10 ghosting
 investigation is archived: the top-left Refresh control is the accepted manual workaround
 when a residual physical-panel ghost becomes visible.
 

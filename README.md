@@ -125,6 +125,10 @@ For install/update/uninstall details, KPM commands, and manual recovery, follow
 [EINK_LIFECYCLE.md](docs/EINK_LIFECYCLE.md). Recovery should preserve
 `puzzles/` and `state/`; do not delete user data to repair a runtime install.
 
+The first toolbar button is an icon-only book toggle for analysis. Tap it again to
+return to the live puzzle board. It is inverted while analysis is open and disabled
+for collections without rich analysis.
+
 Phase two keeps the app a physical-board puzzle tool rather than a chess engine. Existing
 version-1 collections remain valid. Rich solution data is designed as an additive extension
 that retains the legacy `solution` main line, with precomputed positions for interactive

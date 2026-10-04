@@ -751,3 +751,19 @@ fn analysis_open_is_a_noop_during_pending_promotion() {
     assert!(!app.analysis_browser_open());
     assert!(app.pending_promotion().is_some());
 }
+
+#[test]
+fn analysis_toggle_restores_live_state_and_does_not_persist_preview() {
+    let mut app = state("rich.json", RICH);
+    let before = app.clone();
+    assert!(app.dispatch(Action::ToggleAnalysis).is_empty());
+    assert!(app.analysis_browser_open());
+    let node = analysis_index(&app, "n1");
+    app.dispatch(Action::SelectAnalysisNode(node));
+    assert!(app.dispatch(Action::ToggleAnalysis).is_empty());
+    assert_eq!(app, before);
+    let mut legacy = state("puzzles.json", PUZZLES);
+    let before = legacy.clone();
+    assert!(legacy.dispatch(Action::ToggleAnalysis).is_empty());
+    assert_eq!(legacy, before);
+}

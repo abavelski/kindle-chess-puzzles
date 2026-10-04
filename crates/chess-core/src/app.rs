@@ -129,6 +129,7 @@ pub enum Action {
     TapSquare(usize),
     ChoosePromotion(PromotionChoice),
     CancelPromotion,
+    ToggleAnalysis,
     OpenAnalysis,
     CloseAnalysis,
     SelectAnalysisNode(AnalysisNodeIndex),
@@ -404,6 +405,14 @@ impl AppState {
             Action::ChoosePromotion(choice) => Self::progress_effect(self.finish_promotion(choice)),
             Action::CancelPromotion => {
                 self.cancel_promotion();
+                Vec::new()
+            }
+            Action::ToggleAnalysis => {
+                if self.analysis_browser_open() {
+                    self.close_analysis();
+                } else {
+                    self.open_analysis();
+                }
                 Vec::new()
             }
             Action::OpenAnalysis => {

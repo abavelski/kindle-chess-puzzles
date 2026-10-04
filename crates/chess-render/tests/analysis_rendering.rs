@@ -238,7 +238,11 @@ fn pagination_controls_match_first_middle_and_last_pages() {
     assert_eq!(first_panel.page, 0);
     assert!(first_panel.previous_page.is_none());
     assert!(first_panel.next_page.is_some());
-    assert!(first.layout.status.contains_rect(first_panel.close));
+    assert!(first.layout.toolbar.contains_rect(
+        first
+            .layout
+            .control_visual_rect(first.layout.toolbar_targets[0].rect)
+    ));
 
     let middle_page = first_panel.page_count / 2;
     for _ in 0..middle_page {
@@ -261,7 +265,7 @@ fn pagination_controls_match_first_middle_and_last_pages() {
 }
 
 #[test]
-fn no_analysis_keeps_the_phase_one_frame_and_has_no_panel() {
+fn no_analysis_toggle_is_inert_and_has_no_panel() {
     let mut app = state(PUZZLES);
     let before = render(&app, SCRIBE).expect("render succeeds");
     app.dispatch(Action::OpenAnalysis);
@@ -270,7 +274,7 @@ fn no_analysis_keeps_the_phase_one_frame_and_has_no_panel() {
     assert!(!app.analysis_browser_open());
     assert!(after.analysis.is_none());
     assert_eq!(after.frame.checksum64(), before.frame.checksum64());
-    assert_eq!(after.frame.checksum64(), 7_140_422_721_455_450_270);
+    assert_eq!(after.frame.checksum64(), 12_322_409_405_640_497_372);
 }
 
 #[test]
@@ -327,14 +331,14 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("main-only", 1_482_911_107_810_550_017),
-        ("nested-sideline", 6_567_349_012_092_091_101),
-        ("black-promotion-rich", 16_503_749_396_860_418_661),
-        ("selected-move", 11_321_429_571_968_384_316),
-        ("long-comment-first", 16_139_418_572_889_790_324),
-        ("long-comment-middle", 12_403_465_458_380_759_305),
-        ("long-comment-last", 17_956_680_023_420_241_123),
-        ("no-analysis", 7_140_422_721_455_450_270),
+        ("main-only", 9_330_290_596_529_118_208),
+        ("nested-sideline", 2_378_351_759_370_397_198),
+        ("black-promotion-rich", 5_596_768_141_721_168_778),
+        ("selected-move", 5_411_247_496_960_919_579),
+        ("long-comment-first", 4_240_044_103_988_693_167),
+        ("long-comment-middle", 15_654_707_825_988_012_446),
+        ("long-comment-last", 1_591_444_611_766_583_814),
+        ("no-analysis", 12_322_409_405_640_497_372),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
@@ -344,5 +348,5 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
 fn closed_rich_analysis_entry_matches_reviewed_snapshot() {
     let app = state(RICH);
     let output = render(&app, SCRIBE).unwrap();
-    assert_eq!(output.frame.checksum64(), 12_658_795_962_515_466_202);
+    assert_eq!(output.frame.checksum64(), 8_549_981_688_073_617_137);
 }
