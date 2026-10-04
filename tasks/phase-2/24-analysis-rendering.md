@@ -9,14 +9,17 @@ Render a readable paginated main-line/variation browser while keeping the board 
 
 ## Required behavior
 - Use the lower/status region and deterministic pages, not animation.
-- Render move tokens separately from comments so Task 25 can assign hit rectangles.
+- Render every interactive solution-tree move and every structured prose `move_ref` as an unmistakable monochrome move chip/button: bold move text, thin rectangular outline, and visual padding.
+- Plain prose, including SAN-looking text that is not a `move_ref`, must never use the move-chip treatment.
+- Give the selected move chip a stronger color-independent state such as inverted fill or heavier/double outline.
+- Render move chips separately from text so Task 25 can assign padded hit rectangles.
 - Indent/label `main`, `alternative`, `sideline`, and selected node without color.
 - Wrap long comments deterministically and keep controls reachable.
 - Show analysis previous/next page controls only when needed.
 - Keep phase-one snapshots unchanged when browser is closed.
 
 ## Tests
-Reviewed snapshots: main-only, nested sideline, alternative label, long comment, black orientation, promotion SAN, first/middle/last pages, selected move, no-analysis state.
+Reviewed snapshots: main-only, nested sideline, alternative label, long comment, description containing inline `move_ref` chips, unmarked SAN-looking prose staying plain, black orientation, promotion SAN, first/middle/last pages, selected move, and no-analysis state.
 
 ## Non-goals
 No input dispatch or Kindle refresh tuning.

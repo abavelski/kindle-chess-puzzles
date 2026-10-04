@@ -1,12 +1,24 @@
 # Task 10 — Diagnose and reduce residual Scribe ghosting
 
-**Status:** Ready  
+**Status:** Archived — manual workaround accepted  
 **Depends on:** Tasks 07-09 and the accepted regional-clean fix  
 **Target:** Kindle Scribe first generation (Barolo), firmware 5.19.6  
 **Baseline FBInk revision:** `92e127008145b2a22fba7c59815d810d716310dd`  
 **KOReader reference:** `koreader@06c87b8c424e78f7b7f889defcfd1fecc662a990` and `koreader-base@4c5f7a487d9ff4b707282fdea9bd3a8fdbae988f`
 
-## Outcome
+## Archive decision
+
+This investigation is no longer active. Residual physical-panel ghosting is accepted as an
+occasional Scribe limitation with a simple operational workaround: tap the app's existing
+top-left **Refresh** button when a recognizable ghost is visible. That explicit refresh
+clears the display sufficiently for normal use.
+
+No further KOReader/GLR16/controller experiment is required for phase two. The experimental
+matrix below is preserved as historical follow-up material in case the issue is revisited.
+Archiving this task does **not** claim that the underlying controller/panel mechanism was
+identified or permanently fixed.
+
+## Original outcome
 
 Determine why a faint previous-piece silhouette can remain physically visible after a
 piece move even though the final visible framebuffer is already correct, then keep the

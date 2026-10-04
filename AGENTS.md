@@ -74,6 +74,8 @@ Treat `docs/PUZZLE_FORMAT.md` as a compatibility contract.
 - Do not silently change version-1 JSON semantics.
 - Rich analysis data must be additive: legacy `solution` remains the grading/main-line compatibility projection.
 - Runtime analysis browsing uses precomputed positions from the collection; it must not require a chess engine.
+- Only explicit structured `move_ref` spans in prose are interactive. Never regex-detect SAN/UCI-looking text and make it tappable.
+- Render every tappable move with an explicit monochrome affordance distinct from plain prose.
 - Analysis preview state must not mutate grading cursor, solved state, or durable progress.
 - Keep uploaded puzzle collections immutable from the app's point of view.
 - Store learning progress separately.

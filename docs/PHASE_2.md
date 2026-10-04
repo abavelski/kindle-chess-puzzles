@@ -20,7 +20,7 @@ incompatible change.
 ## Runtime state
 
 Normalize rich JSON into a core `AnalysisTree` containing node IDs/indexes, parent/children,
-display SAN, machine UCI, comments, roles, NAGs, and precomputed FEN.
+display SAN, machine UCI, comments, roles, NAGs, structured text spans, and precomputed FEN.
 
 Keep three concepts separate:
 
@@ -34,12 +34,27 @@ mutates the live board. Closing the browser restores the exact live solve positi
 ## UI direction
 
 Keep the chessboard visible and use the lower/status area for a paginated rich-solution panel.
-Prefer deterministic pages over smooth scrolling/animation. Move tokens get explicit hit
-rectangles; variations are indented/labeled; selection is visible without relying on color.
-Tapping a visible move selects its node and refreshes the board.
+Prefer deterministic pages over smooth scrolling/animation.
 
-Finger and stylus resolve to the same logical action. Stylus decoding belongs only in the
-Kindle input adapter; the shared app must not know Linux pen event codes.
+**Tappable moves must look tappable.** Every interactive move reference is rendered as a
+high-contrast move chip/button: bold move text inside a thin rectangular outline with padded
+hit area. The selected move uses an unmistakable monochrome selected treatment such as
+inverted fill or a heavier/double outline. Plain prose is never given this treatment.
+
+This applies everywhere the rich solution is shown:
+
+- moves in the main solution line;
+- moves in side lines and alternative lines;
+- explicitly referenced moves embedded inside descriptions or explanatory comments.
+
+Rich prose is represented as structured spans. A `move_ref` span points to an analysis node;
+tapping it selects that node and displays its precomputed FEN. A plain text span that happens
+to contain something looking like SAN (for example `Nd5`) is deliberately **not** tappable.
+The runtime never guesses move references from prose.
+
+Move chips get explicit hit rectangles; variations are indented/labeled; selection is visible
+without relying on color. Finger and stylus resolve to the same logical action. Stylus decoding
+belongs only in the Kindle input adapter; the shared app must not know Linux pen event codes.
 
 ## PGN authoring recommendation
 
@@ -49,6 +64,12 @@ PGN variations do not say whether a branch is another correct solution or explan
 so non-main branches default to `sideline`. An explicit first-move comment directive
 `[%role alternative]` marks an alternative branch; the converter strips that directive from
 the visible comment.
+
+Moves that are actual PGN main-line/RAV moves already have analysis nodes and are automatically
+eligible for move chips in the rendered solution tree. A move merely mentioned inside prose is
+interactive only when the author explicitly marks it as a reference to an analysis node/path.
+Task 20 freezes the exact authoring directive and JSON span syntax; Task 21 resolves those
+directives during conversion. Do not parse arbitrary SAN-looking text to infer links.
 
 Converter output must be deterministic: identical PGN plus options produces byte-stable JSON
 apart from explicitly enabled timestamp metadata.
@@ -68,18 +89,15 @@ real use demonstrates a need.
 
 ## Task order
 
-1. Task 20 — data contract and fixtures.
+1. Task 20 — data contract, structured move references, and fixtures.
 2. Task 21 — deterministic PGN converter.
 3. Task 22 — core analysis parser/model.
 4. Task 23 — non-mutating browser state.
-5. Task 24 — paginated e-ink rendering.
-6. Task 25 — move hit testing and preview wiring.
+5. Task 24 — paginated e-ink rendering with explicit move chips.
+6. Task 25 — move-chip hit testing and preview wiring.
 7. Task 26 — Scribe stylus taps.
 8. Task 27 — safe collection regeneration/versioning.
 9. Task 28 — end-to-end host/device validation.
-
-Task 10 remains independent post-phase-one display maintenance and must not be mixed with
-phase-two product work.
 
 ## Non-goals
 
@@ -87,5 +105,6 @@ phase-two product work.
 - no general legal-move implementation in the runtime;
 - no PGN parser on Kindle;
 - no variation editing or handwriting on Kindle;
+- no automatic conversion of SAN-looking prose into tappable moves;
 - no progress change just because a line is browsed;
 - no requirement to accept alternative branches during grading in phase two.

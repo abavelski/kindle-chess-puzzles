@@ -81,7 +81,9 @@ other checks: natural idle suspend/resume, and library launch after a full devic
 They are documented phase-one limitations. **Phase two is now planned** around rich book
 solutions: main lines, side lines, alternative lines, comments, and tap-to-preview positions.
 The implementation plan is in [docs/PHASE_2.md](docs/PHASE_2.md) and the active agent-sized
-work items are under [tasks/phase-2/](tasks/phase-2/).
+work items are under [tasks/phase-2/](tasks/phase-2/). Residual Scribe panel ghosting is no
+longer an active investigation: the existing top-left **Refresh** button is the accepted
+manual workaround when a ghost becomes visible.
 
 ## Build, install, and use
 

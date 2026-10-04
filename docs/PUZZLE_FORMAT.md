@@ -183,7 +183,19 @@ the generated file also stays within their 256 KiB size limit.
         "version": 1,
         "root": "n0",
         "nodes": [
-          {"id":"n0","fen":"...","comment":"Initial explanation.","children":["n1","n7"]},
+          {
+            "id":"n0",
+            "fen":"...",
+            "comment":"Initial explanation: try Nd5! and compare Nb5.",
+            "content":[
+              {"type":"text","text":"Initial explanation: try "},
+              {"type":"move_ref","node":"n1","label":"Nd5!"},
+              {"type":"text","text":" and compare "},
+              {"type":"move_ref","node":"n7","label":"Nb5"},
+              {"type":"text","text":"."}
+            ],
+            "children":["n1","n7"]
+          },
           {
             "id":"n1", "parent":"n0",
             "move":{"uci":"c3d5","san":"Nd5!"},
@@ -212,13 +224,48 @@ the generated file also stays within their 256 KiB size limit.
 - Ordered `children` must name existing nodes; the structure is connected and acyclic.
 - `move.uci` uses legacy UCI syntax; `move.san` is display text generated offline.
 - `role` is `main`, `alternative`, or `sideline`; omitted non-main roles default to `sideline`.
-- `comment` is plain UTF-8 text; the Kindle does not interpret Markdown or HTML.
+- `comment` is plain UTF-8 fallback text; the Kindle does not interpret Markdown or HTML.
+- Optional node `content` is a structured rich-text span array. Optional puzzle
+  `description_content` uses the same span format while legacy `description` remains the
+  plain-text compatibility projection.
 - `nags` is an optional array of PGN numeric annotation glyph numbers.
 - The root FEN equals the puzzle `fen`.
 - Following `main` children from the root projects exactly to the legacy `solution` UCI sequence.
 
 The Kindle runtime does not recompute positions from SAN or PGN. The converter stores every
 target FEN so selecting a move can immediately show the correct board.
+
+### Structured text and tappable moves
+
+Descriptions and node explanations may contain structured spans:
+
+```json
+[
+  {"type":"text","text":"After "},
+  {"type":"move_ref","node":"n2","label":"...Bxd5"},
+  {"type":"text","text":" White continues with "},
+  {"type":"move_ref","node":"n3","label":"exd5"},
+  {"type":"text","text":"."}
+]
+```
+
+Phase-two span types begin with:
+
+- `text`: required `text` string; always non-interactive.
+- `move_ref`: required `node` naming an existing non-root analysis node and optional
+  `label`; when `label` is absent, render the referenced node's `move.san`.
+
+A `move_ref` is the **only** way for prose to make a move tappable. Text that resembles SAN
+or UCI is not auto-detected. This avoids ambiguous links and guarantees the UI can visually
+mark every interactive move.
+
+The renderer must show every `move_ref` with an explicit monochrome affordance: bold move
+text inside a thin outlined chip/button with a padded touch target. The currently selected
+reference uses a stronger treatment such as inverted fill or heavier/double outline. Plain
+text never uses the same treatment.
+
+For compatibility, `description` and `comment` remain useful plain-text projections. If a
+structured form is present, phase-two rendering uses it; older readers may ignore it.
 
 ### Grading versus browsing
 

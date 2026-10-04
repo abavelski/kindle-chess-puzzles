@@ -1,8 +1,9 @@
 # Implementation tasks
 
 Phase one is complete and archived under [`implemented/phase-1/`](implemented/phase-1/).
-Active product work is phase two: rich solution browsing. Task 10 is independent Scribe
-display maintenance and is not a phase-two prerequisite.
+Active product work is phase two: rich solution browsing. The former Task 10 ghosting
+investigation is archived: the top-left Refresh control is the accepted manual workaround
+when a residual physical-panel ghost becomes visible.
 
 Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one task file.
 
@@ -15,21 +16,20 @@ Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one t
 | [22](phase-2/22-core-analysis-model.md) | Parse/validate analysis trees without breaking v1 | Ready | Codex |
 | [23](phase-2/23-analysis-browser-state.md) | Pure preview/navigation state, no progress mutation | Ready | Codex |
 | [24](phase-2/24-analysis-rendering.md) | Paginated monochrome analysis rendering | Ready | Codex |
-| [25](phase-2/25-analysis-hit-testing.md) | Tap move tokens and preview their positions | Ready | Codex |
+| [25](phase-2/25-analysis-hit-testing.md) | Tap explicit move chips and preview their positions | Ready | Codex |
 | [26](phase-2/26-stylus-taps.md) | Map Scribe pen taps to logical UI taps | Ready | Codex + device |
 | [27](phase-2/27-collection-update-workflow.md) | Stable-ID regeneration/revision/update workflow | Ready | local model or Codex |
 | [28](phase-2/28-phase2-validation.md) | End-to-end host/device validation | Ready | Codex + device |
 
-## Independent maintenance
+## Archived maintenance
 
-| Task | Outcome | Status |
-| --- | --- | --- |
-| [10](10-scribe-ghosting-follow-up.md) | Diagnose/reduce residual Scribe panel ghosting | Ready |
-
-Do not combine Task 10 experiments with phase-two feature changes.
+- [Task 10 — Scribe ghosting follow-up](implemented/post-phase-1/10-scribe-ghosting-follow-up.md)
+  is archived with the manual top-left **Refresh** button accepted as the operational workaround.
+  No additional waveform/controller investigation is currently planned.
 
 ## Phase-two definition of done
 
 Keep phase-one behavior green; start host-testable behavior with a failing test; keep PGN/engine
-logic off the Kindle; preserve legacy `solution` grading; keep analysis preview out of durable
+logic off the Kindle; preserve legacy `solution` grading; make every interactive move visually
+obvious and never infer links from plain SAN-looking prose; keep analysis preview out of durable
 progress; add physical checkpoints only where device behavior cannot be proven on the host.

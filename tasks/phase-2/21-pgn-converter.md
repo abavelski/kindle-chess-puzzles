@@ -13,13 +13,17 @@ Add a deterministic host converter. Recommended dependency: `python-chess` for t
 - Emit UCI + SAN and complete post-move FEN for every node.
 - Emit legacy `solution` from the main line.
 - Non-main RAV branches default to `sideline`; first-move `[%role alternative]` marks an alternative and is stripped from visible comments.
+- Convert the Task-20 explicit inline move-reference directive into structured `move_ref` spans for descriptions/comments.
+- Resolve every inline reference to an existing analysis node/path and fail with context if it is ambiguous or missing.
+- Never regex-detect SAN/UCI in ordinary prose; unmarked move-looking text remains a `text` span.
+- Emit plain `description`/`comment` projections alongside structured content for compatibility.
 - Preserve optional description/difficulty/source metadata from tags/options.
 - Emit deterministic node IDs/order and deterministic JSON formatting.
 - Report encoded size and warn above 256 KiB legacy compatibility.
 - Fail malformed/illegal PGN with puzzle context instead of partial output.
 
 ## Tests
-Checked-in PGN fixtures cover nested variations, promotion, castling, capture, comments, alternative directive, black-to-move FEN, and invalid input. Verify byte-stable output.
+Checked-in PGN fixtures cover nested variations, promotion, castling, capture, comments, alternative directive, explicit inline move references, unmarked SAN-looking prose, black-to-move FEN, dangling/ambiguous references, and invalid input. Verify byte-stable output.
 
 ## Non-goals
 No app/core/render changes and no engine evaluation.

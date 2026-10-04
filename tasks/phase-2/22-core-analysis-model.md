@@ -8,11 +8,13 @@
 Parse optional analysis into a validated platform-neutral tree while preserving legacy v1 behavior.
 
 ## Required behavior
-- Add analysis tree/node/move/role/NAG types without Kindle/render dependencies.
+- Add analysis tree/node/move/role/NAG and structured text-span types without Kindle/render dependencies.
 - Accept legacy puzzles with no `analysis` unchanged.
 - Validate every Task-20 invariant with puzzle-specific errors.
 - Verify root FEN and exact main-path projection to legacy `solution`.
 - Parse all node FEN/UCI at load time and expose efficient node/parent/children lookup.
+- Parse `description_content` / node `content`; validate every `move_ref` resolves to an existing non-root node.
+- Preserve plain `description` / `comment` fallback behavior when structured content is absent.
 - Implement/test the Task-20 phase-two byte cap and retain documented 256 KiB old-build compatibility warning.
 
 ## Tests

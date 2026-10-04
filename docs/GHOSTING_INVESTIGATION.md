@@ -1,8 +1,17 @@
 # Dark-square ghosting: framebuffer and physical-screen findings
 
-Recorded on 2026-10-03. Status: the regional-clean fix improves rendering on
-the Scribe, but faint physical piece ghosts remain. Their exact mechanism and
-a reliable way to remove them are unresolved.
+Recorded on 2026-10-03; operational decision updated on 2026-10-04. The
+regional-clean fix improves rendering on the Scribe, but faint physical piece
+ghosts can remain. Their exact mechanism is unresolved. Further investigation
+is archived because the existing top-left **Refresh** control is an acceptable
+manual workaround when a ghost becomes visible.
+
+## Accepted operational workaround
+
+If a recognizable residual ghost is visible during normal use, tap the app's top-left
+**Refresh** button. The manual refresh is accepted as the product workaround; no additional
+waveform/controller investigation is currently planned. This does not claim the underlying
+panel/controller behavior has been fixed.
 
 ## Target and tested build
 
