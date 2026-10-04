@@ -19,7 +19,7 @@ tests, status changes, and related documentation stay on that branch. Do not mer
 
 | Task | Outcome | Status | Physical Scribe to complete? | Human interaction to complete? | Suggested fit |
 | --- | --- | --- | --- | --- | --- |
-| [20](phase-2/20-rich-analysis-contract.md) | Freeze rich-analysis JSON contract and fixtures | Ready | No | No | local model or Codex |
+| [20](phase-2/20-rich-analysis-contract.md) | Freeze rich-analysis JSON contract and fixtures | Implemented | No | No | local model or Codex |
 | [21](phase-2/21-pgn-converter.md) | Deterministic PGN -> JSON conversion | Ready | No | No | local model or Codex |
 | [22](phase-2/22-core-analysis-model.md) | Parse/validate analysis trees without breaking v1 | Ready | No | No | Codex |
 | [23](phase-2/23-analysis-browser-state.md) | Pure preview/navigation state, no progress mutation | Ready | No | No | Codex |

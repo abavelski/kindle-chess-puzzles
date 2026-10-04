@@ -1,6 +1,6 @@
 # Task 20 — Freeze the rich-analysis contract
 
-**Status:** Ready  
+**Status:** Implemented  
 **Depends on:** Phase-one closure  
 **Primary area:** docs + fixtures  
 **Validation:** Automated only  
@@ -36,3 +36,15 @@ Good local-model task: contract review and deterministic fixture authoring.
 
 ## Suggested commit
 `docs: freeze rich analysis fixture contract`
+
+
+## Implementation record
+
+Implemented on the `phase-2` branch with an executable contract corpus under
+`tests/fixtures/rich-analysis/` and `tests/test_rich_analysis_contract.py`.
+
+Automated acceptance is wired into `scripts/check.sh`. The contract test validates the
+canonical rich fixture, verifies each invalid fixture fails for its intended invariant,
+keeps `tests/fixtures/puzzles.json` as the analysis-free legacy control, freezes the explicit
+UCI-path `[%move_ref ...]` authoring syntax, and reproduces the documented byte-cap
+measurement. No Kindle/device checkpoint is required for this task.

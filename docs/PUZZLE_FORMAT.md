@@ -163,133 +163,193 @@ The Kindle storage path may differ from Kobo's old Cobalt key, but serialization
 
 ## Phase-two rich analysis extension
 
-Phase two keeps the root `version` at `1` and keeps the existing required `solution` array.
-The current parser ignores unknown JSON fields, so an additive `analysis` object can coexist
-with the legacy representation. Older builds can continue to solve the main line as long as
-the generated file also stays within their 256 KiB size limit.
+Phase two keeps root `version` at `1` and keeps the legacy `solution` array required.
+Rich data is additive: a puzzle may add `description_content` and an `analysis` object with
+`analysis.version = 1`. A version-1 reader that does not know these fields may ignore them
+and continue grading from `solution`.
+
+The canonical executable example is
+`tests/fixtures/rich-analysis/valid-rich.json`. The existing
+`tests/fixtures/puzzles.json` is the untouched legacy-v1 compatibility control.
+
+### Analysis object
+
+For `analysis.version = 1`:
+
+- `version`, `root`, and `nodes` are required.
+- `version` is integer `1`.
+- `root` is the ID of exactly one node in the non-empty `nodes` array.
+- Node IDs are non-empty strings, unique inside one puzzle, and are not durable progress keys.
+- Node order and every `children` array are significant and deterministic. Producers preserve
+  PGN/source order; consumers do not sort them.
+
+The root node represents the puzzle starting position:
+
+- its `id` equals `analysis.root`;
+- its `fen` is required and is exactly equal to the puzzle `fen` string;
+- it has no `parent`, `move`, `role`, or `nags`;
+- it may have `comment`, `content`, and `children`.
+
+Every non-root node:
+
+- has exactly one `parent` naming an existing node;
+- has exactly one `move` object with exactly `uci` and `san`;
+- has a complete six-field post-move `fen`;
+- appears exactly once in its parent's ordered `children` array.
+
+Parent/child links must agree in both directions. Every named child exists, the graph is
+connected from the root, and it is acyclic. A child ID may not appear twice in one
+`children` array or under two parents.
+
+`move.uci` uses the legacy coordinate syntax: four characters such as `e2e4`, or five for
+promotion such as `h2h1q`; origin and destination differ and promotion is lowercase
+`q/r/b/n`. `move.san` is a non-empty display string generated offline. The runtime validates
+FEN/UCI syntax but does not recompute legality or derive a child FEN from its parent.
+
+### Roles and the legacy main path
+
+A non-root `role` is one of `main`, `alternative`, or `sideline`.
+
+Starting at the root and repeatedly taking the single child whose role is `main` produces
+the only main path. There may be at most one main child at each step, and the resulting UCI
+sequence must equal the puzzle's legacy `solution` array exactly, including length and
+promotion suffixes. A `main` node outside that projected path is invalid.
+
+`alternative` and `sideline` nodes are browse-only in phase two. Their presence never makes
+a move accepted by grading.
+
+### Defaults and fallback text
+
+Omitted fields have these semantic defaults:
+
+| Field | Applies to | Omitted value |
+| --- | --- | --- |
+| `role` | non-root node | `sideline` |
+| `comment` | any node | empty string |
+| `content` | any node | one non-interactive `text` span containing `comment` when comment is non-empty; otherwise an empty span list |
+| `nags` | non-root node | empty list |
+| `children` | any node | empty list |
+
+If `content` is present, even as `[]`, it is authoritative for phase-two rich rendering
+instead of the comment fallback. If puzzle `description_content` is omitted, phase-two
+rendering similarly falls back to one plain `text` span containing non-empty
+`description`, or to no spans when the description is absent/empty.
+
+When present, `comment` and `description` remain the plain-text compatibility projections
+for older readers. Task 21's converter emits those projections from structured content, but
+a phase-two parser does not reject hand-authored input merely because a plain projection is
+worded differently.
+
+`nags`, when present, is an array of non-negative integer PGN numeric annotation glyph
+numbers. Producers should emit them deterministically.
+
+The canonical valid fixture deliberately omits `role`, `comment`, `content`, `nags`,
+and `children` on one sideline node so these defaults are executable rather than implied.
+
+### Structured text spans
+
+Puzzle `description_content` and node `content` use the same array-of-span contract.
+An empty array is valid. In analysis version 1, each span object has one of exactly two shapes:
 
 ```json
-{
-  "version": 1,
-  "revision": 3,
-  "title": "Book chapter 7",
-  "puzzles": [
-    {
-      "id": "book-ch07-042",
-      "fen": "...",
-      "description": "Find the best continuation.",
-      "solution": ["c3d5", "f6d5", "e4d5"],
-      "analysis": {
-        "version": 1,
-        "root": "n0",
-        "nodes": [
-          {
-            "id":"n0",
-            "fen":"...",
-            "comment":"Initial explanation: try Nd5! and compare Nb5.",
-            "content":[
-              {"type":"text","text":"Initial explanation: try "},
-              {"type":"move_ref","node":"n1","label":"Nd5!"},
-              {"type":"text","text":" and compare "},
-              {"type":"move_ref","node":"n7","label":"Nb5"},
-              {"type":"text","text":"."}
-            ],
-            "children":["n1","n7"]
-          },
-          {
-            "id":"n1", "parent":"n0",
-            "move":{"uci":"c3d5","san":"Nd5!"},
-            "fen":"...", "role":"main", "comment":"The main idea.",
-            "nags":[1], "children":["n2"]
-          },
-          {
-            "id":"n7", "parent":"n0",
-            "move":{"uci":"c3b5","san":"Nb5"},
-            "fen":"...", "role":"sideline",
-            "comment":"A useful comparison line.", "children":[]
-          }
-        ]
-      }
-    }
-  ]
-}
+{"type":"text","text":"Compare "}
+{"type":"move_ref","node":"n2","label":"1...h1=N"}
 ```
 
-### Analysis-node invariants
+- `text`: allowed keys are exactly `type` and `text`; `text` is a non-empty string.
+  It is always non-interactive.
+- `move_ref`: allowed keys are `type`, `node`, and optional `label`. `node` is a
+  non-empty ID naming an existing **non-root** node in the same puzzle. If `label` is present
+  it is a non-empty string; otherwise render the target node's `move.san`.
 
-- `analysis.version` starts at integer `1`.
-- `root` names exactly one node; it represents the initial puzzle position and has no `move`.
-- Every non-root node has exactly one `parent`, one `move`, and a complete six-field post-move `fen`.
-- Node IDs are unique inside one puzzle and are not durable progress keys.
-- Ordered `children` must name existing nodes; the structure is connected and acyclic.
-- `move.uci` uses legacy UCI syntax; `move.san` is display text generated offline.
-- `role` is `main`, `alternative`, or `sideline`; omitted non-main roles default to `sideline`.
-- `comment` is plain UTF-8 fallback text; the Kindle does not interpret Markdown or HTML.
-- Optional node `content` is a structured rich-text span array. Optional puzzle
-  `description_content` uses the same span format while legacy `description` remains the
-  plain-text compatibility projection.
-- `nags` is an optional array of PGN numeric annotation glyph numbers.
-- The root FEN equals the puzzle `fen`.
-- Following `main` children from the root projects exactly to the legacy `solution` UCI sequence.
+Unknown span types, extra span keys, missing required keys, wrong JSON types, empty required
+strings, dangling targets, and root targets are invalid for analysis version 1. A
+`move_ref` may target any non-root node in the same analysis tree; it need not be a child or
+ancestor of the node whose prose contains the span.
 
-The Kindle runtime does not recompute positions from SAN or PGN. The converter stores every
-target FEN so selecting a move can immediately show the correct board.
+A `move_ref` is the **only** way prose makes a move interactive. Plain text that happens to
+look like SAN or UCI remains plain text. The runtime must never regex-detect move-looking
+prose and turn it into a link.
 
-### Structured text and tappable moves
+The renderer gives every `move_ref` an explicit monochrome move-chip/button treatment and a
+padded hit rectangle. Plain text never receives that treatment.
 
-Descriptions and node explanations may contain structured spans:
+### PGN/comment authoring directive for inline move references
 
-```json
-[
-  {"type":"text","text":"After "},
-  {"type":"move_ref","node":"n2","label":"...Bxd5"},
-  {"type":"text","text":" White continues with "},
-  {"type":"move_ref","node":"n3","label":"exd5"},
-  {"type":"text","text":"."}
-]
+Task 21 converts one explicit directive syntax inside author-authored prose:
+
+```text
+[%move_ref <uci-path>]
+[%move_ref <uci-path>|<label>]
 ```
 
-Phase-two span types begin with:
+`<uci-path>` is one or more lowercase UCI moves separated by `/`, always resolved from the
+analysis root. For example:
 
-- `text`: required `text` string; always non-interactive.
-- `move_ref`: required `node` naming an existing non-root analysis node and optional
-  `label`; when `label` is absent, render the referenced node's `move.san`.
+```text
+Compare [%move_ref h2h1q|1...h1=Q+] with [%move_ref h2h1n].
+```
 
-A `move_ref` is the **only** way for prose to make a move tappable. Text that resembles SAN
-or UCI is not auto-detected. This avoids ambiguous links and guarantees the UI can visually
-mark every interactive move.
+Resolution walks from the root one path segment at a time. For each segment, the converter
+selects the current node's child whose `move.uci` exactly equals that segment. Zero matches
+is a dangling reference; more than one match is ambiguous; either is a conversion error with
+puzzle/comment context. At least one segment is required, so the root cannot be referenced.
 
-The renderer must show every `move_ref` with an explicit monochrome affordance: bold move
-text inside a thin outlined chip/button with a padded touch target. The currently selected
-reference uses a stronger treatment such as inverted fill or heavier/double outline. Plain
-text never uses the same treatment.
+If `|<label>` is present, everything after the first `|` through the directive's closing
+`]` is the display label and must be non-empty after trimming. A label cannot contain a
+newline or `]`. Without a label the target node's `move.san` is used. The directive itself
+does not remain visible: structured output contains a `move_ref` span, while the plain
+compatibility projection substitutes the chosen label/SAN.
 
-For compatibility, `description` and `comment` remain useful plain-text projections. If a
-structured form is present, phase-two rendering uses it; older readers may ignore it.
+This syntax is intentionally based on explicitly marked UCI paths, not SAN recognition.
+Unmarked prose such as `Nd5`, `h1=Q+`, or `e2e4` is never linked. The separate
+`[%role alternative]` first-move directive described in Phase 2 is not a prose link and is
+stripped from the visible comment by the converter.
 
-### Grading versus browsing
+### Contract fixtures
 
-Phase two keeps grading unchanged: `solution` is the accepted stored line. `analysis` is
-informational. `alternative` and `sideline` nodes can be browsed but do not become accepted
-solver moves merely because they appear in the tree.
+`tests/fixtures/rich-analysis/` contains the Task-20 contract corpus:
+
+- `valid-rich.json`: main, sideline default, alternative, comment, NAG, black-to-move,
+  promotion, structured text, and labeled/unlabeled `move_ref` coverage.
+- invalid fixtures for duplicate node ID, missing child, cycle, disconnected node, root-FEN
+  mismatch, invalid UCI, main-path/legacy-solution mismatch, dangling/root `move_ref`, and
+  malformed spans.
+- `README.md` maps each invalid fixture to the invariant it is intended to violate.
+
+Task 22 must accept the valid fixture, reject every invalid fixture, and preserve public
+semantics of the untouched `tests/fixtures/puzzles.json` legacy control.
 
 ### Collection revision and update policy
 
-`version` is a schema compatibility version, not an edit counter. Optional root `revision`
-is the human/content revision; Git history is authoritative. Keep collection filenames stable
-when updating a book so existing progress still refers to the same collection key.
+Root `version` is a schema compatibility version, not an edit counter. Optional root
+`revision` is the human/content revision; Git history is authoritative. Keep collection
+filenames stable when updating a book so existing progress still refers to the same
+collection key.
 
 Puzzle IDs are durable identity. Reordering puzzles or enriching comments/analysis does not
 change `id`. Do not reuse an ID for a different starting position or materially different
 exercise. If an edit should intentionally stop old solved state carrying forward, use a new
 puzzle ID until a future progress schema explicitly models per-puzzle revisions.
 
-Generated files may carry ignored provenance metadata such as `generated_by`, `generated_at`,
-or a source SHA-256; these fields do not change runtime semantics.
+Generated files may carry ignored provenance metadata such as `generated_by`,
+`generated_at`, or a source SHA-256; these fields do not change runtime semantics.
 
-### File-size compatibility
+### File-size compatibility and phase-two cap
 
-Phase-one builds enforce 256 KiB. Rich FEN/comment trees may exceed it. The converter must
-report encoded size and warn above that legacy threshold. Task 20 records the phase-two
-runtime cap from representative book data, and Task 22 implements/tests it. Splitting a large
-book into multiple collection files remains a valid fallback.
+Phase-one builds reject collection files above **256 KiB (262,144 bytes)**. Task 21 must still
+report encoded output size and warn whenever generated output exceeds that old-build threshold.
+
+Task 20 uses a reproducible representative rich-book profile in
+`tests/test_rich_analysis_contract.py`: 300 puzzles with 36 analysis nodes each (10,800 nodes
+total), complete FEN/UCI/SAN fields, 96-character node comments, NAG coverage, and structured
+move references. UTF-8 JSON measures:
+
+- deterministic compact encoding: **2,845,573 bytes (2.71 MiB)**;
+- two-space pretty encoding: **5,214,393 bytes (4.97 MiB)**.
+
+The phase-two runtime collection cap is therefore frozen at **8 MiB (8,388,608 bytes)**,
+measured on the raw UTF-8 file before parsing. This leaves material headroom above the
+representative pretty-printed book while keeping a finite parser allocation boundary.
+Task 22 implements this cap. Collections above it must be split into multiple stable files;
+raising the cap later is an explicit format-policy change.
