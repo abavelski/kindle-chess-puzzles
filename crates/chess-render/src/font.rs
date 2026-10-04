@@ -45,10 +45,6 @@ fn text_px(scale: u32) -> f32 {
     scale.max(1) as f32 * PIXELS_PER_SCALE
 }
 
-pub(crate) fn draw_text(canvas: &mut Gray8, x: u32, y: u32, text: &str, scale: u32, tone: u8) {
-    draw_text_at(canvas, x, y, text, scale, tone, Face::Regular);
-}
-
 pub(crate) fn draw_text_bold(canvas: &mut Gray8, x: u32, y: u32, text: &str, scale: u32, tone: u8) {
     draw_text_at(canvas, x, y, text, scale, tone, Face::Bold);
 }
@@ -225,7 +221,7 @@ fn blend_glyph(
 
 #[cfg(test)]
 mod tests {
-    use super::{draw_text, draw_wrapped_text_with_line_spacing};
+    use super::{draw_text_at, draw_wrapped_text_with_line_spacing, Face};
     use crate::{Gray8, Rect};
 
     #[test]
@@ -233,8 +229,8 @@ mod tests {
         let mut uppercase = Gray8::new(80, 60, 255);
         let mut lowercase = Gray8::new(80, 60, 255);
 
-        draw_text(&mut uppercase, 4, 4, "A", 3, 0);
-        draw_text(&mut lowercase, 4, 4, "a", 3, 0);
+        draw_text_at(&mut uppercase, 4, 4, "A", 3, 0, Face::Regular);
+        draw_text_at(&mut lowercase, 4, 4, "a", 3, 0, Face::Regular);
 
         assert_ne!(uppercase.pixels(), lowercase.pixels());
     }
