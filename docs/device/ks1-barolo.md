@@ -1780,3 +1780,25 @@ header remain unchanged.
   `816f4cd5927c30ff9320c14998a1c438d16897bfd19a0b16ffa6bbdcba0c0b60`.
 - Ready for library launch. Physical readability and the updated on-panel page
   layout await user review; installation/hash checks are not visual acceptance.
+
+## Task 33 — Borderless unselected analysis moves deployed (2026-10-04)
+
+- Unselected tree moves and explicit prose references retain bold text but lose
+  their rectangular outlines. Selected black backgrounds and white bold text
+  remain identical. Reviewed nine before/after host analysis snapshots; every
+  changed pixel was a removed outline, with geometry and pagination unchanged.
+- The failing-first border regression and focused render/hit tests passed;
+  full scripts/build-kindle.sh checks and ARMv7/glibc-2.35 build passed.
+- Verified supervisor 30653 and app child 30684 against lock files, command lines
+  and process names, then sent TERM to the supervisor via the documented cleanup
+  path. App and lock were absent before installing; native Xorg/awesome present.
+- Staged and deployed with the existing scripts to root@192.168.1.20:2222.
+  Installed binary SHA-256 matches the tested build:
+  `f63264af763fff428560de70b7e11739d80654a0791599e5b72728a4393a316e`.
+  The device dynamic loader resolved all dependencies; app and lock remained
+  absent after installation, with native Xorg/awesome present.
+- All five collection hashes match the Task 32 values above. Progress SHA-256
+  before/after is unchanged:
+  `61f5aef3786faa56ae8d2396c0447dfb5312272d765787ccff20d648456fd9c6`.
+- Ready for library launch. Physical visual acceptance awaits user review;
+  installation and host snapshots do not establish on-panel readability.

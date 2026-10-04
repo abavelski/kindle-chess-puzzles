@@ -129,8 +129,9 @@ The first toolbar button is an icon-only book toggle for analysis. Tap it again 
 return to the live puzzle board. It is inverted while analysis is open and disabled
 for collections without rich analysis. The solution panel shows compact inline PGN
 movetext: numbered SAN moves, parenthesized variations, $N annotations, and braced
-comments. Outlined SAN tokens and explicit prose move references are tappable;
-plain prose remains inert. Overflow uses previous/next analysis pages.
+comments. Bold SAN tokens and explicit prose move references are tappable.
+Selected moves have an inverted rectangular background; plain prose remains inert.
+Overflow uses previous/next analysis pages.
 Analysis opens directly on solution text without a separate title/page-count line.
 
 Phase two keeps the app a physical-board puzzle tool rather than a chess engine. Existing

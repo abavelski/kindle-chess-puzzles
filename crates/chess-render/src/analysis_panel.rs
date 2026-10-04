@@ -586,13 +586,8 @@ fn padded_move_hit_rect(rect: Rect, row: Rect, scale: u32) -> Rect {
 }
 
 fn draw_move_chip(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
-    let (background, foreground, border) = if selected {
-        (INK, WHITE, 4)
-    } else {
-        (WHITE, INK, 2)
-    };
+    let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
     frame.fill_rect(rect, background);
-    frame.stroke_rect(rect, border.min(rect.width).min(rect.height), INK);
     draw_text_centered(frame, rect.inset(4), label, scale, foreground);
 }
 

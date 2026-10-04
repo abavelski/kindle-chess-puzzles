@@ -240,6 +240,35 @@ fn rich_analysis_renders_only_explicit_move_chips() {
 }
 
 #[test]
+fn unselected_tree_moves_and_inline_references_have_no_rectangle() {
+    let output = render(&open(RICH), SCRIBE).unwrap();
+    let chips = &output.analysis.as_ref().unwrap().move_chips;
+    for source in [
+        AnalysisMoveChipSource::TreeMove,
+        AnalysisMoveChipSource::InlineReference,
+    ] {
+        let chip = chips.iter().find(|chip| chip.source == source).unwrap();
+        assert!(!chip.selected);
+        let rect = chip.rect;
+        for y in rect.y..rect.bottom() {
+            for x in rect.x..rect.right() {
+                if x < rect.x + 2
+                    || x >= rect.right() - 2
+                    || y < rect.y + 2
+                    || y >= rect.bottom() - 2
+                {
+                    assert_eq!(output.frame.pixel(x, y), Some(255), "border of {source:?}");
+                }
+            }
+        }
+        assert_eq!(
+            output.analysis.as_ref().unwrap().hit_test(rect.x, rect.y),
+            Some(chess_render::HitTarget::AnalysisMove(chip.node))
+        );
+    }
+}
+
+#[test]
 fn selected_move_is_inverted_and_remains_explicitly_selected() {
     let mut app = open(RICH);
     let n1 = app
@@ -424,15 +453,15 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("main-only", 15_128_814_032_085_981_804),
-        ("nested-sideline", 6_172_701_669_934_519_793),
-        ("black-promotion-rich", 16_601_570_628_693_458_146),
-        ("selected-move", 12_823_566_201_971_212_979),
-        ("long-comment-first", 4_243_835_936_781_096_954),
+        ("main-only", 6_200_642_319_908_229_732),
+        ("nested-sideline", 6_869_885_034_225_328_829),
+        ("black-promotion-rich", 9_365_800_311_412_063_746),
+        ("selected-move", 7_151_119_309_953_166_983),
+        ("long-comment-first", 9_064_128_044_607_163_602),
         ("long-comment-middle", 82_013_701_252_302_109),
         ("long-comment-last", 4_298_667_443_637_921_271),
-        ("book-nested-ravs", 18_066_568_858_961_170_075),
-        ("book-main-only", 6_541_436_676_334_533_298),
+        ("book-nested-ravs", 11_008_779_950_029_694_243),
+        ("book-main-only", 7_702_032_852_103_615_242),
         ("no-analysis", 9_482_317_091_365_691_724),
     ];
 

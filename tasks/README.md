@@ -16,6 +16,9 @@ cleans imported book description metadata and reclaims the analysis title row.
 
 Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one task file.
 
+[Task 33 — borderless analysis moves](improvements/33-borderless-analysis-moves.md)
+keeps unselected tappable moves bold and selected moves inverted.
+
 ## Working branch
 
 **All Phase 2 tasks are implemented on `phase-2`, not `main`.**

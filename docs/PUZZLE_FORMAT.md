@@ -277,8 +277,9 @@ A `move_ref` is the **only** way prose makes a move interactive. Plain text that
 look like SAN or UCI remains plain text. The runtime must never regex-detect move-looking
 prose and turn it into a link.
 
-The renderer gives every `move_ref` an explicit monochrome move-chip/button treatment and a
-padded hit rectangle. Plain text never receives that treatment.
+The renderer gives every `move_ref` bold text and a padded hit rectangle. Selected
+moves have an inverted rectangular background; unselected moves have no outline.
+Plain text never receives that treatment.
 
 ### PGN/comment authoring directive for inline move references
 
