@@ -404,6 +404,11 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     picker.dispatch(Action::OpenCollectionPicker);
     actual.push(("collection-picker", hash(&picker)));
 
+    let mut puzzle_goto = state(PROMOTIONS);
+    puzzle_goto.dispatch(Action::OpenPuzzleGoto);
+    puzzle_goto.dispatch(Action::PuzzleGotoDigit(3));
+    actual.push(("puzzle-goto", hash(&puzzle_goto)));
+
     let mut picker_error = state(PUZZLES);
     picker_error.set_collection_entries(vec![
         CollectionEntry::valid("puzzles.json", "Lichess sample puzzles"),
@@ -467,6 +472,7 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("long-description", 18_226_650_496_557_486_600),
         ("number-difficulty", 1_303_463_855_139_560_660),
         ("collection-picker", 4_877_646_207_269_875_407),
+        ("puzzle-goto", 0),
         ("collection-picker-error", 14_934_673_025_716_135_696),
         ("progress-warning", 5_622_647_288_038_611_571),
         ("topic-default", 967_119_887_241_586_639),
