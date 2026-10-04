@@ -277,12 +277,7 @@ impl Layout {
             .saturating_sub(goto_width)
             .saturating_sub(small_gap.saturating_mul(2))
             / 2;
-        let previous = Rect::new(
-            board_outer.x,
-            nav_touch_y,
-            side_nav_width,
-            minimum_touch_px,
-        );
+        let previous = Rect::new(board_outer.x, nav_touch_y, side_nav_width, minimum_touch_px);
         let goto = Rect::new(
             previous.right().saturating_add(small_gap),
             nav_touch_y,
@@ -356,9 +351,7 @@ impl Layout {
             minimum_touch_px,
         );
 
-        let goto_modal_width = minimum_touch_px
-            .saturating_mul(4)
-            .min(board_outer.width);
+        let goto_modal_width = minimum_touch_px.saturating_mul(4).min(board_outer.width);
         let goto_modal_height = minimum_touch_px
             .saturating_mul(7)
             .saturating_add(gap.saturating_mul(3))
@@ -387,10 +380,7 @@ impl Layout {
             minimum_touch_px,
         );
         let keypad_y = goto_input.bottom().saturating_add(gap);
-        let key_width = goto_inner
-            .width
-            .saturating_sub(small_gap.saturating_mul(2))
-            / 3;
+        let key_width = goto_inner.width.saturating_sub(small_gap.saturating_mul(2)) / 3;
         if key_width < minimum_touch_px {
             return Err(LayoutError::TooSmall);
         }
