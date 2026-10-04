@@ -115,7 +115,9 @@ Task 26 selects only `stylus-custom` (ABS_X/Y and key-event capabilities), never
 both physical and virtual pen streams. Its measured inclusive ranges are
 0–1860 and 0–2480, normalized to 1860×2480 display pixels. Pen contact/release
 uses the same shared hit targets as finger taps; hover and drawing data are ignored.
-Physical checkpoint 26A remains required before declaring stylus support verified.
+Physical checkpoint 26A passed on 2026-10-04 by user confirmation: finger and
+stylus selected matching analysis targets/positions, hover was inert, and X exit
+restored native pen drawing. See `docs/device/ks1-barolo.md` for the tested build.
 
 ## Stock UI and lifecycle
 

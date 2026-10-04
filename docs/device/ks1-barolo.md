@@ -1528,7 +1528,8 @@ claiming any improvement in physical ghosting or additional lifecycle checks.
 
 ## Task 26 — stylus tap preparation (2026-10-04)
 
-Checkpoint 26A is **pending human testing**; Task 26 remains Ready.
+At preparation, checkpoint 26A was pending human testing. It subsequently
+**passed** by user confirmation below; Task 26 is Implemented.
 Read-only SSH reconnected with the recorded `root@192.168.1.20:2222`
 transport and an empty password. Firmware remains 5.19.6, architecture armv7l.
 Input names/capabilities still expose `WacomDigitizer`, `pt_mt`, and
@@ -1548,9 +1549,8 @@ The minimal repair adds an ANALYSIS button in a rich puzzle's closed status
 area. Existing NOTE/toolbar actions remain intact. Its geometry/action and a
 visually reviewed Gray8 snapshot are covered on the host.
 
-Deployment/build identifiers and the human pass/fail observations will be
-appended after preparation. Host checks do not establish real pen targeting or
-native pen recovery.
+Deployment/build identifiers and the human observations are recorded below.
+Host checks alone do not establish real pen targeting or native pen recovery.
 
 ### Installed checkpoint build
 
@@ -1589,5 +1589,23 @@ Human procedure: launch **Kindle Chess Puzzles**, tap the header title to open
 collections, select **Stylus checkpoint 26A**, and tap **ANALYSIS** in the lower
 status area. Use the panel's page controls to compare several main-line and
 side-line targets with finger and pen. Check hover without contact, then exit
-with X and check native notebook pen drawing. All six 26A observations remain
-**pending**; installed/loader checks are not a physical-interaction pass.
+with X and check native notebook pen drawing. The human results are recorded below; installed/loader checks alone are not a
+physical-interaction pass.
+
+### HUMAN CHECKPOINT 26A — PASS (2026-10-04)
+
+The user responded “all works” to the installed-build testing checklist. This
+records the human's physical-device confirmation for implementation `7c6e1e6`
+and the binary SHA-256 listed above on Barolo/firmware 5.19.6.
+
+| Acceptance item | Human result |
+| --- | --- |
+| Launch the installed app from the Kindle library | Pass |
+| Finger taps on multiple main-line and side-line chips | Pass |
+| Stylus taps on the same targets | Pass |
+| Finger/stylus select matching analysis nodes and board positions | Pass |
+| Hover without contact does not activate a target | Pass |
+| X exit restores native Kindle pen drawing | Pass |
+
+No failures were reported. Task 26 is now Implemented. This checkpoint does not
+add a new crash-exit, reboot, or natural suspend/resume observation.

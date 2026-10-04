@@ -1,6 +1,7 @@
 # Task 26 — Support Scribe stylus taps
 
-**Status:** Ready  
+**Status:** Implemented
+
 **Depends on:** Task 25 and verified Task-00 device notes  
 **Primary area:** Kindle input adapter  
 **Validation:** Automated tests + physical-device human checkpoint  
@@ -49,7 +50,8 @@ No handwriting, annotations, eraser, or pressure-sensitive UI.
 
 ## Implementation preparation — 2026-10-04
 
-Host implementation is prepared on `phase-2`; checkpoint 26A is pending.
+Host implementation was prepared on `phase-2` before checkpoint 26A.
+The checkpoint subsequently passed as recorded below.
 The adapter discovers exactly one `stylus-custom` device by name and ABS_X/Y +
 key-event capabilities. It never consumes the duplicate physical Wacom stream.
 The Task-00 virtual pen ranges (X 0–1860, Y 0–2480, inclusive) normalize to the
@@ -63,8 +65,8 @@ Tests cover synthetic pen tap/hover/movement/out-of-range/repeated contacts,
 the recorded five-contact Task-00 trace, matching finger/pen move-chip targets,
 and the narrow two-file poll boundary including interruption and errors.
 
-Do not change status to Implemented until the human confirms all six checkpoint
-items and the tested build and observations are recorded below/in the device notes.
+All six checkpoint items were confirmed by the human and recorded below and
+in the device notes before changing the status to Implemented.
 
 A prerequisite repair adds the missing visible ANALYSIS entry button in rich
 puzzles' status area. The finding is recorded in `docs/PHASE_2.md`; existing
@@ -81,5 +83,19 @@ commands, and data-preservation checks are recorded in `docs/device/ks1-barolo.m
 For 26A, launch from the Kindle library, tap the header title, select the separate
 **Stylus checkpoint 26A** collection, and open **ANALYSIS**. Compare several main
 and side-line chips using finger and pen (page controls expose further moves),
-check hover-only, then X exit and native pen drawing. The app is stopped and
-ready for the human to launch. Status remains Ready until those observations pass.
+check hover-only, then X exit and native pen drawing. The app was left stopped for the human to launch; the completed checkpoint is
+recorded below.
+
+## HUMAN CHECKPOINT 26A — PASS (2026-10-04)
+
+After receiving the installed-build checklist, the user confirmed “all works.”
+This confirms human library launch, multiple main-line and side-line finger taps,
+stylus taps on the same targets, matching analysis nodes and displayed board
+positions, no activation from hover without contact, and X exit with native
+Kindle pen drawing restored.
+
+Tested implementation: `7c6e1e6`, first-generation Scribe (Barolo), firmware
+5.19.6, binary SHA-256
+`020fe41c35d2c195579df7b568d00db7d71893b507cf5ffeee0ec8be9b82c17b`.
+The automated gate and cross-build passed before the human checkpoint.
+No additional crash, reboot, or suspend test is claimed by this confirmation.

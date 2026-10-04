@@ -25,7 +25,7 @@ tests, status changes, and related documentation stay on that branch. Do not mer
 | [23](phase-2/23-analysis-browser-state.md) | Pure preview/navigation state, no progress mutation | Ready | No | No | Codex |
 | [24](phase-2/24-analysis-rendering.md) | Paginated monochrome analysis rendering | Ready | No | No | Codex |
 | [25](phase-2/25-analysis-hit-testing.md) | Tap explicit move chips and preview their positions | Ready | No | No | Codex |
-| [26](phase-2/26-stylus-taps.md) | Map Scribe pen taps to logical UI taps | Ready | **Yes** | **Yes — checkpoint 26A** | Codex + device |
+| [26](phase-2/26-stylus-taps.md) | Map Scribe pen taps to logical UI taps | Implemented | **Yes** | **Yes — checkpoint 26A** | Codex + device |
 | [27](phase-2/27-collection-update-workflow.md) | Stable-ID regeneration/revision/update workflow | Ready | No | No | local model or Codex |
 | [28](phase-2/28-phase2-validation.md) | End-to-end host/device validation | Ready | **Yes** | **Yes — checkpoint 28A** | Codex + device |
 
