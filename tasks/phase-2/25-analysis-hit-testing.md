@@ -1,6 +1,6 @@
 # Task 25 — Wire move hit testing to board previews
 
-**Status:** Ready  
+**Status:** Implemented  
 **Depends on:** Tasks 23-24  
 **Primary area:** shared layout/hit testing + binary wiring  
 **Validation:** Automated only  
@@ -32,3 +32,28 @@ No pen decoding; Task 26 maps stylus contacts to the same logical tap path.
 
 ## Suggested commit
 `render: make analysis moves tappable`
+
+
+## Implementation record
+
+Implemented on the `phase-2` branch in the shared renderer and binary wiring.
+
+- Added renderer-owned padded hit rectangles for every visible analysis tree move and
+  structured prose `move_ref` chip. Visual chip rectangles take precedence over padding;
+  if padded targets for different nodes overlap, the ambiguous padding is inert instead of
+  selecting the wrong node.
+- Added shared analysis hit targets for node selection, previous/next analysis pages, and
+  close, all mapping directly to the Task-23 core actions. Device coordinates and Linux
+  input details remain outside core.
+- Added `RenderOutput::hit_test_app` so analysis geometry is resolved before the existing
+  phase-one layout targets. Board-square taps are disabled while analysis preview is open,
+  while existing toolbar, puzzle navigation, Refresh, X, promotion, and collection hit
+  behavior remains owned by the existing layout path.
+- Wired the Kindle application loop to the shared render-output hit test without changing
+  finger/stylus decoding or other Kindle input behavior; stylus support remains Task 26.
+- Host tests tap every visible tree and inline-reference chip across pages, verify the exact
+  precomputed node FEN is displayed, exercise adjacent chip boundaries and page/close
+  controls, prove plain SAN-looking prose creates no extra target, preserve old controls,
+  and verify preview selection damage stays regional to the board and analysis panel.
+- GitHub Actions host validation passed on CI run 157 using the repository's full
+  `scripts/check.sh` gate. No physical Scribe test is required for this task.
