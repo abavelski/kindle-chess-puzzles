@@ -2,7 +2,15 @@
 
 **Status:** Ready  
 **Depends on:** Task 23  
-**Primary area:** `crates/chess-render`
+**Primary area:** `crates/chess-render`  
+**Validation:** Automated only  
+**Physical Scribe required to complete:** No  
+**Human interaction required to complete:** No  
+**Completion gate:** Deterministic host rendering + snapshot tests; no device test
+
+
+## Device/human-testing rule
+This task must not request Kindle access. Snapshot tests are the acceptance mechanism here. Physical e-ink readability and whether the move-chip affordance feels obvious on the Scribe are deferred to HUMAN CHECKPOINT 28A.
 
 ## Outcome
 Render a readable paginated main-line/variation browser while keeping the board visible.

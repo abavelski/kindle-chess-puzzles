@@ -2,7 +2,15 @@
 
 **Status:** Ready  
 **Depends on:** Phase-one closure  
-**Primary area:** docs + fixtures
+**Primary area:** docs + fixtures  
+**Validation:** Automated only  
+**Physical Scribe required to complete:** No  
+**Human interaction required to complete:** No  
+**Completion gate:** Contract/fixture checks and repository consistency; no device test
+
+
+## Device/human-testing rule
+This task must not request Kindle access. All acceptance evidence comes from checked-in fixtures, schema documentation, and automated/static validation.
 
 ## Outcome
 Turn the phase-two proposal into executable fixtures so later tasks do not re-decide the schema.

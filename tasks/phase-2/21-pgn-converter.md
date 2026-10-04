@@ -2,7 +2,15 @@
 
 **Status:** Ready  
 **Depends on:** Task 20  
-**Primary area:** host tooling only
+**Primary area:** host tooling only  
+**Validation:** Automated only  
+**Physical Scribe required to complete:** No  
+**Human interaction required to complete:** No  
+**Completion gate:** Converter fixture/unit/integration tests; no device test
+
+
+## Device/human-testing rule
+This task must not request Kindle access. The converter is a host-side authoring tool and its output is fully testable from PGN/JSON fixtures.
 
 ## Outcome
 Add a deterministic host converter. Recommended dependency: `python-chess` for tooling only; never the Kindle runtime.

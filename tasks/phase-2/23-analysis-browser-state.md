@@ -2,7 +2,15 @@
 
 **Status:** Ready  
 **Depends on:** Task 22  
-**Primary area:** `crates/chess-core/src/app.rs`
+**Primary area:** `crates/chess-core/src/app.rs`  
+**Validation:** Automated only  
+**Physical Scribe required to complete:** No  
+**Human interaction required to complete:** No  
+**Completion gate:** Pure application-state tests; no device test
+
+
+## Device/human-testing rule
+This task must not request Kindle access. Preview/open/close/progress behavior is deterministic application state.
 
 ## Outcome
 Add pure actions/state for opening analysis, selecting nodes, paging/focusing, and closing without changing live solving state.

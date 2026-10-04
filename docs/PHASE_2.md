@@ -87,6 +87,24 @@ If a starting position or exercise meaning changes enough that old solved state 
 carry forward, assign a new puzzle ID. Do not add automatic solved-state invalidation unless
 real use demonstrates a need.
 
+## Validation split
+
+Phase two is intentionally front-loaded toward host-testable work.
+
+- **Automated-only, no physical device required:** Tasks 20, 21, 22, 23, 24, 25, and 27.
+  These can be completed by an agent unattended once their automated acceptance tests pass.
+  Task 24 uses deterministic renderer snapshots; actual Scribe readability is deferred to Task 28.
+- **Physical Scribe + human interaction required:** Task 26 and Task 28.
+  Their host tests must pass first, but they cannot be marked Implemented until the explicit
+  HUMAN CHECKPOINT in the task file has been performed and recorded.
+- Task 25 deliberately stops at shared hit testing/action wiring. It does not duplicate a physical
+  finger-input test because the device coordinate path is already phase-one behavior; physical
+  interaction with the new move chips is exercised in Tasks 26 and 28.
+
+This keeps device access out of tasks where it would add little evidence and concentrates human
+testing on behavior that cannot be simulated faithfully: real Scribe pen events, physical touch,
+e-ink readability/affordance, and final native-UI recovery.
+
 ## Task order
 
 1. Task 20 — data contract, structured move references, and fixtures.

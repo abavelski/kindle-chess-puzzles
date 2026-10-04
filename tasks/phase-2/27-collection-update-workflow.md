@@ -2,7 +2,15 @@
 
 **Status:** Ready  
 **Depends on:** Tasks 20-22; Task 21 for generated collections  
-**Primary area:** tooling/docs/compatibility tests
+**Primary area:** tooling/docs/compatibility tests  
+**Validation:** Automated only  
+**Physical Scribe required to complete:** No  
+**Human interaction required to complete:** No  
+**Completion gate:** Host tooling/fixture tests and documentation checks; no device test
+
+
+## Device/human-testing rule
+This task must not request Kindle access. ID/revision comparison, atomic output, and progress separation are host-side/tooling contracts.
 
 ## Outcome
 Make regeneration/replacement of book JSON safe without losing durable puzzle identity or progress.

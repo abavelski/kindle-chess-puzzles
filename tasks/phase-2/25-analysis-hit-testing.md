@@ -2,7 +2,15 @@
 
 **Status:** Ready  
 **Depends on:** Tasks 23-24  
-**Primary area:** shared layout/hit testing + binary wiring
+**Primary area:** shared layout/hit testing + binary wiring  
+**Validation:** Automated only  
+**Physical Scribe required to complete:** No  
+**Human interaction required to complete:** No  
+**Completion gate:** Host geometry/action/integration tests; no device test
+
+
+## Device/human-testing rule
+This task must not request Kindle access. It validates logical coordinates, hit rectangles, action dispatch, and displayed FEN. The already-verified phase-one Kindle touch transform is reused; real finger/stylus interaction with these targets is deferred to Tasks 26 and 28.
 
 ## Outcome
 A normal UI tap on any visibly marked move chip—whether in the solution tree or embedded in a description/explanation—selects that node and displays its precomputed position.

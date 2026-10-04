@@ -9,17 +9,32 @@ Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one t
 
 ## Phase 2
 
-| Task | Outcome | Status | Suggested fit |
-| --- | --- | --- | --- |
-| [20](phase-2/20-rich-analysis-contract.md) | Freeze rich-analysis JSON contract and fixtures | Ready | local model or Codex |
-| [21](phase-2/21-pgn-converter.md) | Deterministic PGN -> JSON conversion | Ready | local model or Codex |
-| [22](phase-2/22-core-analysis-model.md) | Parse/validate analysis trees without breaking v1 | Ready | Codex |
-| [23](phase-2/23-analysis-browser-state.md) | Pure preview/navigation state, no progress mutation | Ready | Codex |
-| [24](phase-2/24-analysis-rendering.md) | Paginated monochrome analysis rendering | Ready | Codex |
-| [25](phase-2/25-analysis-hit-testing.md) | Tap explicit move chips and preview their positions | Ready | Codex |
-| [26](phase-2/26-stylus-taps.md) | Map Scribe pen taps to logical UI taps | Ready | Codex + device |
-| [27](phase-2/27-collection-update-workflow.md) | Stable-ID regeneration/revision/update workflow | Ready | local model or Codex |
-| [28](phase-2/28-phase2-validation.md) | End-to-end host/device validation | Ready | Codex + device |
+| Task | Outcome | Status | Physical Scribe to complete? | Human interaction to complete? | Suggested fit |
+| --- | --- | --- | --- | --- | --- |
+| [20](phase-2/20-rich-analysis-contract.md) | Freeze rich-analysis JSON contract and fixtures | Ready | No | No | local model or Codex |
+| [21](phase-2/21-pgn-converter.md) | Deterministic PGN -> JSON conversion | Ready | No | No | local model or Codex |
+| [22](phase-2/22-core-analysis-model.md) | Parse/validate analysis trees without breaking v1 | Ready | No | No | Codex |
+| [23](phase-2/23-analysis-browser-state.md) | Pure preview/navigation state, no progress mutation | Ready | No | No | Codex |
+| [24](phase-2/24-analysis-rendering.md) | Paginated monochrome analysis rendering | Ready | No | No | Codex |
+| [25](phase-2/25-analysis-hit-testing.md) | Tap explicit move chips and preview their positions | Ready | No | No | Codex |
+| [26](phase-2/26-stylus-taps.md) | Map Scribe pen taps to logical UI taps | Ready | **Yes** | **Yes — checkpoint 26A** | Codex + device |
+| [27](phase-2/27-collection-update-workflow.md) | Stable-ID regeneration/revision/update workflow | Ready | No | No | local model or Codex |
+| [28](phase-2/28-phase2-validation.md) | End-to-end host/device validation | Ready | **Yes** | **Yes — checkpoint 28A** | Codex + device |
+
+### Validation policy
+
+Tasks **20-25 and 27 are automated-only acceptance tasks**. An agent may implement, test,
+and mark them Implemented without access to the Kindle and without asking for a human device
+test. Renderer behavior in Task 24 is accepted through deterministic host snapshots; physical
+readability is intentionally deferred to the final Task 28 checkpoint.
+
+Tasks **26 and 28 cannot be marked Implemented unattended**. Their automated gates must pass
+first, then the named **HUMAN CHECKPOINT** must be performed on the physical first-generation
+Kindle Scribe and the observed result recorded in the repository.
+
+Task 25 does not need a physical finger test: it owns shared hit-test geometry and action wiring.
+The existing Kindle touch coordinate path is already established by phase one; real finger/stylus
+interaction with the new controls is covered by Tasks 26 and 28.
 
 ## Archived maintenance
 

@@ -2,7 +2,15 @@
 
 **Status:** Ready  
 **Depends on:** Task 20  
-**Primary area:** `crates/chess-core`
+**Primary area:** `crates/chess-core`  
+**Validation:** Automated only  
+**Physical Scribe required to complete:** No  
+**Human interaction required to complete:** No  
+**Completion gate:** Rust parser/model unit and fixture tests; no device test
+
+
+## Device/human-testing rule
+This task must not request Kindle access. Parsing, validation, lookup, and compatibility semantics are pure core behavior.
 
 ## Outcome
 Parse optional analysis into a validated platform-neutral tree while preserving legacy v1 behavior.
