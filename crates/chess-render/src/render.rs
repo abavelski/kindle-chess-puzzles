@@ -503,13 +503,7 @@ fn draw_puzzle_goto(frame: &mut Gray8, state: &AppState, layout: Layout, scale: 
             scale,
         );
     }
-    draw_button(
-        frame,
-        layout.goto_backspace,
-        "DEL",
-        false,
-        scale.min(3),
-    );
+    draw_button(frame, layout.goto_backspace, "DEL", false, scale.min(3));
     draw_navigation_button(
         frame,
         layout.goto_confirm,
