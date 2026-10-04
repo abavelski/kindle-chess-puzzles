@@ -447,7 +447,6 @@ fn navigation_availability_matches_collection_ends_without_wrap() {
     assert_eq!(app.board(), &last);
 }
 
-
 #[test]
 fn puzzle_goto_enters_number_blocks_board_and_jumps_without_wrapping() {
     let mut app = state("promotions.json", PROMOTIONS);
