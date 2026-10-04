@@ -335,6 +335,12 @@ puzzle ID until a future progress schema explicitly models per-puzzle revisions.
 Generated files may carry ignored provenance metadata such as `generated_by`,
 `generated_at`, or a source SHA-256; these fields do not change runtime semantics.
 
+The operational regeneration/rollback cookbook is in `docs/COLLECTION_UPDATES.md`.
+When `tools/pgn_converter.py` targets an existing output file, it compares durable IDs and
+starting FENs before replacement, reports added/removed/duplicate/FEN-changed IDs, rejects
+duplicates, and performs a same-directory atomic replacement. It never reads or writes the
+separate progress store.
+
 ### File-size compatibility and phase-two cap
 
 Phase-one builds reject collection files above **256 KiB (262,144 bytes)**. Task 21 must still

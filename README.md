@@ -58,6 +58,7 @@ Start here:
 - [FBInk integration](docs/FBINK.md);
 - [Phase 2: rich solution browsing](docs/PHASE_2.md);
 - [Puzzle format compatibility](docs/PUZZLE_FORMAT.md);
+- [Safe collection updates](docs/COLLECTION_UPDATES.md);
 - [Testing strategy](docs/TESTING.md);
 - [Implementation tasks](tasks/README.md).
 

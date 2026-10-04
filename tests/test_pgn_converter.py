@@ -1,3 +1,5 @@
+from contextlib import redirect_stderr
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -148,11 +150,18 @@ class PgnConverterTests(unittest.TestCase):
         puzzle = pgn_converter.convert_pgn_text(plain)["puzzles"][0]
         self.assertEqual(puzzle["description_content"], [{"type": "text", "text": "Nd5 h1=Q+ e2e4 stay plain."}])
 
-    def test_size_report_always_reports_bytes_and_warns_only_above_legacy_limit(self):
-        self.assertEqual(pgn_converter.size_messages(123), ["encoded size: 123 bytes"])
+    def test_size_report_includes_legacy_and_phase_two_thresholds(self):
+        messages = pgn_converter.size_messages(123)
+        self.assertEqual(messages[0], "encoded size: 123 bytes")
+        self.assertIn("legacy 256 KiB (262144 bytes)", messages[1])
+        self.assertIn("phase-two 8 MiB (8388608 bytes)", messages[1])
+        self.assertEqual(len(messages), 2)
+
         messages = pgn_converter.size_messages(pgn_converter.LEGACY_WARNING_BYTES + 1)
-        self.assertEqual(messages[0], f"encoded size: {pgn_converter.LEGACY_WARNING_BYTES + 1} bytes")
-        self.assertIn("exceeds 256 KiB", messages[1])
+        self.assertTrue(any("exceeds 256 KiB" in message for message in messages))
+
+        messages = pgn_converter.size_messages(pgn_converter.PHASE_TWO_MAX_BYTES + 1)
+        self.assertTrue(any("exceeds phase-two 8 MiB" in message for message in messages))
 
     def test_cli_writes_only_after_success_and_reports_size(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -165,6 +174,66 @@ class PgnConverterTests(unittest.TestCase):
             rc = pgn_converter.main([str(FIXTURES / "invalid-illegal.pgn"), "-o", str(bad_output)])
             self.assertEqual(rc, 2)
             self.assertFalse(bad_output.exists())
+
+
+    def test_cli_regeneration_reports_fen_changes_and_preserves_progress(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            output = directory / "puzzles-book.json"
+            progress = directory / "progress.json"
+
+            self.assertEqual(
+                pgn_converter.main([str(FIXTURES / "valid-book.pgn"), "-o", str(output)]),
+                0,
+            )
+            progress_bytes = b'{"version":1,"files":{"puzzles-book.json":{"solved_ids":["nested-001"]}}}\n'
+            progress.write_bytes(progress_bytes)
+
+            existing = json.loads(output.read_text(encoding="utf-8"))
+            existing["puzzles"][0]["fen"] = existing["puzzles"][1]["fen"]
+            output.write_text(json.dumps(existing) + "\n", encoding="utf-8")
+
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                rc = pgn_converter.main(
+                    [str(FIXTURES / "valid-book.pgn"), "-o", str(output), "--revision", "2"]
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertIn("FEN-changed IDs: nested-001", stderr.getvalue())
+            self.assertEqual(progress.read_bytes(), progress_bytes)
+            regenerated = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(regenerated["revision"], 2)
+            self.assertNotIn("progress", regenerated)
+
+    def test_cli_duplicate_existing_ids_fail_before_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "puzzles-book.json"
+            output.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "puzzles": [
+                            {"id": "dup", "fen": "fen-one"},
+                            {"id": "dup", "fen": "fen-two"},
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            before = output.read_bytes()
+            stderr = io.StringIO()
+
+            with redirect_stderr(stderr):
+                rc = pgn_converter.main(
+                    [str(FIXTURES / "valid-book.pgn"), "-o", str(output)]
+                )
+
+            self.assertEqual(rc, 2)
+            self.assertEqual(output.read_bytes(), before)
+            self.assertIn("duplicate IDs: dup", stderr.getvalue())
+            self.assertIn("duplicate puzzle IDs block replacement", stderr.getvalue())
 
 
 if __name__ == "__main__":
