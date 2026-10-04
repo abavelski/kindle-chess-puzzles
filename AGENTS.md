@@ -11,7 +11,7 @@ Read, in order:
 3. `docs/TESTING.md`
 4. `docs/KINDLE_SCRIBE.md`
 5. `docs/PUZZLE_FORMAT.md`
-6. `docs/PHASE_2.md` when implementing a task under `tasks/phase-2/`
+6. `docs/PHASE_2.md` when implementing a task under `tasks/implemented/phase-2/`
 7. the single task file you are implementing under `tasks/`
 
 The task file is the scope boundary. Do not opportunistically implement later tasks.
@@ -78,7 +78,7 @@ Required parity includes:
 - monochrome correct/wrong/complete feedback;
 - Sashité Western pieces.
 
-Phase-one parity is closed. Rich branching solutions are now allowed only through the explicit phase-two tasks under `tasks/phase-2/`. Do not mix phase-two behavior into unrelated maintenance work.
+Phase-one parity and phase-two rich solution browsing are closed. Their completed tasks are archived under `tasks/implemented/phase-1/` and `tasks/implemented/phase-2/`. Scope further behavior changes to explicit improvement tasks; do not mix them into unrelated maintenance work.
 
 This app is not a chess engine. Do not add general move legality, check/checkmate evaluation, or engine analysis unless explicitly tasked. Phase two may add an **offline PGN conversion tool**, but PGN parsing and legal move generation must not become Kindle runtime responsibilities.
 

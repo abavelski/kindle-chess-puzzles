@@ -7,3 +7,7 @@
 
 # Python contract-test/tool bytecode.
 __pycache__/
+/data/
+
+# macOS Finder metadata.
+.DS_Store

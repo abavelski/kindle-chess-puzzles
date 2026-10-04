@@ -1,6 +1,13 @@
 # Phase 2 — Rich solution browsing
 
-## Development branch
+**Status: Implemented and closed — 2026-10-04.**
+
+Tasks 20–28 passed their automated gates. The user confirmed the physical Scribe
+experience works and explicitly authorized phase-two closure and integration into
+`main`. Completed tasks are archived in `tasks/implemented/phase-2/`.
+The device acceptance record is in `docs/device/ks1-barolo.md`.
+
+## Development branch (implementation policy)
 
 Phase-two development is isolated on the dedicated **`phase-2`** branch.
 
@@ -147,3 +154,28 @@ minimal prerequisite repair: a monochrome ANALYSIS button in the closed rich
 puzzle's status area, with shared hit testing and a host test. Existing NOTE
 and other toolbar controls retain their behavior. This makes checkpoint 26A
 reachable without adding later-task behavior.
+
+## Closure results — 2026-10-04
+
+Rich analysis is implemented end to end: deterministic offline PGN conversion,
+validated additive JSON trees, independent preview state, paginated monochrome
+move chips, finger/stylus selection, and safe collection regeneration. The Kindle
+runtime contains no PGN parser or chess engine.
+
+Task 28 links the offline converter fixture to runtime parsing and rendered chip
+hit testing across main, alternative, nested sideline, description, and comment
+references. It checks every displayed target against its stored FEN, restores an
+in-progress live solve, and compares serialized progress bytes before/after
+browsing. Plain SAN-looking prose creates no extra targets. Existing parity,
+snapshot, storage, input, lifecycle, and packaging tests remain required.
+
+The four real book collections were enriched and uploaded under their existing
+filenames: 1,615 puzzles, 1,606 validated full PGN solutions, and nine retained
+legal main-line-only puzzles. All carry Russian `topic` metadata for later UI
+work. Five starting FEN corrections restore castling rights. Puzzle IDs and order
+are unchanged; device hashes matched the local files and progress bytes were
+unchanged by deployment. These private files remain excluded by `/data/`.
+
+The top-left Refresh control remains the accepted ghosting workaround. Phase-one
+limitations for natural idle suspend/resume and launch after a full reboot remain
+as documented; this closure does not add new observations for those scenarios.

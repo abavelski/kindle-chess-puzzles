@@ -1609,3 +1609,43 @@ and the binary SHA-256 listed above on Barolo/firmware 5.19.6.
 
 No failures were reported. Task 26 is now Implemented. This checkpoint does not
 add a new crash-exit, reboot, or natural suspend/resume observation.
+
+## HUMAN CHECKPOINT 28A — accepted phase-two closure (2026-10-04)
+
+After using the enriched real book collections, the user confirmed:
+“we can close phase 2 now, everything works”, and requested Task 28 completion
+and integration/push to main. This is the human's overall physical-device
+acceptance of rich browsing and retained solving behavior, alongside the
+previously recorded finger/stylus checkpoint 26A. No failures were reported; no
+additional per-tap measurements or individual UX observations were supplied.
+
+Tested runtime: implementation `7c6e1e6`, binary SHA-256
+`020fe41c35d2c195579df7b568d00db7d71893b507cf5ffeee0ec8be9b82c17b`,
+on first-generation Scribe/Barolo firmware 5.19.6. Closure changes only host
+acceptance tests and documentation; the runtime remains unchanged.
+
+The four deployed `puzzles-eink-book-001.json` through `004.json` contain 1,615
+puzzles. Validated PGNs supplied 1,606 full analysis trees; nine puzzles retain
+their legal existing main lines as main-line-only trees. Russian topics were
+added to all puzzles. All generated edges were validated offline for legality,
+SAN, and exact post-move FEN; all collections passed the Rust runtime parser.
+
+Deployed collection SHA-256 values, verified against local files:
+
+| File | SHA-256 |
+| --- | --- |
+| `puzzles-eink-book-001.json` | `4a5438b5a1574da45e810dd3680098ff06bd279df4005c77963e66b5570b314e` |
+| `puzzles-eink-book-002.json` | `42155a57a7563d550db190f56a7842136adc60157d339738a8544ad0f944547a` |
+| `puzzles-eink-book-003.json` | `065be32384bc50f803d2275c98244911b493d0ff306a0852564771712854bc0d` |
+| `puzzles-eink-book-004.json` | `cd39b68b170f16c2babdf1224dd5532bf6184ea3c2b5d67f4940b0f3ee53bfa7` |
+
+Progress SHA-256 before and after transfer was identical:
+`dc22b8d58666b11fb9694b9248cdf56eeef364595a11cd4433af5b027a9dfcb9`.
+Collection filenames, puzzle IDs and order were retained. Five corrected FENs
+restore castling rights; 348 grading lines use the validated full solutions,
+as explicitly authorized by the user. Local private collection data remains
+Git-ignored rather than being published.
+
+The top-left Refresh control remains the accepted residual-ghosting workaround.
+No new reboot, natural suspend/resume, crash recovery, or waveform observation
+is inferred from the user's overall acceptance.

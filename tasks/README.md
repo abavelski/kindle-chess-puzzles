@@ -1,7 +1,8 @@
 # Implementation tasks
 
 Phase one is complete and archived under [`implemented/phase-1/`](implemented/phase-1/).
-Active product work is phase two: rich solution browsing. The former Task 10 ghosting
+Phase two is complete and archived under [`implemented/phase-2/`](implemented/phase-2/).
+No numbered product task is active; upcoming improvements will be planned separately. The former Task 10 ghosting
 investigation is archived: the top-left Refresh control is the accepted manual workaround
 when a residual physical-panel ghost becomes visible.
 
@@ -15,19 +16,19 @@ Before starting any Task 20-28, verify or explicitly target the `phase-2` branch
 tests, status changes, and related documentation stay on that branch. Do not merge or update
 `main` unless the user explicitly asks for the Phase 2 integration/release.
 
-## Phase 2
+## Phase 2 — completed and archived
 
 | Task | Outcome | Status | Physical Scribe to complete? | Human interaction to complete? | Suggested fit |
 | --- | --- | --- | --- | --- | --- |
-| [20](phase-2/20-rich-analysis-contract.md) | Freeze rich-analysis JSON contract and fixtures | Implemented | No | No | local model or Codex |
-| [21](phase-2/21-pgn-converter.md) | Deterministic PGN -> JSON conversion | Ready | No | No | local model or Codex |
-| [22](phase-2/22-core-analysis-model.md) | Parse/validate analysis trees without breaking v1 | Ready | No | No | Codex |
-| [23](phase-2/23-analysis-browser-state.md) | Pure preview/navigation state, no progress mutation | Ready | No | No | Codex |
-| [24](phase-2/24-analysis-rendering.md) | Paginated monochrome analysis rendering | Ready | No | No | Codex |
-| [25](phase-2/25-analysis-hit-testing.md) | Tap explicit move chips and preview their positions | Ready | No | No | Codex |
-| [26](phase-2/26-stylus-taps.md) | Map Scribe pen taps to logical UI taps | Implemented | **Yes** | **Yes — checkpoint 26A** | Codex + device |
-| [27](phase-2/27-collection-update-workflow.md) | Stable-ID regeneration/revision/update workflow | Ready | No | No | local model or Codex |
-| [28](phase-2/28-phase2-validation.md) | End-to-end host/device validation | Ready | **Yes** | **Yes — checkpoint 28A** | Codex + device |
+| [20](implemented/phase-2/20-rich-analysis-contract.md) | Freeze rich-analysis JSON contract and fixtures | Implemented | No | No | local model or Codex |
+| [21](implemented/phase-2/21-pgn-converter.md) | Deterministic PGN -> JSON conversion | Implemented | No | No | local model or Codex |
+| [22](implemented/phase-2/22-core-analysis-model.md) | Parse/validate analysis trees without breaking v1 | Implemented | No | No | Codex |
+| [23](implemented/phase-2/23-analysis-browser-state.md) | Pure preview/navigation state, no progress mutation | Implemented | No | No | Codex |
+| [24](implemented/phase-2/24-analysis-rendering.md) | Paginated monochrome analysis rendering | Implemented | No | No | Codex |
+| [25](implemented/phase-2/25-analysis-hit-testing.md) | Tap explicit move chips and preview their positions | Implemented | No | No | Codex |
+| [26](implemented/phase-2/26-stylus-taps.md) | Map Scribe pen taps to logical UI taps | Implemented | **Yes** | **Yes — checkpoint 26A** | Codex + device |
+| [27](implemented/phase-2/27-collection-update-workflow.md) | Stable-ID regeneration/revision/update workflow | Implemented | No | No | local model or Codex |
+| [28](implemented/phase-2/28-phase2-validation.md) | End-to-end host/device validation | Implemented | **Yes** | **Yes — checkpoint 28A** | Codex + device |
 
 ### Validation policy
 

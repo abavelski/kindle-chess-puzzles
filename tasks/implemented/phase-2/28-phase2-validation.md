@@ -1,6 +1,6 @@
 # Task 28 — Validate and close phase two
 
-**Status:** Ready  
+**Status:** Implemented
 **Depends on:** Tasks 20-27  
 **Primary area:** integration + physical Scribe validation  
 **Validation:** Automated tests + physical-device human checkpoint  
@@ -44,3 +44,25 @@ Record phase-two results, mark each task Implemented only when its own criteria 
 
 ## Suggested commit
 `docs: close rich solution browsing phase`
+
+## Implementation and acceptance record — 2026-10-04
+
+The complete automated gate passed: formatting, strict Clippy, workspace tests,
+reviewed renderer snapshots, Python format/converter/update tests, platform,
+lifecycle and packaging contracts, and the documented ARMv7/glibc-2.35 build.
+`tests/fixtures/pgn-converter/valid-book.json` is generated from the PGN fixture
+and checked for equality by the converter suite.
+`crates/chess-render/tests/phase2_end_to_end.rs` walks all rendered pages and
+checks main/alternative/sideline and inline targets against their stored boards,
+plain-prose target counts, live-solve restoration, and identical progress bytes.
+
+HUMAN CHECKPOINT 28A is accepted on the user's physical Scribe confirmation:
+“we can close phase 2 now, everything works”. This follows the real-book
+enrichment/deployment and checkpoint 26A. The user explicitly requested task
+completion, commit, and integration/push to main. The tested runtime is the
+Task-26 build recorded in `docs/device/ks1-barolo.md`; closure adds tests and
+documentation without runtime changes. No device failures or further UX
+limitations were reported. The existing manual Refresh workaround and previously
+documented reboot/idle-suspend limitations remain.
+
+Tasks 20–28 are archived under `tasks/implemented/phase-2/`.
