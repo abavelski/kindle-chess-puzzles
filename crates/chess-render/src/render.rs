@@ -2,8 +2,8 @@
 
 use crate::{
     font::{
-        draw_text_bold, draw_text_bold_vertically_centered, draw_text_centered,
-        draw_wrapped_text, draw_wrapped_text_with_line_spacing,
+        draw_text_bold, draw_text_bold_vertically_centered, draw_text_centered, draw_wrapped_text,
+        draw_wrapped_text_with_line_spacing,
     },
     pieces::draw_piece,
     DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
