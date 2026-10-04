@@ -11,7 +11,8 @@ Read, in order:
 3. `docs/TESTING.md`
 4. `docs/KINDLE_SCRIBE.md`
 5. `docs/PUZZLE_FORMAT.md`
-6. the single task file you are implementing under `tasks/`
+6. `docs/PHASE_2.md` when implementing a task under `tasks/phase-2/`
+7. the single task file you are implementing under `tasks/`
 
 The task file is the scope boundary. Do not opportunistically implement later tasks.
 
@@ -62,16 +63,19 @@ Required parity includes:
 - monochrome correct/wrong/complete feedback;
 - Sashité Western pieces.
 
-The old Kobo tasks for **Unsolved only** navigation and **version-2 branching/rich solutions** are not parity requirements. Do not implement them unless a new task explicitly adds them.
+Phase-one parity is closed. Rich branching solutions are now allowed only through the explicit phase-two tasks under `tasks/phase-2/`. Do not mix phase-two behavior into unrelated maintenance work.
 
-This app is not a chess engine. Do not add general move legality, check/checkmate evaluation, engine analysis, PGN, castling validation, or en-passant behavior unless explicitly tasked.
+This app is not a chess engine. Do not add general move legality, check/checkmate evaluation, or engine analysis unless explicitly tasked. Phase two may add an **offline PGN conversion tool**, but PGN parsing and legal move generation must not become Kindle runtime responsibilities.
 
 ## Puzzle and progress compatibility
 
 Treat `docs/PUZZLE_FORMAT.md` as a compatibility contract.
 
 - Do not silently change version-1 JSON semantics.
-- Keep uploaded puzzle collections immutable.
+- Rich analysis data must be additive: legacy `solution` remains the grading/main-line compatibility projection.
+- Runtime analysis browsing uses precomputed positions from the collection; it must not require a chess engine.
+- Analysis preview state must not mutate grading cursor, solved state, or durable progress.
+- Keep uploaded puzzle collections immutable from the app's point of view.
 - Store learning progress separately.
 - Durable progress references puzzle IDs, never array indexes.
 - Preserve malformed/future progress instead of overwriting it automatically.

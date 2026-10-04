@@ -56,6 +56,7 @@ Start here:
 - [Architecture](docs/ARCHITECTURE.md);
 - [Kindle Scribe notes](docs/KINDLE_SCRIBE.md);
 - [FBInk integration](docs/FBINK.md);
+- [Phase 2: rich solution browsing](docs/PHASE_2.md);
 - [Puzzle format compatibility](docs/PUZZLE_FORMAT.md);
 - [Testing strategy](docs/TESTING.md);
 - [Implementation tasks](tasks/README.md).
@@ -77,8 +78,10 @@ normal/crash exit recovery, and library launch/exit. See
 
 Two lifecycle observations remain explicitly unverified rather than being inferred from
 other checks: natural idle suspend/resume, and library launch after a full device reboot.
-They are documented phase-one limitations. The next product phase may address findings
-from ongoing real-puzzle use without changing what phase one claims.
+They are documented phase-one limitations. **Phase two is now planned** around rich book
+solutions: main lines, side lines, alternative lines, comments, and tap-to-preview positions.
+The implementation plan is in [docs/PHASE_2.md](docs/PHASE_2.md) and the active agent-sized
+work items are under [tasks/phase-2/](tasks/phase-2/).
 
 ## Build, install, and use
 
@@ -118,7 +121,8 @@ For install/update/uninstall details, KPM commands, and manual recovery, follow
 [EINK_LIFECYCLE.md](docs/EINK_LIFECYCLE.md). Recovery should preserve
 `puzzles/` and `state/`; do not delete user data to repair a runtime install.
 
-Phase-one compatibility is intentionally limited to version-1 puzzle files and the current
-reference feature set. This remains a physical-board puzzle app, not a chess engine.
-Unsolved-only navigation, version-2 branching/rich solutions, stylus-specific product
-interactions, statistics, and a Kobo runtime are deferred.
+Phase two keeps the app a physical-board puzzle tool rather than a chess engine. Existing
+version-1 collections remain valid. Rich solution data is designed as an additive extension
+that retains the legacy `solution` main line, with precomputed positions for interactive
+browsing. PGN remains an offline authoring/import format. Stylus tap support for the rich
+solution browser is explicitly part of the phase-two plan.

@@ -1,4 +1,4 @@
-# Puzzle collection format: version 1
+# Puzzle collection format
 
 The first Kindle milestone intentionally accepts the same version-1 puzzle JSON used by the reference Kobo application.
 
@@ -161,6 +161,88 @@ Semantics:
 
 The Kindle storage path may differ from Kobo's old Cobalt key, but serialization semantics stay compatible.
 
-## Deliberately deferred formats
+## Phase-two rich analysis extension
 
-Version 2 / branching alternative solution lines are not part of initial Kindle parity. Do not accept an invented version-2 schema until a dedicated task specifies it.
+Phase two keeps the root `version` at `1` and keeps the existing required `solution` array.
+The current parser ignores unknown JSON fields, so an additive `analysis` object can coexist
+with the legacy representation. Older builds can continue to solve the main line as long as
+the generated file also stays within their 256 KiB size limit.
+
+```json
+{
+  "version": 1,
+  "revision": 3,
+  "title": "Book chapter 7",
+  "puzzles": [
+    {
+      "id": "book-ch07-042",
+      "fen": "...",
+      "description": "Find the best continuation.",
+      "solution": ["c3d5", "f6d5", "e4d5"],
+      "analysis": {
+        "version": 1,
+        "root": "n0",
+        "nodes": [
+          {"id":"n0","fen":"...","comment":"Initial explanation.","children":["n1","n7"]},
+          {
+            "id":"n1", "parent":"n0",
+            "move":{"uci":"c3d5","san":"Nd5!"},
+            "fen":"...", "role":"main", "comment":"The main idea.",
+            "nags":[1], "children":["n2"]
+          },
+          {
+            "id":"n7", "parent":"n0",
+            "move":{"uci":"c3b5","san":"Nb5"},
+            "fen":"...", "role":"sideline",
+            "comment":"A useful comparison line.", "children":[]
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+### Analysis-node invariants
+
+- `analysis.version` starts at integer `1`.
+- `root` names exactly one node; it represents the initial puzzle position and has no `move`.
+- Every non-root node has exactly one `parent`, one `move`, and a complete six-field post-move `fen`.
+- Node IDs are unique inside one puzzle and are not durable progress keys.
+- Ordered `children` must name existing nodes; the structure is connected and acyclic.
+- `move.uci` uses legacy UCI syntax; `move.san` is display text generated offline.
+- `role` is `main`, `alternative`, or `sideline`; omitted non-main roles default to `sideline`.
+- `comment` is plain UTF-8 text; the Kindle does not interpret Markdown or HTML.
+- `nags` is an optional array of PGN numeric annotation glyph numbers.
+- The root FEN equals the puzzle `fen`.
+- Following `main` children from the root projects exactly to the legacy `solution` UCI sequence.
+
+The Kindle runtime does not recompute positions from SAN or PGN. The converter stores every
+target FEN so selecting a move can immediately show the correct board.
+
+### Grading versus browsing
+
+Phase two keeps grading unchanged: `solution` is the accepted stored line. `analysis` is
+informational. `alternative` and `sideline` nodes can be browsed but do not become accepted
+solver moves merely because they appear in the tree.
+
+### Collection revision and update policy
+
+`version` is a schema compatibility version, not an edit counter. Optional root `revision`
+is the human/content revision; Git history is authoritative. Keep collection filenames stable
+when updating a book so existing progress still refers to the same collection key.
+
+Puzzle IDs are durable identity. Reordering puzzles or enriching comments/analysis does not
+change `id`. Do not reuse an ID for a different starting position or materially different
+exercise. If an edit should intentionally stop old solved state carrying forward, use a new
+puzzle ID until a future progress schema explicitly models per-puzzle revisions.
+
+Generated files may carry ignored provenance metadata such as `generated_by`, `generated_at`,
+or a source SHA-256; these fields do not change runtime semantics.
+
+### File-size compatibility
+
+Phase-one builds enforce 256 KiB. Rich FEN/comment trees may exceed it. The converter must
+report encoded size and warn above that legacy threshold. Task 20 records the phase-two
+runtime cap from representative book data, and Task 22 implements/tests it. Splitting a large
+book into multiple collection files remains a valid fallback.

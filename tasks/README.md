@@ -1,76 +1,35 @@
 # Implementation tasks
 
-These tasks are ordered to keep uncertainty isolated: first measure the Scribe, then build/test shared logic on the host, then add FBInk and input, then complete feature parity, and only afterward optimize lifecycle/refresh and packaging.
+Phase one is complete and archived under [`implemented/phase-1/`](implemented/phase-1/).
+Active product work is phase two: rich solution browsing. Task 10 is independent Scribe
+display maintenance and is not a phase-two prerequisite.
 
-Implement one task at a time.
+Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one task file.
+
+## Phase 2
+
+| Task | Outcome | Status | Suggested fit |
+| --- | --- | --- | --- |
+| [20](phase-2/20-rich-analysis-contract.md) | Freeze rich-analysis JSON contract and fixtures | Ready | local model or Codex |
+| [21](phase-2/21-pgn-converter.md) | Deterministic PGN -> JSON conversion | Ready | local model or Codex |
+| [22](phase-2/22-core-analysis-model.md) | Parse/validate analysis trees without breaking v1 | Ready | Codex |
+| [23](phase-2/23-analysis-browser-state.md) | Pure preview/navigation state, no progress mutation | Ready | Codex |
+| [24](phase-2/24-analysis-rendering.md) | Paginated monochrome analysis rendering | Ready | Codex |
+| [25](phase-2/25-analysis-hit-testing.md) | Tap move tokens and preview their positions | Ready | Codex |
+| [26](phase-2/26-stylus-taps.md) | Map Scribe pen taps to logical UI taps | Ready | Codex + device |
+| [27](phase-2/27-collection-update-workflow.md) | Stable-ID regeneration/revision/update workflow | Ready | local model or Codex |
+| [28](phase-2/28-phase2-validation.md) | End-to-end host/device validation | Ready | Codex + device |
+
+## Independent maintenance
 
 | Task | Outcome | Status |
 | --- | --- | --- |
-| [00](00-device-probe.md) | Record Scribe/FBInk/input/lifecycle facts without app code | Implemented |
-| [01](01-bootstrap-and-core.md) | Rust workspace, CI/checks, board/FEN/UCI/puzzle/progress core | Implemented |
-| [02](02-application-state.md) | Pure test-driven puzzle-solving application state machine | Implemented |
-| [03](03-renderer-and-assets.md) | Shared deterministic e-ink renderer, layout, hit testing, Sashité assets | Implemented |
-| [04](04-fbink-and-input.md) | Kindle FBInk display + touch input + minimal event loop | Implemented |
-| [05](05-parity-features.md) | Promotion, Free Board, navigation, flip/lock, descriptions, feedback | Implemented |
-| [06](06-persistence-and-collections.md) | Multi-collection workflow and durable progress on Kindle | Implemented |
-| [07](07-eink-lifecycle.md) | Damage/refresh policy plus safe Kindle launch/exit lifecycle | Implemented — sleep checkpoint deferred |
-| [08](08-build-deploy-package.md) | Reproducible cross-build, deploy, scriptlet/KPM package | Implemented — reboot observation deferred |
-| [09](09-parity-validation.md) | Full reference-parity and reliability validation | Implemented — phase one closed |
-| [10](10-scribe-ghosting-follow-up.md) | Isolate and reduce residual Scribe panel ghosting with controlled refresh experiments | Ready |
+| [10](10-scribe-ghosting-follow-up.md) | Diagnose/reduce residual Scribe panel ghosting | Ready |
 
-## Milestones
+Do not combine Task 10 experiments with phase-two feature changes.
 
-### M0: hardware facts
+## Phase-two definition of done
 
-M0 is complete: HUMAN CHECKPOINT A passed on 2026-10-02. Task 00 records verified Scribe architecture/ABI, framebuffer/touch geometry, finger/pen separation, FBInk overlay behavior, and normal recovery in `docs/device/ks1-barolo.md`. Later build/lifecycle/storage validation remains scoped to its own tasks.
-
-No product implementation should depend on guessed event nodes, resolution, ABI, or lifecycle commands.
-
-### M1: host-complete application
-
-M1 is complete. Tasks 01-03 provide the Rust workspace, compatibility core, fixtures, pure application state machine, deterministic Gray8 renderer, DPI-aware layout/hit testing, Sashité assets, snapshot coverage, quality gate, and ARMv7 cross-compilation smoke test. Almost all application behavior is now executable on the host without the Kindle.
-
-### M2: first usable Scribe build
-
-Task 04 is complete: the shared renderer now runs through pinned FBInk on the physical Scribe with capability-discovered finger input and verified coordinate mapping/recovery. Task 05 is complete: HUMAN CHECKPOINT C verified single-collection solving, promotion, navigation, Free Board, orientation, descriptions, and normal recovery on 2026-10-02. Task 06 is complete: HUMAN CHECKPOINT D verified multiple collections, durable active/current/solved progress through restart, computer-copy discovery, malformed-file preservation/removal, and normal recovery on 2026-10-02. M2 is complete; existing stock-UI/refresh limitations remain scoped to Task 07.
-
-### M3: reliable e-ink application
-
-M3 is complete. Tasks 07-09 provide batched damage-aware updates, exclusive finger input,
-scoped native display ownership/recovery, reproducible build/deploy/package workflows,
-shared reference-parity vectors, a full parity matrix, measured results, and cumulative
-real-device reliability validation.
-
-Phase-one closure intentionally leaves two hardware observations unverified: natural
-idle suspend/resume and library launch after a full device reboot. Their task/device
-records preserve that distinction; completion does not claim those tests passed.
-
-## Common definition of done
-
-Every task must:
-
-- follow `AGENTS.md`;
-- start behavior with failing tests where host-testable;
-- keep core/render code Kindle-independent;
-- keep `cargo fmt --check`, clippy, and tests green once the Rust workspace exists;
-- preserve version-1 puzzle compatibility;
-- avoid chess-engine behavior unless explicitly stated;
-- keep all interaction states clear without color;
-- add/update renderer snapshots for new visible states;
-- complete any HUMAN CHECKPOINT before marking the task Implemented.
-
-## Not in initial parity
-
-Do not fold these old ideas into another task:
-
-- Unsolved-only navigation;
-- version-2 branching/rich solution lines;
-- chess engine/legal-move validation;
-- PGN;
-- Kobo runtime implementation.
-
-They can become new tasks after Task 09. Task 10 is the first post-phase-one hardware investigation and is limited to the already documented residual Scribe ghosting.
-
-## Future Kobo rule
-
-The initial Kindle work should make a Kobo backend possible by keeping core/render reusable. Do not add a Kobo build, deploy script, input adapter, or device lifecycle during Tasks 00-09.
+Keep phase-one behavior green; start host-testable behavior with a failing test; keep PGN/engine
+logic off the Kindle; preserve legacy `solution` grading; keep analysis preview out of durable
+progress; add physical checkpoints only where device behavior cannot be proven on the host.
