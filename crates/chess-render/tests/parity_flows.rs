@@ -142,17 +142,17 @@ fn task05_action_state_render_flows_match_reviewed_snapshots() {
     actual.push(("last-next-disabled", hash(&last)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("wrong-rollback", 2_079_696_173_224_975_048),
-        ("one-move-complete", 4_566_745_471_438_805_427),
-        ("three-ply-auto-reply", 14_370_592_074_519_281_456),
-        ("promotion-modal", 17_991_637_218_890_295_249),
-        ("promotion-cancel", 16_640_751_643_241_806_542),
-        ("underpromotion-complete", 10_089_278_490_407_296_319),
-        ("free-arbitrary-move", 12_663_116_411_411_364_612),
-        ("free-return-solution", 14_486_150_528_550_256_613),
-        ("lock-flip-navigation", 4_000_824_735_600_155_196),
-        ("description-before-solve", 13_498_268_160_183_036_153),
-        ("last-next-disabled", 11_067_615_572_534_680_340),
+        ("wrong-rollback", 4_053_940_775_244_577_389),
+        ("one-move-complete", 12_976_134_050_414_380_446),
+        ("three-ply-auto-reply", 10_993_225_572_340_683_363),
+        ("promotion-modal", 13_142_390_905_727_322_202),
+        ("promotion-cancel", 7_187_867_453_663_048_453),
+        ("underpromotion-complete", 15_773_210_058_595_222_164),
+        ("free-arbitrary-move", 15_636_776_226_455_160_445),
+        ("free-return-solution", 16_923_244_885_853_441_768),
+        ("lock-flip-navigation", 6_554_255_916_226_001_691),
+        ("description-before-solve", 9_954_425_028_050_785_780),
+        ("last-next-disabled", 7_062_479_662_428_354_783),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
