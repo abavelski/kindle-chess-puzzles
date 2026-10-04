@@ -99,7 +99,7 @@ fn exit_button_uses_vector_close_icon() {
 }
 
 #[test]
-fn header_controls_share_compact_height_and_title_uses_button_scale() {
+fn header_controls_share_compact_height_and_title_is_visible() {
     let mut app = state(PUZZLES);
     play(&mut app, "d7e8");
     app.set_collection_entries(vec![CollectionEntry::valid("puzzles.json", "Puzzles")]);
@@ -149,35 +149,17 @@ fn header_controls_share_compact_height_and_title_uses_button_scale() {
     assert_eq!(frame.pixel(close.x, close_mid_y), Some(0));
 
     let padding = layout.header.height / 8;
-    let button_scale = (SCRIBE.dpi / 100).clamp(2, 5);
-    let old_header_scale = (SCRIBE.dpi / 75).clamp(2, 6);
-    let old_title_y = layout
-        .header
-        .y
-        .saturating_add(layout.header.height.saturating_sub(7 * old_header_scale) / 2);
-    let old_only_x = layout
-        .refresh
-        .right()
-        .saturating_add(padding)
-        .saturating_add(2 * old_header_scale)
-        .saturating_add(2);
-    assert_eq!(
-        frame.pixel(old_only_x, old_title_y + 1),
-        Some(255),
-        "title should no longer use the larger header-only font scale"
-    );
-
-    let title_y = layout
-        .header
-        .y
-        .saturating_add(layout.header.height.saturating_sub(7 * button_scale) / 2);
-    let title_x = layout
-        .refresh
-        .right()
-        .saturating_add(padding)
-        .saturating_add(2 * button_scale)
-        .saturating_add(1);
-    assert_eq!(frame.pixel(title_x, title_y + 1), Some(0));
+    let title_start = layout.refresh.right().saturating_add(padding);
+    let title_end = layout
+        .collection_button
+        .x
+        .saturating_sub(layout.minimum_touch_px().saturating_mul(2))
+        .saturating_sub(padding);
+    let title_ink = (layout.header.y + 6..layout.header.bottom().saturating_sub(6))
+        .flat_map(|y| (title_start..title_end).map(move |x| (x, y)))
+        .filter(|&(x, y)| matches!(frame.pixel(x, y), Some(tone) if tone < 160))
+        .count();
+    assert!(title_ink > 20, "expected rendered title text in the header");
 }
 
 #[test]
@@ -189,7 +171,13 @@ fn status_panel_is_rounded_and_shows_one_large_primary_content() {
     let y = status.y + padding;
 
     assert_eq!(normal.frame.pixel(status.x, status.y), Some(255));
-    assert_eq!(normal.frame.pixel(x + 2, y + 2), Some(0));
+    assert!(
+        (y..status.bottom().saturating_sub(padding)).any(|py| {
+            (x..status.right().saturating_sub(padding))
+                .any(|px| matches!(normal.frame.pixel(px, py), Some(tone) if tone < 160))
+        }),
+        "primary status text should render inside the status panel"
+    );
 
     let dot = br#"{
       "version":1,
@@ -205,14 +193,26 @@ fn status_panel_is_rounded_and_shows_one_large_primary_content() {
     described.dispatch(Action::ToggleDescription);
     let described = render(&described, SCRIBE).expect("render succeeds");
     assert_eq!(described.frame.pixel(x, y), Some(255));
-    assert_eq!(described.frame.pixel(x + 9, y + 15), Some(0));
+    assert!(
+        (y..status.bottom().saturating_sub(padding)).any(|py| {
+            (x..status.right().saturating_sub(padding))
+                .any(|px| matches!(described.frame.pixel(px, py), Some(tone) if tone < 160))
+        }),
+        "description should render visible text inside the status panel"
+    );
 
     let mut free_described = state(dot);
     free_described.dispatch(Action::ToggleMode);
     free_described.dispatch(Action::ToggleDescription);
     let free_described = render(&free_described, SCRIBE).expect("render succeeds");
     assert_eq!(free_described.frame.pixel(x, y), Some(255));
-    assert_eq!(free_described.frame.pixel(x + 9, y + 15), Some(0));
+    assert!(
+        (y..status.bottom().saturating_sub(padding)).any(|py| {
+            (x..status.right().saturating_sub(padding))
+                .any(|px| matches!(free_described.frame.pixel(px, py), Some(tone) if tone < 160))
+        }),
+        "description text should remain visible in Free Board mode"
+    );
 }
 
 #[test]
@@ -312,22 +312,22 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("progress-warning", hash(&warning)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("white", 3_564_932_878_144_062_875),
-        ("black", 14_183_061_067_515_557_707),
-        ("selected", 6_232_841_546_383_290_319),
-        ("correct", 10_880_320_571_862_843_847),
-        ("wrong", 8_582_594_695_633_032_010),
-        ("complete", 13_930_519_359_136_657_730),
-        ("solved", 6_760_008_875_900_184_000),
-        ("free-board", 5_141_760_833_338_926_139),
-        ("orientation-lock", 6_807_638_419_167_296_551),
-        ("description", 11_547_129_074_789_225_178),
-        ("promotion", 9_918_959_335_839_534_183),
-        ("long-description", 3_866_145_748_673_485_355),
-        ("number-difficulty", 14_146_092_641_012_353_274),
-        ("collection-picker", 10_068_103_487_935_595_689),
-        ("collection-picker-error", 3_422_267_458_361_972_743),
-        ("progress-warning", 6_315_149_320_220_017_877),
+        ("white", 7_140_422_721_455_450_270),
+        ("black", 10_865_027_921_088_240_638),
+        ("selected", 3_591_361_094_147_765_358),
+        ("correct", 9_939_301_224_618_320_251),
+        ("wrong", 618_933_180_750_850_259),
+        ("complete", 14_360_767_832_906_334_727),
+        ("solved", 11_012_368_755_925_794_395),
+        ("free-board", 16_297_759_552_115_201_675),
+        ("orientation-lock", 9_981_317_888_951_315_514),
+        ("description", 7_021_364_827_457_628_665),
+        ("promotion", 14_831_025_361_946_432_404),
+        ("long-description", 855_639_419_083_176_160),
+        ("number-difficulty", 335_905_803_665_738_670),
+        ("collection-picker", 7_664_530_361_364_253_517),
+        ("collection-picker-error", 4_148_872_910_735_820_666),
+        ("progress-warning", 9_818_708_924_015_098_271),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);

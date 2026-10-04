@@ -1505,3 +1505,23 @@ main. This accepts the restored board behavior with the remaining dark-square
 ghosting; it does not claim complete ghost elimination or a new 30-move,
 reboot, or suspend checkpoint. The rejected white-pass and REAGLD experiments
 are absent from the final production change.
+
+### Atkinson Hyperlegible font acceptance — 2026-10-04
+
+Built and deployed the `ui/atkinson-hyperlegible` branch at `3993554` with
+uncommitted newline-glyph fixes and their reviewed snapshot updates. Installed
+binary SHA-256 `34b55ecdb194b51e6d3aa88c40cb33c715f90fce049e29c793978379cecc6748`;
+source receipt `b3f191b760f611e99b8732b0887f922e0aad147f517aa827d76d2e6ac9e0d6b9`.
+Formatting, strict clippy, workspace/snapshot tests, Python/C/lifecycle/package
+contracts and the ARMv7/glibc-2.35 release build passed. Compared all snapshot
+states against the prior bitmap font before updating expected hashes. A failing
+regression test demonstrated newline missing-glyph boxes; control glyphs are now
+skipped during rasterization while preserving layout line breaks.
+
+The local deployment script pulled the branch upstream, built, staged and
+installed through the existing safe installer with empty SSH passwords. All
+four uploaded puzzle collections and progress verified unchanged after install.
+The installed hash matched; supervised startup completed at 509ms (23ms
+submission, 387ms completion). The user reported “fonts look much better” and
+requested a squash merge to main. This records visual font acceptance, without
+claiming any improvement in physical ghosting or additional lifecycle checks.

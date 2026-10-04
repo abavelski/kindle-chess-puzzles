@@ -1,7 +1,10 @@
 //! Deterministic monochrome-first chess application renderer.
 
 use crate::{
-    font::{draw_text, draw_text_centered, draw_wrapped_text, draw_wrapped_text_with_line_spacing},
+    font::{
+        draw_text_bold, draw_text_bold_vertically_centered, draw_text_centered, draw_wrapped_text,
+        draw_wrapped_text_with_line_spacing,
+    },
     pieces::draw_piece,
     DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
 };
@@ -72,13 +75,10 @@ fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scal
         difficulty
     );
     let padding = layout.header.height / 8;
-    draw_text(
+    draw_text_bold_vertically_centered(
         frame,
         layout.refresh.right().saturating_add(padding),
-        layout
-            .header
-            .y
-            .saturating_add(layout.header.height.saturating_sub(7 * control_scale) / 2),
+        layout.header,
         &title,
         control_scale,
         INK,
@@ -251,7 +251,7 @@ fn draw_status(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) 
                 }
             }
         };
-        draw_text(frame, content.x, content.y, &status_line, scale, INK);
+        draw_text_bold(frame, content.x, content.y, &status_line, scale, INK);
     }
 
     if state.feedback() == SolutionFeedback::Correct {
