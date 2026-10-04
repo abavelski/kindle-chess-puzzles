@@ -163,7 +163,6 @@ fn collection_picker_targets_are_touch_sized_and_block_the_board() {
     );
 }
 
-
 #[test]
 fn goto_button_is_small_between_prev_next_and_modal_captures_keypad() {
     const PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/promotion-puzzles.json");
@@ -193,7 +192,11 @@ fn goto_button_is_small_between_prev_next_and_modal_captures_keypad() {
         assert!(rect.width >= layout.minimum_touch_px());
         assert!(rect.height >= layout.minimum_touch_px());
     }
-    for rect in [layout.goto_backspace, layout.goto_confirm, layout.goto_cancel] {
+    for rect in [
+        layout.goto_backspace,
+        layout.goto_confirm,
+        layout.goto_cancel,
+    ] {
         assert!(rect.width >= layout.minimum_touch_px());
         assert!(rect.height >= layout.minimum_touch_px());
     }
