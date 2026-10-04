@@ -447,6 +447,51 @@ fn navigation_availability_matches_collection_ends_without_wrap() {
     assert_eq!(app.board(), &last);
 }
 
+
+#[test]
+fn puzzle_goto_enters_number_blocks_board_and_jumps_without_wrapping() {
+    let mut app = state("promotions.json", PROMOTIONS);
+    let initial_board = app.board().clone();
+
+    app.dispatch(Action::OpenPuzzleGoto);
+    assert!(app.puzzle_goto_open());
+    assert_eq!(app.puzzle_goto_input(), Some(""));
+
+    app.dispatch(Action::PuzzleGotoDigit(0));
+    assert_eq!(app.puzzle_goto_input(), Some(""), "leading zero is ignored");
+    app.dispatch(Action::PuzzleGotoDigit(3));
+    assert_eq!(app.puzzle_goto_input(), Some("3"));
+
+    app.dispatch(Action::TapSquare(square("a7")));
+    assert_eq!(
+        app.board(),
+        &initial_board,
+        "goto modal blocks ordinary board actions"
+    );
+
+    let effects = app.dispatch(Action::ConfirmPuzzleGoto);
+    assert_eq!(app.active_puzzle_index(), 2);
+    assert!(!app.puzzle_goto_open());
+    assert_eq!(effects, vec![Effect::ProgressChanged]);
+
+    app.dispatch(Action::OpenPuzzleGoto);
+    app.dispatch(Action::PuzzleGotoDigit(9));
+    assert_eq!(
+        app.puzzle_goto_input(),
+        Some(""),
+        "numbers outside the collection are rejected"
+    );
+    assert!(app.dispatch(Action::ConfirmPuzzleGoto).is_empty());
+    assert!(app.puzzle_goto_open());
+
+    app.dispatch(Action::PuzzleGotoDigit(4));
+    app.dispatch(Action::PuzzleGotoBackspace);
+    assert_eq!(app.puzzle_goto_input(), Some(""));
+    app.dispatch(Action::CancelPuzzleGoto);
+    assert!(!app.puzzle_goto_open());
+    assert_eq!(app.active_puzzle_index(), 2);
+}
+
 #[test]
 fn collection_picker_requests_a_file_without_mutating_the_active_board() {
     let mut app = state("puzzles.json", PUZZLES);
