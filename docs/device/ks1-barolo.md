@@ -1551,3 +1551,43 @@ visually reviewed Gray8 snapshot are covered on the host.
 Deployment/build identifiers and the human pass/fail observations will be
 appended after preparation. Host checks do not establish real pen targeting or
 native pen recovery.
+
+### Installed checkpoint build
+
+- Implementation commit: `7c6e1e6` on `phase-2` (source unchanged since the build).
+- Binary SHA-256: `020fe41c35d2c195579df7b568d00db7d71893b507cf5ffeee0ec8be9b82c17b`.
+- Build source SHA-256: `feb2e137c4efd3b9cc02e876900c4909c861cd672d3362e80474886aec124b12`.
+- Full `scripts/check.sh` gate passed through `scripts/build-kindle.sh`, including
+  fmt, clippy, workspace tests, snapshots, Python/C/lifecycle/package contracts,
+  generated assets and ARMv7/glibc-2.35 ELF validation. The declared `chess==1.11.2`
+  host-only dependency was installed in `/tmp/kindle-chess-task26-venv` and its
+  `bin` directory prepended to PATH for build/staging.
+- Staged with `scripts/stage-kindle.sh`; installed with
+  `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+  The installed binary hash matches; `/lib/ld-linux-armhf.so.3 --list`
+  resolves its device dependencies.
+- All four existing `puzzles-eink-book-*.json` hashes and the progress hash were
+  unchanged by installation and checkpoint preparation. The app has been left
+  stopped for the human's library launch.
+
+A separate collection, `puzzles-task26-stylus.json`, was generated with:
+
+```sh
+python3 tools/pgn_converter.py tests/fixtures/pgn-converter/valid-book.pgn \
+  --title 'Stylus checkpoint 26A' -o probe-output/task26/puzzles-task26-stylus.json
+```
+
+Its SHA-256 is `3ddf457bbac3472c3f952ed082c46904023e644ddd2c814b9404729bfde27b84`.
+It contains three puzzles, including several main-line moves, an alternative,
+a nested sideline, inline references, and black promotion. It was copied over
+verified SCP to a temporary `/mnt/us` path, then moved to the collection directory
+only after checking the destination did not exist. Existing collections were
+not edited. SCP to `/tmp` closed the connection on two attempts; no claim about
+its cause is made.
+
+Human procedure: launch **Kindle Chess Puzzles**, tap the header title to open
+collections, select **Stylus checkpoint 26A**, and tap **ANALYSIS** in the lower
+status area. Use the panel's page controls to compare several main-line and
+side-line targets with finger and pen. Check hover without contact, then exit
+with X and check native notebook pen drawing. All six 26A observations remain
+**pending**; installed/loader checks are not a physical-interaction pass.

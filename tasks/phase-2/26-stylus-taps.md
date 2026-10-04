@@ -70,3 +70,16 @@ A prerequisite repair adds the missing visible ANALYSIS entry button in rich
 puzzles' status area. The finding is recorded in `docs/PHASE_2.md`; existing
 NOTE/toolbar behavior is preserved. A geometry/action test and a visually
 reviewed closed-panel snapshot cover this entry point.
+
+## Checkpoint readiness
+
+Implementation commit `7c6e1e6` is installed on the first-generation Scribe,
+firmware 5.19.6. The full automated gate and ARMv7/glibc-2.35 build passed;
+installed binary hash and loader dependencies were verified. Exact build hashes,
+commands, and data-preservation checks are recorded in `docs/device/ks1-barolo.md`.
+
+For 26A, launch from the Kindle library, tap the header title, select the separate
+**Stylus checkpoint 26A** collection, and open **ANALYSIS**. Compare several main
+and side-line chips using finger and pen (page controls expose further moves),
+check hover-only, then X exit and native pen drawing. The app is stopped and
+ready for the human to launch. Status remains Ready until those observations pass.
