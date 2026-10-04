@@ -636,7 +636,9 @@ fn analysis_selection_previews_main_and_sideline_without_mutating_live_board() {
     assert_eq!(app.live_board(), &live_before);
 
     let repeated = app.clone();
-    assert!(app.dispatch(Action::SelectAnalysisNode(sideline)).is_empty());
+    assert!(app
+        .dispatch(Action::SelectAnalysisNode(sideline))
+        .is_empty());
     assert_eq!(app, repeated);
 
     assert!(app.dispatch(Action::AnalysisPreviousPage).is_empty());
