@@ -7,6 +7,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod analysis;
 pub mod app;
 pub mod board;
 pub mod collection;
@@ -15,6 +16,10 @@ pub mod progress;
 pub mod puzzle;
 pub mod uci;
 
+pub use analysis::{
+    AnalysisMove, AnalysisNode, AnalysisNodeIndex, AnalysisRole, AnalysisTextSpan, AnalysisTree,
+    Nag,
+};
 pub use app::{
     Action, ActiveCollection, AppState, BoardMode, Effect, PendingPromotion, PromotionChoice,
     SolutionFeedback, COLLECTIONS_PER_PAGE,
@@ -25,5 +30,8 @@ pub use collection::{
 };
 pub use fen::{parse_fen, FenError, FenPosition};
 pub use progress::{FileProgress, Progress, PROGRESS_VERSION};
-pub use puzzle::{parse_puzzle_file, Difficulty, Puzzle, PuzzleCollection, MAX_PUZZLE_FILE_BYTES};
+pub use puzzle::{
+    parse_puzzle_file, Difficulty, Puzzle, PuzzleCollection, LEGACY_PUZZLE_FILE_WARNING_BYTES,
+    MAX_PUZZLE_FILE_BYTES,
+};
 pub use uci::{algebraic_to_square, parse_uci_move, square_to_algebraic, UciError, UciMove};

@@ -1,6 +1,6 @@
 # Task 22 — Add the core rich-analysis model
 
-**Status:** Ready  
+**Status:** Implemented  
 **Depends on:** Task 20  
 **Primary area:** `crates/chess-core`  
 **Validation:** Automated only  
@@ -36,3 +36,20 @@ Codex recommended because this touches the compatibility boundary and public Rus
 
 ## Suggested commit
 `core: parse validated rich analysis trees`
+
+
+## Implementation record
+
+Implemented on the `phase-2` branch in `crates/chess-core`.
+
+- Added a validated, platform-neutral `AnalysisTree` with typed node indexes, O(1) ID lookup,
+  parsed FEN/UCI values, parent/child indexes, roles, NAGs, comments, and structured text spans.
+- The parser now validates the complete Task-20 graph, root-FEN, main-path, structured-span, and
+  `move_ref` contract with puzzle-specific errors while preserving legacy `solution` grading data.
+- Missing structured content is normalized from the existing plain `description` / `comment`
+  compatibility fields; legacy analysis-free fixtures retain their existing public fields.
+- The phase-two raw-file limit is 8 MiB. `LEGACY_PUZZLE_FILE_WARNING_BYTES` retains the documented
+  256 KiB old-build warning threshold for producers and compatibility tooling.
+- Rust tests consume the full Task-20 valid/invalid fixture corpus, cover additional frozen
+  invariants and lookup/default semantics, regress the phase-one fixture, and exercise both byte
+  thresholds. No Kindle/device checkpoint is required for this task.
