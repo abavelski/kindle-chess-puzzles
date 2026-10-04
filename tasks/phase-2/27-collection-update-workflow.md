@@ -1,6 +1,6 @@
 # Task 27 — Define collection regeneration and update workflow
 
-**Status:** Ready  
+**Status:** Implemented  
 **Depends on:** Tasks 20-22; Task 21 for generated collections  
 **Primary area:** tooling/docs/compatibility tests  
 **Validation:** Automated only  
@@ -36,3 +36,10 @@ Good local-model task once converter/core contracts are stable.
 
 ## Suggested commit
 `docs: add safe puzzle collection update workflow`
+
+## Implementation record
+
+Implemented on `phase-2` with deterministic collection comparison, duplicate blocking,
+FEN-change reporting, same-directory atomic replacement, legacy/phase-two size reporting,
+host tests for identity/progress separation, and the collection update cookbook in
+`docs/COLLECTION_UPDATES.md`.

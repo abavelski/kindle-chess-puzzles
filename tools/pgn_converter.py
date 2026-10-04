@@ -14,6 +14,27 @@ import sys
 from typing import Any
 
 try:
+    from tools.collection_update import (
+        CollectionUpdateError,
+        PHASE_TWO_MAX_BYTES,
+        atomic_write_bytes,
+        compare_collections,
+        comparison_messages,
+        ensure_no_duplicate_ids,
+        load_collection_file,
+    )
+except ModuleNotFoundError:  # Support direct execution as tools/pgn_converter.py.
+    from collection_update import (
+        CollectionUpdateError,
+        PHASE_TWO_MAX_BYTES,
+        atomic_write_bytes,
+        compare_collections,
+        comparison_messages,
+        ensure_no_duplicate_ids,
+        load_collection_file,
+    )
+
+try:
     import chess
     import chess.pgn
 except ImportError as exc:  # pragma: no cover - exercised by direct CLI use without deps.
@@ -439,10 +460,20 @@ def encode_collection(collection: dict[str, Any], *, compact: bool = False) -> b
 
 
 def size_messages(encoded_size: int) -> list[str]:
-    messages = [f"encoded size: {encoded_size} bytes"]
+    messages = [
+        f"encoded size: {encoded_size} bytes",
+        (
+            "size thresholds: legacy 256 KiB (262144 bytes); "
+            f"phase-two 8 MiB ({PHASE_TWO_MAX_BYTES} bytes)"
+        ),
+    ]
     if encoded_size > LEGACY_WARNING_BYTES:
         messages.append(
             "warning: output exceeds 256 KiB (262144 bytes); phase-one/legacy readers may reject it"
+        )
+    if encoded_size > PHASE_TWO_MAX_BYTES:
+        messages.append(
+            "warning: output exceeds phase-two 8 MiB (8388608 bytes); split the collection"
         )
     return messages
 
@@ -453,11 +484,20 @@ def _read_input(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
-def _write_output(path: str, data: bytes) -> None:
+def _write_output(path: str, data: bytes, collection: dict[str, Any]) -> None:
     if path == "-":
         sys.stdout.buffer.write(data)
         return
-    Path(path).write_bytes(data)
+
+    output_path = Path(path)
+    if output_path.exists():
+        previous = load_collection_file(output_path)
+        comparison = compare_collections(previous, collection)
+        for message in comparison_messages(comparison):
+            print(message, file=sys.stderr)
+        ensure_no_duplicate_ids(comparison)
+
+    atomic_write_bytes(output_path, data)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -497,8 +537,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         collection = convert_pgn_text(_read_input(args.input), options)
         encoded = encode_collection(collection, compact=options.compact)
-        _write_output(args.output, encoded)
-    except (ConversionError, OSError, UnicodeError) as exc:
+        _write_output(args.output, encoded, collection)
+    except (ConversionError, CollectionUpdateError, OSError, UnicodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
