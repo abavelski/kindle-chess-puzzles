@@ -1838,3 +1838,29 @@ header remain unchanged.
   native Xorg/awesome present. Original private collections remain locally under
   target/task34/original-collections/. Ready for library launch; physical visual
   acceptance awaits user review.
+
+## Task 35 — Conventional move annotations deployed (2026-10-04)
+
+- User requested mapping raw PGN codes to conventional notation, a direct main
+  commit and device deployment. Renderer maps codes 1–6 to !, ?, !!, ??, !?, ?!,
+  attached to the tappable tree-move SAN. Other codes retain $N. Stored JSON,
+  reference labels and literal prose are unchanged.
+- Failing-first mapping tests passed after implementation. Tests cover all six
+  codes, multiple/unknown annotations, narrow wrapping, taps on annotated labels,
+  inversion and unchanged solve/progress. Reviewed six symbol snapshots,
+  selected/unknown states, three changed existing snapshots and real 135b:
+  Qxc1+ $1 becomes Qxc1+!, and Bxb2 $1 becomes Bxb2!. Upper UI is identical.
+- Full scripts/build-kindle.sh checks and ARMv7/glibc-2.35 build passed. Commit
+  c762853 landed directly on main and was pushed before stage/deploy with the
+  documented scripts at root@192.168.1.20:2222.
+- App was running on initial inspection but exited during host checks. The
+  attempted signal preflight stopped before sending any signal because those
+  processes had exited. Fresh read-only checks confirmed app and lock absent
+  before installation and afterward; native Xorg/awesome remained present.
+- Installed binary SHA-256 matches the validated artifact:
+  `211e637917fbdcf4311605deb7da227164e0767cf61fcc114f24933077877adc`.
+  The device dynamic loader resolved all dependencies.
+- All five collection hashes are unchanged from Task 34. Progress before/after
+  remains `77fff6499aae93b3baccccf59d75989d4cf9f2b70074b50daf71e9c034f538ef`.
+- Ready for library launch. Physical visual acceptance awaits user review;
+  installation and host snapshots do not establish on-panel readability.
