@@ -31,10 +31,16 @@ fn move_piece(app: &mut AppState, movement: &str) {
 }
 
 fn hash(app: &AppState) -> u64 {
-    render(app, SCRIBE)
-        .expect("render succeeds")
-        .frame
-        .checksum64()
+    let output = render(app, SCRIBE).expect("render succeeds");
+    if let Ok(directory) = std::env::var("UI_SNAPSHOT_DIR") {
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(
+            format!("{directory}/{}.pgm", output.frame.checksum64()),
+            output.frame.to_pgm(),
+        )
+        .unwrap();
+    }
+    output.frame.checksum64()
 }
 
 fn piece(color: Color, kind: PieceKind) -> Option<Piece> {
@@ -136,17 +142,17 @@ fn task05_action_state_render_flows_match_reviewed_snapshots() {
     actual.push(("last-next-disabled", hash(&last)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("wrong-rollback", 14_438_142_297_707_004_584),
-        ("one-move-complete", 15_967_492_661_978_762_969),
-        ("three-ply-auto-reply", 18_278_196_861_399_448_893),
-        ("promotion-modal", 6_185_648_041_286_516_817),
-        ("promotion-cancel", 12_752_656_003_087_828_898),
-        ("underpromotion-complete", 11_140_674_699_674_609_107),
-        ("free-arbitrary-move", 18_426_951_157_164_983_666),
-        ("free-return-solution", 629_110_815_789_461_365),
-        ("lock-flip-navigation", 15_616_504_402_795_616_932),
-        ("description-before-solve", 12_573_625_047_669_787_443),
-        ("last-next-disabled", 3_032_391_212_023_241_436),
+        ("wrong-rollback", 2_079_696_173_224_975_048),
+        ("one-move-complete", 4_566_745_471_438_805_427),
+        ("three-ply-auto-reply", 14_370_592_074_519_281_456),
+        ("promotion-modal", 17_991_637_218_890_295_249),
+        ("promotion-cancel", 16_640_751_643_241_806_542),
+        ("underpromotion-complete", 10_089_278_490_407_296_319),
+        ("free-arbitrary-move", 12_663_116_411_411_364_612),
+        ("free-return-solution", 14_486_150_528_550_256_613),
+        ("lock-flip-navigation", 4_000_824_735_600_155_196),
+        ("description-before-solve", 13_498_268_160_183_036_153),
+        ("last-next-disabled", 11_067_615_572_534_680_340),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);

@@ -34,13 +34,23 @@ The SVG files are preserved as source assets. `scripts/generate_sashite.py` dete
 
 ## Fonts
 
-The renderer embeds Atkinson Hyperlegible Regular and Bold for all application text:
+The renderer embeds Atkinson Hyperlegible Regular and Bold for application text, with Noto Sans fallback for missing glyphs:
 
 - upstream project: `https://github.com/googlefonts/atkinson-hyperlegible`;
 - pinned upstream commit: `1cb311624b2ddf88e9e37873999d165a8cd28b46`;
 - local files: `assets/fonts/AtkinsonHyperlegible-Regular.ttf` and `assets/fonts/AtkinsonHyperlegible-Bold.ttf`;
 - copyright: Braille Institute of America, Inc.;
 - license: SIL Open Font License 1.1, preserved at `assets/fonts/OFL.txt`.
+
+Atkinson has no Cyrillic coverage. The renderer embeds Noto Sans Regular and Bold
+as a per-character fallback, preserving Atkinson for its supported characters:
+
+- upstream: `https://github.com/notofonts/noto-fonts`;
+- pinned commit: `ffebf8c1ee449e544955a7e813c54f9b73848eac`;
+- source paths: `hinted/ttf/NotoSans/NotoSans-Regular.ttf` and `NotoSans-Bold.ttf`;
+- local files: `assets/fonts/NotoSans-{Regular,Bold}.ttf`;
+- copyright: The Noto Project Authors;
+- SIL Open Font License 1.1: `assets/fonts/NotoSans-OFL.txt` (upstream `LICENSE`).
 
 The font bytes are compiled into `chess-render`, so host snapshots and Kindle rendering do not depend on system-installed fonts. Runtime rasterization uses the pure-Rust `fontdue` crate.
 

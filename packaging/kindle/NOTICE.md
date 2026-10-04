@@ -5,6 +5,8 @@ FBInk is statically linked from revision
 Its license text and full pinned source accompany this artifact.
 
 Sashité Western piece sources are CC0/public domain; see Sashite.md.
+Embedded Atkinson Hyperlegible and Noto Sans fonts use SIL OFL 1.1; see
+Atkinson-OFL.txt, NotoSans-OFL.txt and PROVENANCE.md.
 Rust dependency source files and their license notices are included in source.tar.
 Puzzle fixture attribution is recorded in PROVENANCE.md.
 

@@ -42,6 +42,7 @@ pub struct Puzzle {
     pub id: String,
     pub fen: String,
     pub description: Option<String>,
+    pub topic: Option<String>,
     pub description_content: Vec<AnalysisTextSpan>,
     pub difficulty: Option<Difficulty>,
     pub source: Option<String>,
@@ -73,6 +74,8 @@ struct RawPuzzle {
     fen: String,
     #[serde(default)]
     description: Option<String>,
+    #[serde(default)]
+    topic: Option<serde_json::Value>,
     #[serde(default)]
     description_content: Option<serde_json::Value>,
     #[serde(default)]
@@ -184,6 +187,9 @@ fn build_puzzle(raw: RawPuzzle, name: &str) -> Result<Puzzle, String> {
         id: raw.id,
         fen: raw.fen,
         description: raw.description,
+        topic: raw
+            .topic
+            .and_then(|value| value.as_str().map(str::to_owned)),
         description_content,
         difficulty: raw.difficulty,
         source: raw.source,
@@ -252,6 +258,27 @@ mod tests {
             include_bytes!("../../../tests/fixtures/rich-analysis/invalid-span-bad-label.json"),
         ),
     ];
+
+    #[test]
+    fn preserves_optional_cyrillic_topic_without_changing_description() {
+        let mut document: serde_json::Value = serde_json::from_slice(LEGACY).unwrap();
+        let topic = "Геометрический мотив\nКоневые вилки\nУстранение защиты";
+        for value in [
+            serde_json::json!(topic),
+            serde_json::Value::Null,
+            serde_json::json!(42),
+        ] {
+            document["puzzles"][0]["topic"] = value.clone();
+            let parsed = parse_puzzle_file(&serde_json::to_vec(&document).unwrap()).unwrap();
+            // Formerly ignored metadata must not invalidate legacy collections.
+            assert_eq!(parsed.puzzles[0].topic.as_deref(), value.as_str());
+            assert_eq!(
+                parsed.puzzles[0].description,
+                parse_puzzle_file(LEGACY).unwrap().puzzles[0].description
+            );
+            assert_eq!(parsed.puzzles[1].topic, None);
+        }
+    }
 
     #[test]
     fn parses_valid_rich_fixture_into_indexed_model() {

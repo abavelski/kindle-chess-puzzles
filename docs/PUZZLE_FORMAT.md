@@ -48,6 +48,7 @@ For compatibility, version-1 files are initially limited to **256 KiB**, matchin
 | `id` | Yes | Non-empty and unique within the collection. |
 | `fen` | Yes | Complete six-field FEN. |
 | `description` | No | String, empty, or null. Revealed on solve or by the description toggle. |
+| `topic` | No | Optional string shown above the revealed description; Cyrillic and line breaks are supported. Absent/null/non-string values have no displayed topic. |
 | `difficulty` | No | JSON string or number; displayed as text in the header. |
 | `solution` | Yes | Non-empty array of UCI coordinate moves. |
 | `source` | No | Optional provenance; ignored by the runtime. |
@@ -113,6 +114,10 @@ Promotion choice becomes part of UCI before comparison. Stored opponent promotio
 ## Descriptions and difficulty
 
 Difficulty is presentation metadata and never affects correctness.
+
+Topic is presentation metadata and never affects grading. It shares description visibility
+and appears above the description, including when the description itself is absent.
+The starting side to move appears in the center of the header, independent of Flip.
 
 Description visibility is transient UI state:
 

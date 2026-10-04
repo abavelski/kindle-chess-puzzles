@@ -6,8 +6,10 @@ Post-phase-two improvements are tracked under `improvements/`.
 [Task 29 — compact analysis toolbar toggle](improvements/29-analysis-toolbar-toggle.md)
 moves analysis into the first icon-only toolbar control.
 [Task 30 — inline PGN analysis](improvements/30-inline-pgn-analysis.md) replaces
-vertical analysis-tree rows with conventional compact movetext. The former Task 10 ghosting
-investigation is archived: the top-left Refresh control is the accepted manual workaround
+vertical analysis-tree rows with conventional compact movetext.
+[Task 31 — header side and topics](improvements/31-header-side-and-topic.md) centers
+the solver side in the header and displays Cyrillic topics with revealed descriptions.
+The former Task 10 ghosting investigation is archived: the top-left Refresh control is the accepted manual workaround
 when a residual physical-panel ghost becomes visible.
 
 Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one task file.

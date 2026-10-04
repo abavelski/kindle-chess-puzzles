@@ -44,6 +44,14 @@ fn play(app: &mut AppState, movement: &str) {
 fn hash(app: &AppState) -> u64 {
     let output = render(app, SCRIBE).expect("render succeeds");
     assert_eq!(output.damage.as_slice(), &[output.layout.viewport]);
+    if let Ok(directory) = std::env::var("UI_SNAPSHOT_DIR") {
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(
+            format!("{directory}/{}.pgm", output.frame.checksum64()),
+            output.frame.to_pgm(),
+        )
+        .unwrap();
+    }
     output.frame.checksum64()
 }
 
@@ -172,11 +180,11 @@ fn status_panel_is_rounded_and_shows_one_large_primary_content() {
 
     assert_eq!(normal.frame.pixel(status.x, status.y), Some(255));
     assert!(
-        (y..status.bottom().saturating_sub(padding)).any(|py| {
+        !(y..status.bottom().saturating_sub(padding)).any(|py| {
             (x..status.right().saturating_sub(padding))
                 .any(|px| matches!(normal.frame.pixel(px, py), Some(tone) if tone < 160))
         }),
-        "primary status text should render inside the status panel"
+        "side to move now appears in the header"
     );
 
     let dot = br#"{
@@ -213,6 +221,82 @@ fn status_panel_is_rounded_and_shows_one_large_primary_content() {
         }),
         "description text should remain visible in Free Board mode"
     );
+}
+
+fn region_has_ink(output: &chess_render::RenderOutput, rect: chess_render::Rect) -> bool {
+    (rect.y..rect.bottom())
+        .any(|y| (rect.x..rect.right()).any(|x| output.frame.pixel(x, y).unwrap() < 160))
+}
+
+#[test]
+fn solution_side_is_centered_in_header_and_absent_from_hidden_description() {
+    for black in [false, true] {
+        let mut document: serde_json::Value = serde_json::from_slice(PUZZLES).unwrap();
+        if black {
+            let fen = document["puzzles"][0]["fen"]
+                .as_str()
+                .unwrap()
+                .replace(" w ", " b ");
+            document["puzzles"][0]["fen"] = fen.into();
+        }
+        let mut app = state(&serde_json::to_vec(&document).unwrap());
+        let output = render(&app, SCRIBE).unwrap();
+        let center = chess_render::Rect::new(
+            SCRIBE.width / 2 - 140,
+            10,
+            280,
+            output.layout.header.height - 20,
+        );
+        assert!(
+            region_has_ink(&output, center),
+            "side label should be in header center"
+        );
+        assert!(
+            !region_has_ink(&output, output.layout.status.inset(30)),
+            "hidden description should not duplicate side label"
+        );
+        app.dispatch(Action::Flip);
+        let flipped = render(&app, SCRIBE).unwrap();
+        for y in center.y..center.bottom() {
+            for x in center.x..center.right() {
+                assert_eq!(
+                    output.frame.pixel(x, y),
+                    flipped.frame.pixel(x, y),
+                    "Flip must not change solver side"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn topic_uses_description_visibility_and_three_lines_fit_with_description() {
+    let mut document: serde_json::Value = serde_json::from_slice(PUZZLES).unwrap();
+    document["puzzles"][0]["topic"] =
+        serde_json::json!("Геометрический мотив\nКоневые вилки\nУстранение защиты");
+    document["puzzles"][0]["description"] = serde_json::json!("A description below the topic.");
+    let mut app = state(&serde_json::to_vec(&document).unwrap());
+    let hidden = render(&app, SCRIBE).unwrap();
+    assert!(!region_has_ink(&hidden, hidden.layout.status.inset(30)));
+    app.dispatch(Action::ToggleDescription);
+    let revealed = render(&app, SCRIBE).unwrap();
+    let rect = revealed.layout.status;
+    let padding = (rect.height / 12).max(8);
+    let content = rect.inset(padding);
+    for line in 0..4 {
+        assert!(
+            region_has_ink(
+                &revealed,
+                chess_render::Rect::new(content.x, content.y + line * 47, content.width, 47)
+            ),
+            "missing topic/description line {line}"
+        );
+    }
+    app.dispatch(Action::ToggleDescription);
+    assert_eq!(render(&app, SCRIBE).unwrap().frame, hidden.frame);
+    play(&mut app, "d7e8");
+    assert!(app.description_visible());
+    assert!(region_has_ink(&render(&app, SCRIBE).unwrap(), content));
 }
 
 #[test]
@@ -311,23 +395,58 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     )));
     actual.push(("progress-warning", hash(&warning)));
 
+    let mut topic_json: serde_json::Value = serde_json::from_slice(PUZZLES).unwrap();
+    topic_json["puzzles"][0]["topic"] =
+        serde_json::json!("Геометрический мотив\nКоневые вилки\nУстранение защиты");
+    let mut topic = state(&serde_json::to_vec(&topic_json).unwrap());
+    actual.push(("topic-hidden", hash(&topic)));
+    let mut black_topic_json = topic_json.clone();
+    black_topic_json["puzzles"][0]["fen"] =
+        serde_json::json!("8/3B2pp/p5k1/6P1/1ppp1K2/8/1P6/8 b - - 0 39");
+    actual.push((
+        "black-side-header",
+        hash(&state(&serde_json::to_vec(&black_topic_json).unwrap())),
+    ));
+    topic.dispatch(Action::ToggleDescription);
+    actual.push(("topic-three-lines", hash(&topic)));
+    topic.dispatch(Action::ToggleMode);
+    topic.dispatch(Action::ToggleDescription);
+    actual.push(("topic-free-board", hash(&topic)));
+    topic_json["puzzles"][0]["description"] = serde_json::Value::Null;
+    let mut topic_only = state(&serde_json::to_vec(&topic_json).unwrap());
+    topic_only.dispatch(Action::ToggleDescription);
+    actual.push(("topic-only", hash(&topic_only)));
+    topic_json["puzzles"][0]["id"] = serde_json::json!(
+        "an-extremely-long-puzzle-identifier-that-must-not-overlap-the-centered-side-label"
+    );
+    actual.push((
+        "long-header",
+        hash(&state(&serde_json::to_vec(&topic_json).unwrap())),
+    ));
+
     const EXPECTED: &[(&str, u64)] = &[
-        ("white", 12_322_409_405_640_497_372),
-        ("black", 11_342_272_325_651_221_084),
-        ("selected", 6_922_795_695_703_600_684),
-        ("correct", 15_278_657_914_440_790_389),
-        ("wrong", 1_287_647_668_438_562_981),
-        ("complete", 7_848_417_092_149_234_809),
-        ("solved", 10_382_508_809_080_168_749),
-        ("free-board", 8_796_276_758_202_137_497),
-        ("orientation-lock", 14_200_691_143_361_631_324),
-        ("description", 5_621_927_561_158_217_299),
-        ("promotion", 10_317_124_251_817_812_098),
-        ("long-description", 180_567_976_163_925_874),
-        ("number-difficulty", 17_384_306_691_119_414_088),
-        ("collection-picker", 6_557_398_877_712_757_223),
-        ("collection-picker-error", 12_930_675_207_124_590_712),
-        ("progress-warning", 16_128_075_261_805_348_013),
+        ("white", 9_482_317_091_365_691_724),
+        ("black", 15_129_938_540_338_867_176),
+        ("selected", 10_554_746_923_683_061_948),
+        ("correct", 2_663_393_823_120_754_628),
+        ("wrong", 9_059_133_726_631_875_749),
+        ("complete", 8_236_664_936_829_541_307),
+        ("solved", 1_574_159_436_012_161_577),
+        ("free-board", 10_394_563_463_216_060_619),
+        ("orientation-lock", 13_753_266_639_184_449_212),
+        ("description", 7_859_123_114_726_742_969),
+        ("promotion", 14_337_950_829_846_745_346),
+        ("long-description", 18_226_650_496_557_486_600),
+        ("number-difficulty", 1_303_463_855_139_560_660),
+        ("collection-picker", 4_877_646_207_269_875_407),
+        ("collection-picker-error", 14_934_673_025_716_135_696),
+        ("progress-warning", 5_622_647_288_038_611_571),
+        ("topic-hidden", 9_482_317_091_365_691_724),
+        ("black-side-header", 13_560_601_721_915_842_894),
+        ("topic-three-lines", 12_009_366_906_417_777_708),
+        ("topic-free-board", 11_512_634_764_333_795_092),
+        ("topic-only", 967_484_523_730_318_318),
+        ("long-header", 17_090_751_274_210_726_857),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);

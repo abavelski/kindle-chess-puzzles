@@ -4,7 +4,7 @@ use crate::{
     analysis_panel::draw_analysis_panel,
     font::{
         draw_text_bold, draw_text_bold_vertically_centered, draw_text_centered, draw_wrapped_text,
-        draw_wrapped_text_with_line_spacing,
+        draw_wrapped_text_with_line_spacing, measure_text_bold,
     },
     pieces::draw_piece,
     AnalysisPanelOutput, DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
@@ -102,14 +102,30 @@ fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scal
         difficulty
     );
     let padding = layout.header.height / 8;
-    draw_text_bold_vertically_centered(
-        frame,
-        layout.refresh.right().saturating_add(padding),
-        layout.header,
-        &title,
-        control_scale,
-        INK,
+    let side = match puzzle.side_to_move() {
+        Color::White => "WHITE TO MOVE",
+        Color::Black => "BLACK TO MOVE",
+    };
+    let side_width = measure_text_bold(side, control_scale) + padding * 2;
+    let side_rect = Rect::new(
+        layout.header.x + layout.header.width.saturating_sub(side_width) / 2,
+        layout.header.y,
+        side_width,
+        layout.header.height,
     );
+    let title_x = layout.refresh.right().saturating_add(padding);
+    let title_rect = Rect::new(
+        title_x,
+        layout.header.y,
+        side_rect.x.saturating_sub(title_x + padding),
+        layout.header.height,
+    );
+    let mut title_scale = control_scale;
+    while title_scale > 2 && measure_text_bold(&title, title_scale) > title_rect.width {
+        title_scale -= 1;
+    }
+    draw_text_bold_vertically_centered(frame, title_x, title_rect, &title, title_scale, INK);
+    draw_text_centered(frame, side_rect, side, control_scale, INK);
 
     if state.is_current_solved() {
         let badge_width = layout.minimum_touch_px().saturating_mul(2);
@@ -296,36 +312,31 @@ fn draw_status(
         frame.fill_rounded_rect(content, 8, SOFT_GRAY);
         frame.stroke_rect(content, 2, INK);
         draw_wrapped_text(frame, content.inset(8), &format!("! {message}"), scale, INK);
-    } else if let Some(description) = state
-        .description_visible()
-        .then(|| state.active_puzzle().description.as_deref())
-        .flatten()
-        .filter(|text| !text.trim().is_empty())
-    {
-        draw_wrapped_text_with_line_spacing(
-            frame,
-            content,
-            description,
-            scale,
-            INK,
-            DESCRIPTION_EXTRA_LINE_SPACING,
-        );
     } else {
-        let status_line = match state.mode() {
-            BoardMode::FreeBoard => "FREE BOARD".to_owned(),
-            BoardMode::Solution => {
-                let side = match state.active_puzzle().side_to_move() {
-                    Color::White => "WHITE TO MOVE",
-                    Color::Black => "BLACK TO MOVE",
-                };
-                if state.feedback() == SolutionFeedback::Correct {
-                    format!("{side} - CORRECT")
-                } else {
-                    side.to_owned()
-                }
-            }
-        };
-        draw_text_bold(frame, content.x, content.y, &status_line, scale, INK);
+        let puzzle = state.active_puzzle();
+        let description = [puzzle.topic.as_deref(), puzzle.description.as_deref()]
+            .into_iter()
+            .flatten()
+            .filter(|text| !text.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if state.description_visible() && !description.is_empty() {
+            draw_wrapped_text_with_line_spacing(
+                frame,
+                content,
+                &description,
+                scale,
+                INK,
+                DESCRIPTION_EXTRA_LINE_SPACING,
+            );
+        } else {
+            let status_line = match state.mode() {
+                BoardMode::FreeBoard => "FREE BOARD",
+                BoardMode::Solution if state.feedback() == SolutionFeedback::Correct => "CORRECT",
+                BoardMode::Solution => "",
+            };
+            draw_text_bold(frame, content.x, content.y, status_line, scale, INK);
+        }
     }
 
     if state.feedback() == SolutionFeedback::Correct {

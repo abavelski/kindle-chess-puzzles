@@ -1,4 +1,4 @@
-//! Deterministic embedded Atkinson Hyperlegible text rendering.
+//! Deterministic embedded Atkinson Hyperlegible text with Noto Sans fallback.
 //!
 //! Keeping the font data inside the renderer makes host snapshots and Kindle output
 //! independent of fonts installed on either system.
@@ -27,6 +27,34 @@ enum Face {
 
 static REGULAR: OnceLock<Font> = OnceLock::new();
 static BOLD: OnceLock<Font> = OnceLock::new();
+static FALLBACK_REGULAR: OnceLock<Font> = OnceLock::new();
+static FALLBACK_BOLD: OnceLock<Font> = OnceLock::new();
+
+fn fallback_font(face: Face) -> &'static Font {
+    match face {
+        Face::Regular => FALLBACK_REGULAR.get_or_init(|| {
+            load_font(
+                include_bytes!("../../../assets/fonts/NotoSans-Regular.ttf"),
+                "Noto Sans regular",
+            )
+        }),
+        Face::Bold => FALLBACK_BOLD.get_or_init(|| {
+            load_font(
+                include_bytes!("../../../assets/fonts/NotoSans-Bold.ttf"),
+                "Noto Sans bold",
+            )
+        }),
+    }
+}
+
+fn font_for_character(face: Face, character: char) -> &'static Font {
+    let primary = font(face);
+    if primary.lookup_glyph_index(character) != 0 || character.is_control() {
+        primary
+    } else {
+        fallback_font(face)
+    }
+}
 
 fn font(face: Face) -> &'static Font {
     match face {
@@ -36,9 +64,8 @@ fn font(face: Face) -> &'static Font {
 }
 
 fn load_font(bytes: &'static [u8], label: &str) -> Font {
-    Font::from_bytes(bytes, FontSettings::default()).unwrap_or_else(|error| {
-        panic!("embedded Atkinson Hyperlegible {label} font is invalid: {error}")
-    })
+    Font::from_bytes(bytes, FontSettings::default())
+        .unwrap_or_else(|error| panic!("embedded {label} font is invalid: {error}"))
 }
 
 fn text_px(scale: u32) -> f32 {
@@ -89,11 +116,15 @@ pub(crate) fn text_line_height(scale: u32) -> u32 {
 }
 
 fn measure_text(text: &str, scale: u32, face: Face) -> u32 {
-    let selected_font = font(face);
     let px = text_px(scale);
     text.chars()
         .filter(|character| !character.is_control())
-        .map(|character| selected_font.metrics(character, px).advance_width.max(0.0))
+        .map(|character| {
+            font_for_character(face, character)
+                .metrics(character, px)
+                .advance_width
+                .max(0.0)
+        })
         .sum::<f32>()
         .ceil() as u32
 }
@@ -184,16 +215,47 @@ fn draw_with_settings(
     }
 
     let selected_font = font(face);
-    let fonts = [selected_font];
+    let needs_fallback = text.chars().any(|character| {
+        !character.is_control() && selected_font.lookup_glyph_index(character) == 0
+    });
+    let fonts = [
+        selected_font,
+        if needs_fallback {
+            fallback_font(face)
+        } else {
+            selected_font
+        },
+    ];
     let mut layout = TextLayout::new(CoordinateSystem::PositiveYDown);
     layout.reset(&settings);
-    layout.append(&fonts, &TextStyle::new(text, text_px(scale), 0));
+    // Append runs to one layout so mixed scripts share wrapping and baselines.
+    let mut start = 0;
+    let mut run_font = 0;
+    for (index, character) in text.char_indices() {
+        let glyph_font = usize::from(
+            !character.is_control() && selected_font.lookup_glyph_index(character) == 0,
+        );
+        if glyph_font != run_font {
+            if start < index {
+                layout.append(
+                    &fonts,
+                    &TextStyle::new(&text[start..index], text_px(scale), run_font),
+                );
+            }
+            start = index;
+            run_font = glyph_font;
+        }
+    }
+    layout.append(
+        &fonts,
+        &TextStyle::new(&text[start..], text_px(scale), run_font),
+    );
 
     for glyph in layout.glyphs() {
         if glyph.char_data.is_control() {
             continue;
         }
-        let (metrics, bitmap) = selected_font.rasterize_config(glyph.key);
+        let (metrics, bitmap) = fonts[glyph.font_index].rasterize_config(glyph.key);
         if metrics.width == 0 || metrics.height == 0 {
             continue;
         }
@@ -273,8 +335,23 @@ fn blend_glyph(
 
 #[cfg(test)]
 mod tests {
-    use super::{draw_text_at, draw_wrapped_text_with_line_spacing, Face};
+    use super::{draw_text_at, draw_wrapped_text_with_line_spacing, font_for_character, Face};
     use crate::{Gray8, Rect};
+
+    #[test]
+    fn embedded_fonts_cover_russian_cyrillic() {
+        for face in [Face::Regular, Face::Bold] {
+            for character in
+                "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя".chars()
+            {
+                assert_ne!(
+                    font_for_character(face, character).lookup_glyph_index(character),
+                    0,
+                    "missing {character}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn line_breaks_do_not_paint_missing_glyph_boxes() {

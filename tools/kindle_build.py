@@ -200,7 +200,9 @@ def stage(binary, receipt_path, destination):
         for path, name in [(ROOT / 'vendor/FBInk/LICENSE', 'FBInk-GPL-3.0.txt'),
                            (ROOT / 'assets/sashite-western/README.md', 'Sashite.md'),
                            (ROOT / 'packaging/kindle/NOTICE.md', 'NOTICE.md'),
-                           (ROOT / 'docs/PROVENANCE.md', 'PROVENANCE.md')]:
+                           (ROOT / 'docs/PROVENANCE.md', 'PROVENANCE.md'),
+                           (ROOT / 'assets/fonts/OFL.txt', 'Atkinson-OFL.txt'),
+                           (ROOT / 'assets/fonts/NotoSans-OFL.txt', 'NotoSans-OFL.txt')]:
             shutil.copyfile(path, notices / name)
         metadata = json.loads(run(['cargo', 'metadata', '--locked', '--format-version=1'],
                                   capture_output=True, text=True).stdout)

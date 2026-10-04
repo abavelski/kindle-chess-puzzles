@@ -301,7 +301,7 @@ fn no_analysis_toggle_is_inert_and_has_no_panel() {
     assert!(!app.analysis_browser_open());
     assert!(after.analysis.is_none());
     assert_eq!(after.frame.checksum64(), before.frame.checksum64());
-    assert_eq!(after.frame.checksum64(), 12_322_409_405_640_497_372);
+    assert_eq!(after.frame.checksum64(), 9_482_317_091_365_691_724);
 }
 
 #[test]
@@ -366,16 +366,16 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("main-only", 16_268_235_993_930_268_492),
-        ("nested-sideline", 7_586_796_129_783_995_789),
-        ("black-promotion-rich", 3_808_645_822_449_026_446),
-        ("selected-move", 16_866_949_205_794_766_027),
-        ("long-comment-first", 1_851_324_665_915_336_687),
-        ("long-comment-middle", 4_970_615_056_441_855_072),
-        ("long-comment-last", 12_834_143_737_034_218_839),
-        ("book-nested-ravs", 3_077_854_477_354_637_003),
-        ("book-main-only", 1_639_012_404_601_690_886),
-        ("no-analysis", 12_322_409_405_640_497_372),
+        ("main-only", 7_219_359_311_728_305_898),
+        ("nested-sideline", 501_085_637_570_574_995),
+        ("black-promotion-rich", 521_001_146_355_321_236),
+        ("selected-move", 12_655_649_911_927_969_721),
+        ("long-comment-first", 15_615_177_195_067_335_785),
+        ("long-comment-middle", 891_957_535_032_024_918),
+        ("long-comment-last", 1_333_194_769_002_580_389),
+        ("book-nested-ravs", 11_035_263_616_838_085_213),
+        ("book-main-only", 9_380_559_284_991_908_916),
+        ("no-analysis", 9_482_317_091_365_691_724),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
@@ -385,5 +385,5 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
 fn closed_rich_analysis_entry_matches_reviewed_snapshot() {
     let app = state(RICH);
     let output = render(&app, SCRIBE).unwrap();
-    assert_eq!(output.frame.checksum64(), 8_549_981_688_073_617_137);
+    assert_eq!(output.frame.checksum64(), 9_351_849_483_324_201_573);
 }
