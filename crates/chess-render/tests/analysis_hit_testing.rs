@@ -169,7 +169,11 @@ fn analysis_controls_dispatch_and_board_taps_are_disabled_without_moving_old_tar
         .hit_test_app(next_point.0, next_point.1, &app)
         .expect("next-page target");
     assert_eq!(next_target, HitTarget::AnalysisNextPage);
-    app.dispatch(next_target.into_action().expect("page target maps to action"));
+    app.dispatch(
+        next_target
+            .into_action()
+            .expect("page target maps to action"),
+    );
     assert_eq!(app.analysis_page(), 1);
 
     let second = render(&app, SCRIBE).expect("render succeeds");
@@ -224,7 +228,9 @@ fn preview_selection_damage_is_regional_to_board_and_analysis_panel() {
         "preview must update changed board squares"
     );
     assert!(
-        damage.iter().any(|rect| rect.intersects(after.layout.status)),
+        damage
+            .iter()
+            .any(|rect| rect.intersects(after.layout.status)),
         "selection treatment must update the analysis panel"
     );
     assert!(
