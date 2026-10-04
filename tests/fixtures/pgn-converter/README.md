@@ -7,3 +7,6 @@
 - `ambiguous-reference.pgn` contains duplicate sibling moves so an explicit path is ambiguous.
 - `invalid-illegal.pgn` contains an illegal move and must fail without partial JSON output.
 - `missing-id.pgn` verifies that generated IDs require explicit opt-in.
+
+- `valid-book.json` is the deterministic offline import of `valid-book.pgn`, checked
+  by Python and consumed by the Task-28 Rust end-to-end browsing test.

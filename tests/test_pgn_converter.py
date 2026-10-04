@@ -31,6 +31,11 @@ def resolve_uci_path(puzzle, path):
 
 
 class PgnConverterTests(unittest.TestCase):
+    def test_runtime_end_to_end_fixture_matches_offline_pgn_import(self):
+        imported = pgn_converter.convert_pgn_text(load_fixture("valid-book.pgn"))
+        runtime_fixture = json.loads(load_fixture("valid-book.json"))
+        self.assertEqual(runtime_fixture, imported)
+
     def test_valid_fixture_converts_main_lines_variations_metadata_and_fens(self):
         collection = pgn_converter.convert_pgn_text(load_fixture("valid-book.pgn"))
         self.assertEqual(collection["version"], 1)
