@@ -1,0 +1,5 @@
+[Event "Ambiguous reference"]
+[PuzzleId "ambiguous-001"]
+[Description "Compare [%move_ref e2e4]."]
+
+1. e4 (1. e4) e5 *

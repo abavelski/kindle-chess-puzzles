@@ -15,6 +15,12 @@ jobs:
         with:
           components: rustfmt, clippy
           targets: armv7-unknown-linux-gnueabihf
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install host tooling dependencies
+        run: python3 -m pip install -r requirements-tools.txt
       - name: Check host code and tests
         run: scripts/check.sh
 

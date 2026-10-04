@@ -1,0 +1,22 @@
+[Event "Nested variations"]
+[PuzzleId "nested-001"]
+[Description "Compare [%move_ref e2e4/e7e5/g1f3|the main knight] with [%move_ref e2e4/c7c5] and plain Nd5/e2e4."]
+[Difficulty "3"]
+[Source "fixture:nested"]
+
+1. e4 $1 {Central move. Compare [%move_ref e2e4/e7e5|1...e5] with e2e4 in plain text.} e5
+(1... c5 {[%role alternative] Sicilian alternative.} 2. Nf3 Nc6 (2... d6 {Nested sideline.}))
+2. Nf3 Nc6 *
+
+[Event "Black promotion"]
+[PuzzleId "promotion-black-001"]
+[SetUp "1"]
+[FEN "8/8/8/8/8/6k1/7p/K7 b - - 0 1"]
+[Description "Promote with [%move_ref h2h1q|1...h1=Q+] or inspect [%move_ref h2h1n]."]
+
+1... h1=Q+ {Promotion comment with plain h1=Q+.} (1... h1=N {Underpromotion sideline.}) 2. Ka2 *
+
+[Event "Capture and castling"]
+[PuzzleId "castle-capture-001"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Bxc6 dxc6 5. O-O *

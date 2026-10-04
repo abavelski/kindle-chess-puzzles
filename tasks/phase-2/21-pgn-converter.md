@@ -1,6 +1,6 @@
 # Task 21 — Build the PGN-to-JSON converter
 
-**Status:** Ready  
+**Status:** Implemented  
 **Depends on:** Task 20  
 **Primary area:** host tooling only  
 **Validation:** Automated only  
@@ -41,3 +41,19 @@ Well suited to a capable local model or Codex because it is isolated fixture-dri
 
 ## Suggested commit
 `tools: add deterministic PGN puzzle converter`
+
+## Implementation record
+
+Implemented on the `phase-2` branch as the host-only `tools/pgn_converter.py` converter using
+python-chess (`chess==1.11.2`). The tool requires `PuzzleId` unless deterministic generated IDs
+are explicitly enabled, walks ordered recursive variations, validates legal moves, emits SAN/UCI
+and complete post-move FENs, projects the PGN main line to legacy `solution`, preserves NAGs and
+metadata, and resolves only Task-20 `[%move_ref ...]` UCI-path directives. Dangling or ambiguous
+references and malformed/illegal PGN fail before output is written.
+
+`tests/fixtures/pgn-converter/` and `tests/test_pgn_converter.py` cover the automated acceptance
+surface, including black-to-move promotion, capture, castling, nested RAVs, alternative-role
+stripping, explicit and plain move-looking prose, metadata options, fallback-ID opt-in, size
+warnings, failure context, and byte-stable JSON. `scripts/check.sh` runs the converter tests and
+CI installs the pinned host dependency from `requirements-tools.txt`. No Kindle/device checkpoint
+is required for this task.

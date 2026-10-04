@@ -8,7 +8,8 @@ cargo test --locked --workspace
 python3 scripts/generate_sashite.py --check
 python3 -m unittest tests/test_decode_evdev.py
 python3 -m unittest tests/test_rich_analysis_contract.py
-python3 -m py_compile tools/decode_evdev.py
+python3 -m unittest tests/test_pgn_converter.py
+python3 -m py_compile tools/decode_evdev.py tools/pgn_converter.py
 sh -n scripts/kindle_device_probe.sh
 sh -n scripts/kindle_fbink_smoke.sh
 sh -n scripts/kindle_capture_input.sh

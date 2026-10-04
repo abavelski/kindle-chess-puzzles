@@ -1,0 +1,5 @@
+[Event "Dangling reference"]
+[PuzzleId "dangling-001"]
+[Description "Try [%move_ref e2e4/c7c6]."]
+
+1. e4 e5 *
