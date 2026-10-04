@@ -276,7 +276,7 @@ pub(crate) fn parse_analysis(
     }
 
     let mut resolved_children = vec![Vec::new(); pending_nodes.len()];
-    let mut child_owner = vec![None; pending_nodes.len()];
+    let mut child_owner: Vec<Option<AnalysisNodeIndex>> = vec![None; pending_nodes.len()];
     for (parent_number, node) in pending_nodes.iter().enumerate() {
         let parent_index = AnalysisNodeIndex(parent_number);
         for child_id in &node.children {
@@ -436,13 +436,13 @@ fn validate_main_path(
     loop {
         let mut main_child = None;
         for child in &nodes[cursor.0].children {
-            if nodes[child.0].role == Some(AnalysisRole::Main) {
-                if main_child.replace(*child).is_some() {
-                    return Err(error(
-                        context,
-                        "analysis main path may contain at most one main child at each node.",
-                    ));
-                }
+            if nodes[child.0].role == Some(AnalysisRole::Main)
+                && main_child.replace(*child).is_some()
+            {
+                return Err(error(
+                    context,
+                    "analysis main path may contain at most one main child at each node.",
+                ));
             }
         }
 
