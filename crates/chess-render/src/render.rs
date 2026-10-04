@@ -314,18 +314,30 @@ fn draw_status(
         draw_wrapped_text(frame, content.inset(8), &format!("! {message}"), scale, INK);
     } else {
         let puzzle = state.active_puzzle();
-        let description = [puzzle.topic.as_deref(), puzzle.description.as_deref()]
-            .into_iter()
+        if let Some(description) = state
+            .description_visible()
+            .then_some(puzzle.description.as_deref())
             .flatten()
             .filter(|text| !text.trim().is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
-        if state.description_visible() && !description.is_empty() {
+        {
             draw_wrapped_text_with_line_spacing(
                 frame,
                 content,
-                &description,
+                description,
                 scale,
+                INK,
+                DESCRIPTION_EXTRA_LINE_SPACING,
+            );
+        } else if let Some(topic) = (state.mode() == BoardMode::Solution)
+            .then_some(puzzle.topic.as_deref())
+            .flatten()
+            .filter(|text| !text.trim().is_empty())
+        {
+            draw_wrapped_text_with_line_spacing(
+                frame,
+                content,
+                topic,
+                (scale + 1).min(5),
                 INK,
                 DESCRIPTION_EXTRA_LINE_SPACING,
             );

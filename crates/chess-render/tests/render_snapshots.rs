@@ -270,33 +270,56 @@ fn solution_side_is_centered_in_header_and_absent_from_hidden_description() {
 }
 
 #[test]
-fn topic_uses_description_visibility_and_three_lines_fit_with_description() {
+fn topic_is_default_solution_status_and_note_contains_only_description() {
     let mut document: serde_json::Value = serde_json::from_slice(PUZZLES).unwrap();
     document["puzzles"][0]["topic"] =
         serde_json::json!("Геометрический мотив\nКоневые вилки\nУстранение защиты");
-    document["puzzles"][0]["description"] = serde_json::json!("A description below the topic.");
+    document["puzzles"][0]["description"] =
+        serde_json::json!("A description instead of the topic.");
     let mut app = state(&serde_json::to_vec(&document).unwrap());
-    let hidden = render(&app, SCRIBE).unwrap();
-    assert!(!region_has_ink(&hidden, hidden.layout.status.inset(30)));
-    app.dispatch(Action::ToggleDescription);
-    let revealed = render(&app, SCRIBE).unwrap();
-    let rect = revealed.layout.status;
-    let padding = (rect.height / 12).max(8);
-    let content = rect.inset(padding);
-    for line in 0..4 {
+    let before_progress = app.progress().clone();
+    let normal = render(&app, SCRIBE).unwrap();
+    let rect = normal.layout.status;
+    let content = rect.inset((rect.height / 12).max(8));
+    for line in 0..3 {
         assert!(
             region_has_ink(
-                &revealed,
-                chess_render::Rect::new(content.x, content.y + line * 47, content.width, 47)
+                &normal,
+                chess_render::Rect::new(content.x, content.y + line * 61, content.width, 61)
             ),
-            "missing topic/description line {line}"
+            "missing larger topic line {line}"
         );
     }
+    assert!(!app.description_visible());
     app.dispatch(Action::ToggleDescription);
-    assert_eq!(render(&app, SCRIBE).unwrap().frame, hidden.frame);
+    let note = render(&app, SCRIBE).unwrap();
+    document["puzzles"][0]["topic"] = serde_json::Value::Null;
+    let mut without_topic = state(&serde_json::to_vec(&document).unwrap());
+    without_topic.dispatch(Action::ToggleDescription);
+    assert_eq!(
+        note.frame,
+        render(&without_topic, SCRIBE).unwrap().frame,
+        "NOTE must contain description only"
+    );
+    app.dispatch(Action::ToggleDescription);
+    assert_eq!(render(&app, SCRIBE).unwrap().frame, normal.frame);
+    assert_eq!(app.progress(), &before_progress);
+    app.dispatch(Action::Reset);
+    assert_eq!(render(&app, SCRIBE).unwrap().frame, normal.frame);
+    app.dispatch(Action::NextPuzzle);
+    assert!(
+        !region_has_ink(&render(&app, SCRIBE).unwrap(), content),
+        "topic must not leak into another puzzle"
+    );
+    app.dispatch(Action::PreviousPuzzle);
+    assert_eq!(render(&app, SCRIBE).unwrap().frame, normal.frame);
     play(&mut app, "d7e8");
     assert!(app.description_visible());
-    assert!(region_has_ink(&render(&app, SCRIBE).unwrap(), content));
+    app.dispatch(Action::ToggleDescription);
+    assert!(
+        region_has_ink(&render(&app, SCRIBE).unwrap(), content),
+        "topic returns after hiding solved note"
+    );
 }
 
 #[test]
@@ -399,7 +422,7 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     topic_json["puzzles"][0]["topic"] =
         serde_json::json!("Геометрический мотив\nКоневые вилки\nУстранение защиты");
     let mut topic = state(&serde_json::to_vec(&topic_json).unwrap());
-    actual.push(("topic-hidden", hash(&topic)));
+    actual.push(("topic-default", hash(&topic)));
     let mut black_topic_json = topic_json.clone();
     black_topic_json["puzzles"][0]["fen"] =
         serde_json::json!("8/3B2pp/p5k1/6P1/1ppp1K2/8/1P6/8 b - - 0 39");
@@ -408,7 +431,12 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         hash(&state(&serde_json::to_vec(&black_topic_json).unwrap())),
     ));
     topic.dispatch(Action::ToggleDescription);
-    actual.push(("topic-three-lines", hash(&topic)));
+    actual.push(("topic-note", hash(&topic)));
+    topic.dispatch(Action::ToggleDescription);
+    play(&mut topic, "d7d8");
+    actual.push(("topic-wrong", hash(&topic)));
+    topic.dispatch(Action::Reset);
+    actual.push(("topic-reset", hash(&topic)));
     topic.dispatch(Action::ToggleMode);
     topic.dispatch(Action::ToggleDescription);
     actual.push(("topic-free-board", hash(&topic)));
@@ -441,12 +469,14 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("collection-picker", 4_877_646_207_269_875_407),
         ("collection-picker-error", 14_934_673_025_716_135_696),
         ("progress-warning", 5_622_647_288_038_611_571),
-        ("topic-hidden", 9_482_317_091_365_691_724),
-        ("black-side-header", 13_560_601_721_915_842_894),
-        ("topic-three-lines", 12_009_366_906_417_777_708),
-        ("topic-free-board", 11_512_634_764_333_795_092),
-        ("topic-only", 967_484_523_730_318_318),
-        ("long-header", 17_090_751_274_210_726_857),
+        ("topic-default", 967_119_887_241_586_639),
+        ("black-side-header", 17_609_858_770_996_997_937),
+        ("topic-note", 7_859_123_114_726_742_969),
+        ("topic-wrong", 16_348_344_383_504_951_842),
+        ("topic-reset", 967_119_887_241_586_639),
+        ("topic-free-board", 7_616_655_476_767_711_953),
+        ("topic-only", 14_454_426_967_363_646_119),
+        ("long-header", 6_498_476_114_421_814_390),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);

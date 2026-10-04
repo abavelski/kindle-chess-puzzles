@@ -7,8 +7,9 @@
 
 Move the starting puzzle side-to-move label from the Solution status panel to the
 center of the header, keeping puzzle identity/difficulty and existing controls.
-Show optional JSON `topic` text above the revealed description, including Cyrillic
-and up to three topic lines. Preserve description toggle/automatic reveal,
+Show optional JSON `topic` text by default in the Solution status panel, including
+Cyrillic and up to three topic lines. NOTE shows only the description, replacing the
+topic until hidden. Use larger text for the topic. Preserve description toggle/automatic reveal,
 grading, analysis references, progress and uploaded collections. Verify embedded
 font coverage; add a licensed deterministic fallback if Cyrillic is absent.
 
@@ -52,3 +53,16 @@ progress hash were unchanged. Dynamic-loader dependency resolution succeeded.
 The app is stopped and ready for library launch. Physical readability/user
 acceptance is pending; deployment does not establish that observation. Details
 are recorded in docs/device/ks1-barolo.md.
+
+## Topic visibility correction — 2026-10-04
+
+The user accepted the header and Cyrillic rendering, but clarified that topics
+belong in the default solving status, replacing the former side-to-move status.
+The original implementation incorrectly tied topic visibility to NOTE.
+
+A regression test failed on absent default topic pixels, then passed after
+separating default topic rendering from NOTE description rendering. Topic text
+uses 40px instead of 30px at Scribe metrics. Tests cover three lines, NOTE-only
+description, hide, reset, navigation, progress stability and solved-note return.
+Reviewed changed snapshots before updating checksums; topic-free snapshots and
+the accepted header remain unchanged.
