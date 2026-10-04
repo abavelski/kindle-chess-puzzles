@@ -1695,3 +1695,33 @@ of implementation `e041215`, binary SHA-256
 No failures or additional individual tap measurements were reported. The previous
 pending-validation note describes deployment-time status; Task 30 is now accepted.
 No new reboot, suspend/resume or crash-recovery observation is inferred.
+
+## Task 31 — Centered solver side and Cyrillic topics deployed (2026-10-04)
+
+- Implementation commit `50ae2bf` on main, as explicitly requested by the user.
+- Side-to-move text is centered in the header; NOTE/solved reveal displays JSON
+  topic above the description. Reviewed host snapshots include white/black,
+  three-line Russian topics, topic-only, Free Board and long puzzle metadata.
+- Embedded Atkinson lacks Cyrillic. Pinned Noto Sans Regular/Bold now provide
+  per-character fallback, with both OFL license notices present in the installed
+  runtime. Existing Latin analysis fixture pixels below the header are unchanged.
+- scripts/check.sh and the complete ARMv7/glibc-2.35 build gate passed. One
+  known lifecycle-readiness test race occurred on the first build attempt;
+  its focused rerun and the full repeated build passed. No lifecycle changes.
+- Staged with scripts/stage-kindle.sh and deployed with
+  scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222.
+- The app exited during host verification. Read-only process checks showed it
+  stopped before installation and afterward, with native Xorg/awesome present.
+  No lifecycle/process signal was needed. The existing installer completed.
+- Installed binary SHA-256 matches the tested release:
+  `7bae259c2c4e5813e737ad85403638d66cc4ea4e4a20f674dee219163c60ec4e`.
+- `/lib/ld-linux-armhf.so.3 --list` resolved all runtime dependencies.
+- Before/after SHA-256 values matched for all five uploaded collections: the
+  four book collection hashes recorded at checkpoint 28A remain unchanged;
+  puzzles-task26-stylus.json remains
+  `3ddf457bbac3472c3f952ed082c46904023e644ddd2c814b9404729bfde27b84`.
+  Progress remains
+  `2d2259febd5b28021f9abed6bdff6676080667cc44a4797ffe3e2693866ecd9e`.
+- Ready for library launch. Physical Cyrillic readability and the new header's
+  on-panel appearance await user review; no physical visual acceptance is inferred
+  from installation, host snapshots or dynamic-loader checks.

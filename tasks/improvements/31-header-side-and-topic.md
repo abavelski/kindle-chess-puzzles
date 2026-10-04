@@ -1,6 +1,6 @@
 # Task 31 — Header side to move and puzzle topics
 
-**Status:** Ready
+**Status:** Implemented
 **Depends on:** completed Tasks 29–30
 **Validation:** host automated tests and reviewed Gray8 snapshots; no physical checkpoint
 **Working branch:** main (explicit user instruction)
@@ -45,4 +45,10 @@ lifecycle readiness race once; its focused rerun and the full subsequent build
 gate passed. scripts/build-kindle.sh produced the validated ARMv7/glibc-2.35
 release with SHA-256:
 `7bae259c2c4e5813e737ad85403638d66cc4ea4e4a20f674dee219163c60ec4e`.
-Deployment and its preservation checks will be recorded before task completion.
+Implementation commit `50ae2bf` is on main, per user instruction. Staged and
+installed using the existing scripts at root@192.168.1.20:2222. The installed
+binary hash matches the release above; all five collection hashes and the
+progress hash were unchanged. Dynamic-loader dependency resolution succeeded.
+The app is stopped and ready for library launch. Physical readability/user
+acceptance is pending; deployment does not establish that observation. Details
+are recorded in docs/device/ks1-barolo.md.
