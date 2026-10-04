@@ -1800,5 +1800,5 @@ header remain unchanged.
 - All five collection hashes match the Task 32 values above. Progress SHA-256
   before/after is unchanged:
   `61f5aef3786faa56ae8d2396c0447dfb5312272d765787ccff20d648456fd9c6`.
-- Ready for library launch. Physical visual acceptance awaits user review;
-  installation and host snapshots do not establish on-panel readability.
+- The user verified the deployed change on the Kindle on 2026-10-04 and
+  requested commit and push. Physical visual acceptance is confirmed.

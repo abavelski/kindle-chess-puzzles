@@ -39,4 +39,5 @@ Xorg/awesome remained present afterward. Installed binary SHA-256 matches:
 The device loader resolves all dependencies. All five collection hashes are
 unchanged; progress before/after remains
 `61f5aef3786faa56ae8d2396c0447dfb5312272d765787ccff20d648456fd9c6`.
-Ready for library launch; physical appearance awaits user review.
+The user verified the deployed change on the Kindle on 2026-10-04 and
+requested commit and push. Physical visual acceptance is confirmed.
