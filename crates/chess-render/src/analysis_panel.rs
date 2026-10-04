@@ -88,7 +88,6 @@ fn hit_move_chips(chips: &[AnalysisMoveChip], x: u32, y: u32, padded: bool) -> M
 #[derive(Clone, Debug)]
 struct FlowDocument {
     lines: Vec<FlowLine>,
-    line_height: u32,
     row_height: u32,
     chip_height: u32,
 }
@@ -123,7 +122,6 @@ enum FlowFragmentKind {
 struct FlowBuilder {
     width: u32,
     scale: u32,
-    line_height: u32,
     row_height: u32,
     chip_height: u32,
     chip_padding_x: u32,
@@ -140,7 +138,6 @@ impl FlowBuilder {
         Self {
             width: width.max(1),
             scale,
-            line_height,
             row_height: chip_height.saturating_add(4),
             chip_height,
             chip_padding_x: scale.saturating_mul(4).max(8),
@@ -155,7 +152,6 @@ impl FlowBuilder {
         self.force_break();
         FlowDocument {
             lines: self.lines,
-            line_height: self.line_height,
             row_height: self.row_height,
             chip_height: self.chip_height,
         }
@@ -336,17 +332,14 @@ pub(crate) fn draw_analysis_panel(
     );
 
     let gap = scale.saturating_mul(2).max(4);
-    let title_height = document.line_height.saturating_add(2).min(content.height);
-    let footer_height = document
-        .row_height
-        .min(content.height.saturating_sub(title_height));
+    let footer_height = document.row_height.min(content.height);
     let footer = Rect::new(
         content.x,
         content.bottom().saturating_sub(footer_height),
         content.width,
         footer_height,
     );
-    let body_y = content.y.saturating_add(title_height).saturating_add(gap);
+    let body_y = content.y;
     let body_bottom = footer.y.saturating_sub(gap);
     let body = Rect::new(
         content.x,
@@ -361,22 +354,6 @@ pub(crate) fn draw_analysis_panel(
         .max(1);
     let page_count = document.lines.len().div_ceil(rows_per_page).max(1);
     let page = state.analysis_page().min(page_count.saturating_sub(1));
-
-    let title = Rect::new(content.x, content.y, content.width, title_height);
-    draw_text_bold_vertically_centered(
-        frame,
-        title.x,
-        title,
-        &format!("ANALYSIS {}/{}", page + 1, page_count),
-        scale,
-        INK,
-    );
-    if title.height > 1 {
-        frame.fill_rect(
-            Rect::new(title.x, title.bottom().saturating_sub(1), title.width, 1),
-            INK,
-        );
-    }
 
     let start = page.saturating_mul(rows_per_page);
     let end = start

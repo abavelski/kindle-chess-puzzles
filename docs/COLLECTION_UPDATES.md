@@ -101,3 +101,27 @@ Review the comparison before accepting the replacement. Do not roll back or repa
 ## Release checklist
 
 Before committing or copying a regenerated collection, verify that the output filename is unchanged for a normal update, expected exercises kept their IDs, any FEN-changed ID was reviewed, there are no duplicates, the byte-size report is acceptable, and the progress file/hash was not touched. Then commit the update so Git records the exact historical version that was shipped.
+
+## Remove redundant imported book headings
+
+The private scanned-book collections originally repeated `number - side - difficulty`
+at the start of both `description` and `description_content`. Those values already
+appear in the app header. Clean local collection copies before their next upload:
+
+```sh
+python3 tools/clean_book_descriptions.py data/puzzles-eink-book-00*.json
+```
+
+This offline cleanup removes only a complete first line matching the numbered
+book ID, FEN side and difficulty. It preserves the remaining prose, reference
+spans, filenames, puzzle order, IDs, FENs, topics, solutions and analysis nodes.
+Each changed file is replaced atomically using the existing update helper;
+repeating the command leaves cleaned files byte-for-byte unchanged. It never
+accesses progress or the Kindle. The app continues to render authored descriptions
+as stored; it does not strip lines or rewrite uploaded collections at runtime.
+
+The four ignored local `data/puzzles-eink-book-001.json` through `004.json` copies
+were cleaned for Task 32 (1,615 puzzles). Original copies were retained locally
+under `target/task32/original-collections/`. After the user authorized deployment,
+the cleaned files were uploaded on 2026-10-04 with matching local/device hashes
+and unchanged progress; see `docs/device/ks1-barolo.md`.

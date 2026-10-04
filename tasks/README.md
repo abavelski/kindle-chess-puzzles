@@ -11,6 +11,8 @@ vertical analysis-tree rows with conventional compact movetext.
 the solver side in the header and displays Cyrillic topics with revealed descriptions.
 The former Task 10 ghosting investigation is archived: the top-left Refresh control is the accepted manual workaround
 when a residual physical-panel ghost becomes visible.
+[Task 32 — remove redundant solution headings](improvements/32-remove-redundant-solution-headings.md)
+cleans imported book description metadata and reclaims the analysis title row.
 
 Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one task file.
 

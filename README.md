@@ -131,6 +131,7 @@ for collections without rich analysis. The solution panel shows compact inline P
 movetext: numbered SAN moves, parenthesized variations, $N annotations, and braced
 comments. Outlined SAN tokens and explicit prose move references are tappable;
 plain prose remains inert. Overflow uses previous/next analysis pages.
+Analysis opens directly on solution text without a separate title/page-count line.
 
 Phase two keeps the app a physical-board puzzle tool rather than a chess engine. Existing
 version-1 collections remain valid. Rich solution data is designed as an additive extension

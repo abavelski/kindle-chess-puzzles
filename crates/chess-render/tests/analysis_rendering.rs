@@ -145,6 +145,64 @@ fn tree_chip_page_hash(app: &mut AppState, node: chess_core::AnalysisNodeIndex) 
 }
 
 #[test]
+fn analysis_starts_with_solution_content_at_the_top_without_a_heading() {
+    let output = render(&open(MAIN_ONLY), SCRIBE).unwrap();
+    let content = output
+        .layout
+        .status
+        .inset((output.layout.status.height / 12).max(8));
+    let panel = output.analysis.unwrap();
+    let first = &panel.move_chips[0];
+    assert_eq!(
+        first.rect.y,
+        content.y + 2,
+        "only row centering precedes the first move"
+    );
+    assert_eq!(panel.page_count, 1);
+    assert!(panel.previous_page.is_none());
+    assert!(panel.next_page.is_none());
+}
+
+#[test]
+fn reclaimed_heading_space_fits_an_extra_row_without_overflow() {
+    let output = render(&open(MAIN_ONLY), SCRIBE).unwrap();
+    let content = output
+        .layout
+        .status
+        .inset((output.layout.status.height / 12).max(8));
+    let row_height = output.analysis.unwrap().move_chips[0].rect.height + 4;
+    let available_rows = (content.height - row_height - 6) / row_height;
+    let mut value: serde_json::Value = serde_json::from_slice(MAIN_ONLY).unwrap();
+    // One reference per row, followed by the tree's own single move row.
+    let spans: Vec<_> = (0..available_rows - 1)
+        .flat_map(|_| {
+            [
+                serde_json::json!({"type":"move_ref","node":"m1"}),
+                serde_json::json!({"type":"text","text":"\n"}),
+            ]
+        })
+        .collect();
+    value["puzzles"][0]["description_content"] = spans.into();
+    value["puzzles"][0]["analysis"]["nodes"][1]["comment"] = "".into();
+    let app = open(&serde_json::to_vec(&value).unwrap());
+    let output = render(&app, SCRIBE).unwrap();
+    let panel = output.analysis.unwrap();
+    assert_eq!(
+        panel.page_count, 1,
+        "the reclaimed row avoids a second page"
+    );
+    assert_eq!(panel.move_chips.len(), available_rows as usize);
+    assert!(panel.next_page.is_none());
+    for chip in &panel.move_chips {
+        assert!(content.contains_rect(chip.rect));
+        assert_eq!(
+            panel.hit_test(chip.rect.x, chip.rect.y),
+            Some(chess_render::HitTarget::AnalysisMove(chip.node))
+        );
+    }
+}
+
+#[test]
 fn rich_analysis_renders_only_explicit_move_chips() {
     let mut app = open(RICH);
     let analysis = app.active_puzzle().analysis.as_ref().expect("analysis");
@@ -366,15 +424,15 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("main-only", 7_219_359_311_728_305_898),
-        ("nested-sideline", 501_085_637_570_574_995),
-        ("black-promotion-rich", 521_001_146_355_321_236),
-        ("selected-move", 12_655_649_911_927_969_721),
-        ("long-comment-first", 15_615_177_195_067_335_785),
-        ("long-comment-middle", 891_957_535_032_024_918),
-        ("long-comment-last", 1_333_194_769_002_580_389),
-        ("book-nested-ravs", 11_035_263_616_838_085_213),
-        ("book-main-only", 9_380_559_284_991_908_916),
+        ("main-only", 15_128_814_032_085_981_804),
+        ("nested-sideline", 6_172_701_669_934_519_793),
+        ("black-promotion-rich", 16_601_570_628_693_458_146),
+        ("selected-move", 12_823_566_201_971_212_979),
+        ("long-comment-first", 4_243_835_936_781_096_954),
+        ("long-comment-middle", 82_013_701_252_302_109),
+        ("long-comment-last", 4_298_667_443_637_921_271),
+        ("book-nested-ravs", 18_066_568_858_961_170_075),
+        ("book-main-only", 6_541_436_676_334_533_298),
         ("no-analysis", 9_482_317_091_365_691_724),
     ];
 

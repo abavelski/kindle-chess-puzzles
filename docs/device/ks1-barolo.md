@@ -1748,3 +1748,35 @@ header remain unchanged.
   `2d2259febd5b28021f9abed6bdff6676080667cc44a4797ffe3e2693866ecd9e`.
 - Ready for library launch. Physical acceptance of the corrected topic behavior
   and larger text awaits user review; installation is not visual acceptance.
+
+## Task 32 — Redundant description and analysis headings removed (2026-10-04)
+
+- User first requested preparation without deployment, then explicitly requested
+  deployment. Full host checks, reviewed Gray8 snapshots and the ARMv7/glibc-2.35
+  build passed before installation. Implementation is on main.
+- Staged with `scripts/stage-kindle.sh` and installed through the existing
+  `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222` installer,
+  using documented root/empty-password authentication. Process/lock inspection
+  confirmed the app stopped before and after the update. Xorg/awesome remained
+  present; no lifecycle signal was needed.
+- Installed binary SHA-256 matches the tested artifact:
+  `995dca18e2d4c7e8d71b5253a7d2b58941834ec8f285178a49dd47f4951f6d12`.
+  `/lib/ld-linux-armhf.so.3 --list` resolves all runtime dependencies.
+- The four local book collections remove the first `number - side - difficulty`
+  line from both plain and structured descriptions (1,615 puzzles). Filenames,
+  IDs/order, FENs, difficulty, topics, solutions, PGN and analysis nodes are
+  unchanged. The renderer removes the separate analysis title/page-count row.
+- Device collection hashes matched the original local backup copies before the
+  update. Uploaded files were checksum-verified before same-filesystem renames,
+  with rollback copies during replacement; temporary files were removed on
+  success. Installed collection hashes match the local cleaned files:
+  - 001: `825f62cd7b7e67aa6230b38066f1492812f072e3fad2b8f8d1219a62ad4152e6`
+  - 002: `68ed5918d02f4572dc12d30991d9f564138f9bf0439be70b7ebfdd96f3c848b8`
+  - 003: `ddacdeee0ebf3b71187294f64c41c7b705a33cd53648882c085f25fb27b6c563`
+  - 004: `38ff9d4e0afd037f643a5ee4af866e988f96b1a404eafde4c4586e1d4b115a07`
+- The Task 26 stylus fixture remains
+  `3ddf457bbac3472c3f952ed082c46904023e644ddd2c814b9404729bfde27b84`.
+  Progress before/after hash is unchanged:
+  `816f4cd5927c30ff9320c14998a1c438d16897bfd19a0b16ffa6bbdcba0c0b60`.
+- Ready for library launch. Physical readability and the updated on-panel page
+  layout await user review; installation/hash checks are not visual acceptance.
