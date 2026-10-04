@@ -31,7 +31,10 @@ pub struct RenderOutput {
 
 impl RenderOutput {
     pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
-        if state.analysis_browser_open() && !state.collection_picker_open() {
+        if state.analysis_browser_open()
+            && !state.collection_picker_open()
+            && !state.puzzle_goto_open()
+        {
             if let Some(target) = self
                 .analysis
                 .as_ref()
