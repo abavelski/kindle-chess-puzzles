@@ -41,10 +41,7 @@ pub struct AnalysisPanelOutput {
 
 impl AnalysisPanelOutput {
     pub fn hit_test(&self, x: u32, y: u32) -> Option<HitTarget> {
-        if self
-            .previous_page
-            .is_some_and(|rect| rect.contains(x, y))
-        {
+        if self.previous_page.is_some_and(|rect| rect.contains(x, y)) {
             return Some(HitTarget::AnalysisPreviousPage);
         }
         if self.close.contains(x, y) {
@@ -574,10 +571,7 @@ fn draw_line(
 fn padded_move_hit_rect(rect: Rect, row: Rect, scale: u32) -> Rect {
     let padding = scale.saturating_mul(2).max(4);
     let x = rect.x.saturating_sub(padding).max(row.x);
-    let right = rect
-        .right()
-        .saturating_add(padding)
-        .min(row.right());
+    let right = rect.right().saturating_add(padding).min(row.right());
     Rect::new(x, row.y, right.saturating_sub(x), row.height)
 }
 
