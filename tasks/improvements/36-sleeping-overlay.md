@@ -32,3 +32,14 @@ asset checks, Python converter/collection tests, C/input/lifecycle/package
 contracts and ARMv7/glibc-2.35 release validation. The device listener timeout
 exit 255 was verified and handled. No power policy or stock lifecycle transition
 was introduced. Physical overlay appearance/removal is pending after deployment.
+
+## Deployment — 2026-10-04
+
+Committed implementation `4ee7d7b` directly to main. Staged and deployed with
+scripts/stage-kindle.sh and scripts/deploy-kindle.sh to root@192.168.1.20:2222.
+Installer succeeded. Installed runtime SHA-256 matches the validated release:
+`9a6781ed6c05a220da84ea38c8ca9986c88c68b1f93e62739e86cb03ced19e94`.
+The device loader resolves all dependencies. All five puzzle collection hashes
+and progress hash match their pre-deploy values. App and supervisor lock are
+absent; Xorg/awesome are present and powerd remains active. App is ready for
+library launch. New overlay visibility and wake removal remain pending user review.

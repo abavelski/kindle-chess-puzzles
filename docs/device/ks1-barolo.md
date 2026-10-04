@@ -1879,3 +1879,11 @@ Installed KOReader maps `goingToScreenSaver` reasons 2/4 and
 or service state was changed. Pre-deploy app PID and supervisor lock were absent.
 Collection hashes were recorded; progress SHA-256 was
 `c6eba5b77016d27d4c61b0e1e17c309b73cb788f78d31ccf27d97d17d3ebc85d`.
+
+Task 36 implementation `4ee7d7b` was committed on main and deployed through the
+existing staged runtime installer. Post-install binary SHA-256 matches
+`9a6781ed6c05a220da84ea38c8ca9986c88c68b1f93e62739e86cb03ced19e94`.
+All five collections and progress match their pre-deploy hashes. The ARM loader
+resolved all dependencies, app/lock remain absent, Xorg/awesome are present and
+powerd reports active. No app launch or synthetic power transition was performed.
+Physical overlay appearance/removal during idle and button sleep/wake is pending.
