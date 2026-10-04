@@ -8,9 +8,7 @@ use crate::{
     },
     Gray8, Layout, Rect,
 };
-use chess_core::{
-    AnalysisNodeIndex, AnalysisRole, AnalysisTextSpan, AnalysisTree, AppState,
-};
+use chess_core::{AnalysisNodeIndex, AnalysisRole, AnalysisTextSpan, AnalysisTree, AppState};
 
 const WHITE: u8 = 255;
 const INK: u8 = 0;
@@ -265,21 +263,26 @@ pub(crate) fn draw_analysis_panel(
     let puzzle = state.active_puzzle();
     let analysis = puzzle.analysis.as_ref()?;
     let selected = state.selected_analysis_node();
-    let document = build_document(puzzle.description_content.as_slice(), analysis, selected, content.width, scale);
+    let document = build_document(
+        puzzle.description_content.as_slice(),
+        analysis,
+        selected,
+        content.width,
+        scale,
+    );
 
     let gap = scale.saturating_mul(2).max(4);
     let title_height = document.line_height.saturating_add(2).min(content.height);
-    let footer_height = document.row_height.min(content.height.saturating_sub(title_height));
+    let footer_height = document
+        .row_height
+        .min(content.height.saturating_sub(title_height));
     let footer = Rect::new(
         content.x,
         content.bottom().saturating_sub(footer_height),
         content.width,
         footer_height,
     );
-    let body_y = content
-        .y
-        .saturating_add(title_height)
-        .saturating_add(gap);
+    let body_y = content.y.saturating_add(title_height).saturating_add(gap);
     let body_bottom = footer.y.saturating_sub(gap);
     let body = Rect::new(
         content.x,
@@ -306,12 +309,7 @@ pub(crate) fn draw_analysis_panel(
     );
     if title.height > 1 {
         frame.fill_rect(
-            Rect::new(
-                title.x,
-                title.bottom().saturating_sub(1),
-                title.width,
-                1,
-            ),
+            Rect::new(title.x, title.bottom().saturating_sub(1), title.width, 1),
             INK,
         );
     }
@@ -500,7 +498,8 @@ fn draw_line(
             } => {
                 let rect = Rect::new(
                     x,
-                    row.y.saturating_add(row.height.saturating_sub(chip_height) / 2),
+                    row.y
+                        .saturating_add(row.height.saturating_sub(chip_height) / 2),
                     fragment.width,
                     chip_height,
                 );

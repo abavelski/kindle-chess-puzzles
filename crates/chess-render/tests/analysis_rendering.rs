@@ -1,6 +1,4 @@
-use chess_core::{
-    parse_puzzle_file, Action, ActiveCollection, AppState, Progress,
-};
+use chess_core::{parse_puzzle_file, Action, ActiveCollection, AppState, Progress};
 use chess_render::{
     render, AnalysisMoveChip, AnalysisMoveChipSource, AnalysisPanelOutput, DisplayMetrics,
 };
@@ -152,11 +150,9 @@ fn rich_analysis_renders_only_explicit_move_chips() {
         2,
         "plain prose containing h1=N must not become an extra chip"
     );
-    assert!(
-        chips
-            .iter()
-            .any(|chip| chip.label == "1...h1=Q+" && chip.node == n1)
-    );
+    assert!(chips
+        .iter()
+        .any(|chip| chip.label == "1...h1=Q+" && chip.node == n1));
 }
 
 #[test]

@@ -65,7 +65,15 @@ pub(crate) fn draw_text_regular_vertically_centered(
         vertical_align: VerticalAlign::Middle,
         ..LayoutSettings::default()
     };
-    draw_with_settings(canvas, text, scale, tone, Face::Regular, settings, Some(rect));
+    draw_with_settings(
+        canvas,
+        text,
+        scale,
+        tone,
+        Face::Regular,
+        settings,
+        Some(rect),
+    );
 }
 
 pub(crate) fn measure_text_regular(text: &str, scale: u32) -> u32 {
