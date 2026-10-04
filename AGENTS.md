@@ -16,6 +16,21 @@ Read, in order:
 
 The task file is the scope boundary. Do not opportunistically implement later tasks.
 
+## Phase-two branch policy
+
+All work for Tasks 20-28 belongs on the dedicated `phase-2` branch.
+
+- Before changing phase-two code or docs, verify the working branch is `phase-2`.
+- Commit phase-two task implementation, tests, task-status updates, fixtures, and supporting docs to `phase-2`.
+- Do **not** commit phase-two implementation directly to `main`.
+- Do **not** merge, fast-forward, rebase, or otherwise move `main` as part of completing a phase-two task.
+- `main` remains the stable phase-one line until the user explicitly asks to merge/release phase two.
+- Work directly on `phase-2` unless the user explicitly requests an additional task/experiment branch.
+- If a task discovers that it needs a change that should also land independently on `main`, record that dependency instead of silently updating `main`.
+
+For local agents, `git branch --show-current` should print `phase-2` before implementation begins.
+For remote/connector-based agents, every write must explicitly target the `phase-2` ref.
+
 ## Development rule: red -> green -> refactor
 
 Every behavioral change starts with a failing automated test.

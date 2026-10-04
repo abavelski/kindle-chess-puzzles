@@ -1,5 +1,17 @@
 # Phase 2 — Rich solution browsing
 
+## Development branch
+
+Phase-two development is isolated on the dedicated **`phase-2`** branch.
+
+- Tasks 20-28, their tests, status updates, fixtures, and phase-two documentation are committed to `phase-2`.
+- `main` is intentionally left as the stable phase-one line while this work is in progress.
+- Agents must verify/target `phase-2` before making any phase-two change.
+- Do not merge or otherwise advance `main` from phase-two work unless the user explicitly requests it.
+- When Phase 2 is ready to close, Task 28 records final validation first; merge/release is a separate explicit decision.
+
+This branch was created from the current planned Phase 2 baseline, so implementation can proceed task-by-task without using `main` as the working branch.
+
 ## Goal
 
 Support book-style solutions containing main lines, side lines, alternative lines, annotations,

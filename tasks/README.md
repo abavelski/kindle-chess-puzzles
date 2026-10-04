@@ -7,6 +7,14 @@ when a residual physical-panel ghost becomes visible.
 
 Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one task file.
 
+## Working branch
+
+**All Phase 2 tasks are implemented on `phase-2`, not `main`.**
+
+Before starting any Task 20-28, verify or explicitly target the `phase-2` branch. Task commits,
+tests, status changes, and related documentation stay on that branch. Do not merge or update
+`main` unless the user explicitly asks for the Phase 2 integration/release.
+
 ## Phase 2
 
 | Task | Outcome | Status | Physical Scribe to complete? | Human interaction to complete? | Suggested fit |
