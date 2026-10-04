@@ -571,7 +571,6 @@ fn exit_requests_platform_shutdown_without_mutating_board_progress_or_modal_stat
     assert_eq!(app, before);
 }
 
-
 #[test]
 fn analysis_browser_is_disabled_for_legacy_puzzles() {
     let mut app = state("puzzles.json", PUZZLES);
@@ -581,7 +580,9 @@ fn analysis_browser_is_disabled_for_legacy_puzzles() {
 
     assert!(!app.analysis_available());
     assert!(app.dispatch(Action::OpenAnalysis).is_empty());
-    assert!(app.dispatch(Action::SelectAnalysisNode(foreign_node)).is_empty());
+    assert!(app
+        .dispatch(Action::SelectAnalysisNode(foreign_node))
+        .is_empty());
     assert!(app.dispatch(Action::AnalysisNextPage).is_empty());
     assert!(app.dispatch(Action::AnalysisPreviousPage).is_empty());
     assert!(app.dispatch(Action::CloseAnalysis).is_empty());
@@ -623,7 +624,9 @@ fn analysis_selection_previews_main_and_sideline_without_mutating_live_board() {
     assert!(app.dispatch(Action::AnalysisNextPage).is_empty());
     assert_eq!(app.analysis_page(), 2);
 
-    assert!(app.dispatch(Action::SelectAnalysisNode(sideline)).is_empty());
+    assert!(app
+        .dispatch(Action::SelectAnalysisNode(sideline))
+        .is_empty());
     assert_eq!(app.selected_analysis_node(), Some(sideline));
     assert_eq!(app.analysis_page(), 2, "selection keeps the current page");
     assert_eq!(
@@ -728,10 +731,9 @@ fn reset_navigation_collection_switch_and_mode_change_clear_analysis_preview() {
     app.dispatch(Action::OpenAnalysis);
     app.dispatch(Action::SelectAnalysisNode(second_main));
     let legacy = parse_puzzle_file(PUZZLES).expect("legacy collection");
-    app.dispatch(Action::ActivateCollection(ActiveCollection::from_collection(
-        "puzzles.json",
-        legacy,
-    )));
+    app.dispatch(Action::ActivateCollection(
+        ActiveCollection::from_collection("puzzles.json", legacy),
+    ));
     assert_eq!(app.active_collection().key(), "puzzles.json");
     assert!(!app.analysis_browser_open());
 }
