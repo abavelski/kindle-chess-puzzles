@@ -4,7 +4,9 @@
 
 mod display;
 mod input;
+mod power;
 mod refresh;
+pub use power::{PowerEvent, PowerEvents};
 mod storage;
 
 pub use display::{
@@ -15,10 +17,10 @@ pub use display::{
 pub use input::{
     input_device_path, is_finger_touchscreen_candidate, is_scribe_pen_candidate,
     scan_input_candidates, scribe_pen_transform, select_finger_touchscreen,
-    task04_scribe_transform, AxisRange, DeviceCapabilities, FingerInput, InputCandidate,
-    InputError, MtDecoder, PenTapDecoder, RawInputEvent, Rotation, ScribeInput, TapPolicy,
-    TapRecognizer, TouchEvent, TouchPhase, TouchTransform, TransformError, SCRIBE_TOUCH_X,
-    SCRIBE_TOUCH_Y,
+    task04_scribe_transform, AxisRange, DeviceCapabilities, DeviceEvent, FingerInput,
+    InputCandidate, InputError, MtDecoder, PenTapDecoder, RawInputEvent, Rotation, ScribeInput,
+    TapPolicy, TapRecognizer, TouchEvent, TouchPhase, TouchTransform, TransformError,
+    SCRIBE_TOUCH_X, SCRIBE_TOUCH_Y,
 };
 pub use storage::{
     DiscoveredCollection, KindleStorage, ProgressLoad, ProgressStore, StorageError, StoragePaths,

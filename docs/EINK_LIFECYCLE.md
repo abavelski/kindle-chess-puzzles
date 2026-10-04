@@ -225,3 +225,26 @@ The final library regression passed on 2026-10-03 by user confirmation:
 board stayed visible beyond startup, taps/promotion and X exit worked, and
 native Kindle UI recovered normally. Device logs record orderly Xorg/awesome
 resume and exit 0. Post-reboot and natural suspend/resume remain unverified.
+
+## Sleeping indicator — Task 36, 2026-10-04
+
+The user confirmed that the existing app sleeps when idle or when the power
+button is pressed, and wakes successfully. This supersedes the earlier deferred
+sleep/wake observation; post-reboot library launch remains unverified.
+
+The runtime now passively listens to `com.lab126.powerd` with
+`lipc-wait-event -m -s 60 com.lab126.powerd goingToScreenSaver,outOfScreenSaver`.
+These event names/reasons are also used by the installed KOReader Kindle
+adapter. A read-only Scribe probe confirmed the listener command and that a
+normal no-event timeout exits **255**; the runtime reaps/restarts that timeout.
+The listener is killed/reaped on normal app return, and its finite 60-second
+lifetime bounds an orphan after abrupt app death. No power property, stock
+service, framebuffer mode or rotation is changed. Existing supervisor cleanup
+and manual recovery remain applicable.
+
+Power notifications share the input poll with finger and stylus streams.
+Screensaver entry draws a centered white rectangle, black border and bold
+“Sleeping...” over the current board; screensaver exit removes it using pixel
+damage. Touches while sleeping are discarded. Board, solution/analysis state
+and progress remain untouched. The new overlay's physical visibility and
+removal on idle/button sleep/wake remain pending user review after deployment.

@@ -718,3 +718,26 @@ fn draw_thick_line(
         }
     }
 }
+
+/// Draw a transient sleep notice over the existing board without changing app state.
+pub fn draw_sleeping_overlay(frame: &mut Gray8, layout: Layout, metrics: DisplayMetrics) -> Rect {
+    let board = layout.board;
+    let width = board.width * 2 / 3;
+    let height = board.height / 7;
+    let rect = Rect::new(
+        board.x + (board.width - width) / 2,
+        board.y + (board.height - height) / 2,
+        width,
+        height,
+    );
+    frame.fill_rect(rect, WHITE);
+    frame.stroke_rect(rect, (metrics.dpi / 100).max(2), INK);
+    draw_text_centered(
+        frame,
+        rect.inset(12),
+        "Sleeping...",
+        (metrics.dpi / 60).clamp(2, 8),
+        INK,
+    );
+    rect
+}

@@ -80,3 +80,40 @@ extern "C" {
         second: std::os::raw::c_int,
     ) -> std::os::raw::c_int;
 }
+
+/// Multiplex owned finger, pen and passive power-event descriptors.
+pub fn wait_input_power(
+    first: &File,
+    second: &File,
+    power: &impl std::os::fd::AsRawFd,
+) -> Result<usize, io::Error> {
+    #[cfg(all(target_os = "linux", target_arch = "arm"))]
+    {
+        use std::os::fd::AsRawFd;
+        let code = unsafe {
+            kcp_input_wait_power(first.as_raw_fd(), second.as_raw_fd(), power.as_raw_fd())
+        };
+        if code < 0 {
+            Err(io::Error::from_raw_os_error(-code))
+        } else {
+            Ok(code as usize)
+        }
+    }
+    #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
+    {
+        let _ = (first, second, power);
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "evdev polling requires the Kindle target",
+        ))
+    }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "arm"))]
+extern "C" {
+    fn kcp_input_wait_power(
+        first: std::os::raw::c_int,
+        second: std::os::raw::c_int,
+        power: std::os::raw::c_int,
+    ) -> std::os::raw::c_int;
+}

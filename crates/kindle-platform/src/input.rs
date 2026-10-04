@@ -677,6 +677,12 @@ impl PenTapDecoder {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeviceEvent {
+    Tap(u32, u32),
+    Power(crate::PowerEvent),
+}
+
 /// Multiplex finger and one pen stream without background readers or leaked handles.
 pub struct ScribeInput {
     finger: FingerInput,
@@ -730,9 +736,18 @@ impl ScribeInput {
         &self.selected_pen
     }
 
-    pub fn next_tap(&mut self) -> Result<(u32, u32), InputError> {
+    pub fn next_event(
+        &mut self,
+        power: &mut crate::PowerEvents,
+    ) -> Result<DeviceEvent, InputError> {
         loop {
-            let ready = fbink_sys::wait_input(&self.finger.file, &self.pen)?;
+            let ready = fbink_sys::wait_input_power(&self.finger.file, &self.pen, power.stdout())?;
+            if ready == 2 {
+                if let Some(event) = power.read_ready()? {
+                    return Ok(DeviceEvent::Power(event));
+                }
+                continue;
+            }
             let mut bytes = [0_u8; 16];
             let tap = if ready == 0 {
                 self.finger.file.read_exact(&mut bytes)?;
@@ -747,7 +762,7 @@ impl ScribeInput {
                     .push(RawInputEvent::from_32bit_bytes(bytes))
             };
             if let Some(tap) = tap {
-                return Ok(tap);
+                return Ok(DeviceEvent::Tap(tap.0, tap.1));
             }
         }
     }

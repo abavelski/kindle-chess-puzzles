@@ -5,7 +5,7 @@
 
 use std::fmt;
 mod input;
-pub use input::{wait_input, ExclusiveInput};
+pub use input::{wait_input, wait_input_power, ExclusiveInput};
 
 pub const PINNED_FBINK_REVISION: &str = env!("KCP_FBINK_REVISION");
 

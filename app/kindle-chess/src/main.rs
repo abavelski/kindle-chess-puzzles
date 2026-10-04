@@ -6,10 +6,13 @@
 use chess_core::{
     parse_puzzle_file, Action, ActiveCollection, AppState, Effect, Progress, PuzzleCollection,
 };
-use chess_render::{calculate_damage, compact_damage, render, DisplayMetrics, HitTarget};
+use chess_render::{
+    calculate_damage, compact_damage, draw_sleeping_overlay, render, DisplayMetrics, HitTarget,
+};
 use kindle_platform::{
-    clean_regions_for_board_change, DiscoveredCollection, KindleDisplay, KindleStorage,
-    ProgressStore, RefreshPolicy, ScribeInput, StoragePaths, TapPolicy, SCRIBE_DPI,
+    clean_regions_for_board_change, DeviceEvent, DiscoveredCollection, KindleDisplay,
+    KindleStorage, PowerEvent, PowerEvents, ProgressStore, RefreshPolicy, ScribeInput,
+    StoragePaths, TapPolicy, SCRIBE_DPI,
 };
 use std::collections::VecDeque;
 use std::time::Instant;
@@ -124,6 +127,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
     eprintln!("kindle-chess: tap FILES in the header to switch collections");
 
+    let mut power = PowerEvents::open()?;
+    let mut sleeping = false;
     let mut previous = None;
     let mut policy = RefreshPolicy::default();
     let mut touch_received: Option<Instant> = None;
@@ -131,6 +136,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut force_full_next = false;
     loop {
         let mut output = render(&app, metrics)?;
+        if sleeping {
+            draw_sleeping_overlay(&mut output.frame, output.layout, metrics);
+        }
         output.damage = compact_damage(
             &calculate_damage(previous.as_ref(), &output.frame),
             output.layout,
@@ -159,11 +167,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             });
             eprintln!("kindle-chess: timing regions={} full={} submit={}ms complete={}ms recognized_touch_to_submit={:?}", timing.regions, timing.full, timing.submit.as_millis(), timing.complete.as_millis(), touch_to_submit);
         }
-        let (x, y) = input.next_tap()?;
+        previous = Some(output.frame.clone());
+        clean_regions.clear();
+        let event = input.next_event(&mut power)?;
+        if matches!(event, DeviceEvent::Power(_)) {
+            touch_received = None;
+        }
+        let Some((x, y)) = awake_tap(event, &mut sleeping) else {
+            continue;
+        };
         touch_received = Some(Instant::now());
         let target = output.hit_test_app(x, y, &app);
-        previous = Some(output.frame);
-        clean_regions.clear();
 
         if let Some(target) = target {
             eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
@@ -200,6 +214,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("kindle-chess: tap ({x},{y}) -> no target");
             retry_dirty_progress(&mut app, &mut progress_store, persistence_enabled);
         }
+    }
+}
+
+fn awake_tap(event: DeviceEvent, sleeping: &mut bool) -> Option<(u32, u32)> {
+    match event {
+        DeviceEvent::Power(event) => {
+            *sleeping = event == PowerEvent::Sleeping;
+            eprintln!("kindle-chess: power {event:?}");
+            None
+        }
+        DeviceEvent::Tap(_, _) if *sleeping => None,
+        DeviceEvent::Tap(x, y) => Some((x, y)),
     }
 }
 
@@ -331,6 +357,30 @@ fn append_message(message: &mut Option<String>, addition: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sleep_wake_events_gate_taps_without_changing_puzzle_state() {
+        let mut sleeping = false;
+        assert_eq!(
+            awake_tap(DeviceEvent::Tap(1, 2), &mut sleeping),
+            Some((1, 2))
+        );
+        assert_eq!(
+            awake_tap(DeviceEvent::Power(PowerEvent::Sleeping), &mut sleeping),
+            None
+        );
+        assert!(sleeping);
+        assert_eq!(awake_tap(DeviceEvent::Tap(1, 2), &mut sleeping), None);
+        assert_eq!(
+            awake_tap(DeviceEvent::Power(PowerEvent::Awake), &mut sleeping),
+            None
+        );
+        assert!(!sleeping);
+        assert_eq!(
+            awake_tap(DeviceEvent::Tap(1, 2), &mut sleeping),
+            Some((1, 2))
+        );
+    }
 
     #[test]
     fn exit_flushes_dirty_progress_and_requests_normal_return() {

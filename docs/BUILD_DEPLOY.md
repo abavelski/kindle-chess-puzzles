@@ -4,7 +4,8 @@ Task 08's automation targets the measured first-generation Scribe (Barolo,
 firmware 5.19.6, ARMv7 hard-float, glibc 2.35). Checkpoint F's clean build,
 deploy/update, library launch/exit, and uninstall/reinstall observations passed.
 Library launch after a full reboot was explicitly deferred at phase-one close and remains
-unverified. Task 07's natural suspend/resume check is also deferred. A cross-build or
+unverified. Existing idle/button sleep and wake were confirmed by the user on
+2026-10-04; the new sleep indicator awaits physical visual review. A cross-build or
 package contract test does not establish reboot or suspend reliability.
 
 ## Fresh checkout

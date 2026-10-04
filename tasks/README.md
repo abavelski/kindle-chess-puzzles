@@ -74,3 +74,6 @@ Keep phase-one behavior green; start host-testable behavior with a failing test;
 logic off the Kindle; preserve legacy `solution` grading; make every interactive move visually
 obvious and never infer links from plain SAN-looking prose; keep analysis preview out of durable
 progress; add physical checkpoints only where device behavior cannot be proven on the host.
+
+[Task 36 — sleeping board overlay](improvements/36-sleeping-overlay.md)
+adds a visible sleeping notice and removes it on wake.

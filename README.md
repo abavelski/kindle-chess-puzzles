@@ -77,9 +77,8 @@ normal/crash exit recovery, and library launch/exit. See
 [the parity matrix](docs/PARITY.md), [measured results](docs/RESULTS.md), and
 [the device record](docs/device/ks1-barolo.md).
 
-Two lifecycle observations remain explicitly unverified rather than being inferred from
-other checks: natural idle suspend/resume, and library launch after a full device reboot.
-They are documented phase-one limitations. **Phase two is closed**, with rich book
+The user confirmed natural idle and power-button sleep/wake with the app open on
+2026-10-04. Library launch after a full device reboot remains unverified. **Phase two is closed**, with rich book
 solutions, main lines, side lines, alternative lines, comments, explicit move references,
 and finger/stylus tap-to-preview positions. The results are in
 [docs/PHASE_2.md](docs/PHASE_2.md) and the completed tasks are archived under

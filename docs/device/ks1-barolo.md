@@ -1864,3 +1864,18 @@ header remain unchanged.
   remains `77fff6499aae93b3baccccf59d75989d4cf9f2b70074b50daf71e9c034f538ef`.
 - Ready for library launch. Physical visual acceptance awaits user review;
   installation and host snapshots do not establish on-panel readability.
+
+### Task 36 — existing sleep/wake confirmation and indicator — 2026-10-04
+
+User confirmed existing idle sleep, power-button sleep with the app open, and
+wake all work. No exact timing or wake repaint behavior was inferred beyond
+that report. The new sleeping overlay is a separate physical visual checkpoint,
+pending after deployment.
+
+Read-only SSH reconnected at root@192.168.1.20:2222. powerd state was `active`.
+Installed KOReader maps `goingToScreenSaver` reasons 2/4 and
+`outOfScreenSaver` reasons 1/6. `lipc-wait-event -m -s 1 com.lab126.powerd
+ goingToScreenSaver,outOfScreenSaver` timed out with exit 255. No power policy
+or service state was changed. Pre-deploy app PID and supervisor lock were absent.
+Collection hashes were recorded; progress SHA-256 was
+`c6eba5b77016d27d4c61b0e1e17c309b73cb788f78d31ccf27d97d17d3ebc85d`.
