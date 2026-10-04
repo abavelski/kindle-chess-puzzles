@@ -66,3 +66,11 @@ uses 40px instead of 30px at Scribe metrics. Tests cover three lines, NOTE-only
 description, hide, reset, navigation, progress stability and solved-note return.
 Reviewed changed snapshots before updating checksums; topic-free snapshots and
 the accepted header remain unchanged.
+
+The full scripts/build-kindle.sh gate passed (including scripts/check.sh), without
+reruns for this correction. Committed `6d9b269` on main, staged and deployed through
+the existing installer. Installed release SHA-256:
+`71d1e225b557776d8b15c1246bbf13eab768bebe1f51d774db2d41de2bd308f5`.
+Before/after hashes match for all five collections and progress. The app is
+stopped and ready for library launch; physical acceptance of this correction is
+pending. The previously accepted header is unchanged.

@@ -1725,3 +1725,26 @@ No new reboot, suspend/resume or crash-recovery observation is inferred.
 - Ready for library launch. Physical Cyrillic readability and the new header's
   on-panel appearance await user review; no physical visual acceptance is inferred
   from installation, host snapshots or dynamic-loader checks.
+
+### Task 31 topic visibility correction deployed — 2026-10-04
+
+The user accepted the header but reported the topic only appeared with NOTE.
+Clarified behavior: show the topic by default while solving, replacing the old
+side-to-move status; NOTE shows the description alone. The corrected renderer
+uses 40px topic text instead of 30px on the Scribe. Cyrillic rendering and the
+header remain unchanged.
+
+- Implementation `6d9b269` on main; full host checks and ARMv7/glibc-2.35 build
+  passed without a retry. Regression test failed first on absent default topic;
+  reviewed snapshots show all three enlarged topic lines and NOTE-only prose.
+- Used scripts/stage-kindle.sh and the documented deployment script at
+  root@192.168.1.20:2222. Before updating, checked recorded supervisor identity
+  and the documented cleanup path; process inspection confirmed the app stopped
+  with Xorg/awesome present before installation and afterward.
+- Installed binary matches the validated release SHA-256:
+  `71d1e225b557776d8b15c1246bbf13eab768bebe1f51d774db2d41de2bd308f5`.
+- All five uploaded collection hashes remain unchanged. Progress SHA-256 before
+  and after installation remains
+  `2d2259febd5b28021f9abed6bdff6676080667cc44a4797ffe3e2693866ecd9e`.
+- Ready for library launch. Physical acceptance of the corrected topic behavior
+  and larger text awaits user review; installation is not visual acceptance.
