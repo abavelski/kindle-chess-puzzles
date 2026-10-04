@@ -125,3 +125,31 @@ were cleaned for Task 32 (1,615 puzzles). Original copies were retained locally
 under `target/task32/original-collections/`. After the user authorized deployment,
 the cleaned files were uploaded on 2026-10-04 with matching local/device hashes
 and unchanged progress; see `docs/device/ks1-barolo.md`.
+
+## Remove redundant imported analysis descriptions
+
+After the heading cleanup, the scanned-book descriptions still repeat a complete
+main-line summary and an attribution before the full analysis tree. Clean the
+local JSON files before uploading:
+
+```sh
+python3 tools/clean_book_analysis.py data/puzzles-eink-book-00*.json
+```
+
+The tool verifies that structured move references match the complete main path,
+with only whitespace and an optional matching `Reference:` line. It removes that
+summary and removes attribution already present in rendered analysis comments,
+ignoring case/spacing/punctuation (punctuation-only references require literal
+matches). Unique prose, partial/non-main references and unique attribution stay.
+The plain description is cleared only when it exactly matches the stored PGN
+movetext plus reference; fallback puzzles without PGN retain their original plain
+notes for NOTE. An explicit empty `description_content` leaves analysis focused
+on the tree without falling back to those plain notes.
+
+IDs/order, FENs, topics, difficulty, solutions, original PGN/reference metadata and
+analysis nodes/comments remain intact. Changed files are replaced atomically;
+a repeat run makes no writes. The tool never accesses progress or the device,
+and the renderer continues to display the stored collection data. Keep backups
+of private collections under ignored `target/` and compare upload checksums before
+same-filesystem renames on the Kindle. Private `data/` collections remain ignored;
+commit the cleanup tool, synthetic tests and deployment records.

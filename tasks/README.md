@@ -19,6 +19,9 @@ Read `AGENTS.md`, `docs/PHASE_2.md`, `docs/PUZZLE_FORMAT.md`, then exactly one t
 [Task 33 — borderless analysis moves](improvements/33-borderless-analysis-moves.md)
 keeps unselected tappable moves bold and selected moves inverted.
 
+[Task 34 — clean redundant book analysis descriptions](improvements/34-deduplicate-analysis-preface.md)
+cleans imported JSON summaries and attribution already present in PGN.
+
 ## Working branch
 
 **All Phase 2 tasks are implemented on `phase-2`, not `main`.**
