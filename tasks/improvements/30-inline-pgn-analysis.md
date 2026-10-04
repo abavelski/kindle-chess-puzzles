@@ -64,10 +64,20 @@ requirements. Release binary SHA-256:
 
 No schema, converter, application-state, grading, progress, device input or toolbar
 API changes. Core adds only the validated `FenPosition::fullmove_number()` accessor.
-No uploaded collections were modified. No deployment or physical Scribe check was
-performed; final physical e-ink readability/tap review remains a later human check.
+No uploaded collections were modified. At host implementation completion, no
+deployment or physical Scribe check had been performed. Subsequent deployment
+and human acceptance are recorded below.
 
 Deployed `e041215` to the Scribe on the user's subsequent request. Installed
 binary hash matches the release above, and all five collection hashes and progress
-hash are unchanged. The app is stopped and ready for library launch. Physical
-validation remains pending the user; see `docs/device/ks1-barolo.md`.
+hash are unchanged. The app was left stopped and ready for library launch; see `docs/device/ks1-barolo.md`.
+
+## Human acceptance and integration — 2026-10-04
+
+After testing the deployed `e041215` build on the Scribe, the user confirmed
+“all works” and explicitly requested merge to main and push. This records overall
+physical-device acceptance of the new inline PGN UI; no additional per-tap
+measurements or individual observations were supplied. The tested binary hash
+is recorded above. Host and cross-build gates remain the previously passed
+results; acceptance adds documentation only. Integrate `phase-2` into `main`
+and push both refs as authorized.

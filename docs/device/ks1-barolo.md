@@ -1685,3 +1685,13 @@ is inferred from the user's overall acceptance.
   return and exit are pending the user's validation. Deployment/hash checks do
   not establish those physical observations. Open the book icon in the toolbar
   to browse the new notation; use the same icon to return to the live board.
+
+### Task 30 human acceptance — PASS (2026-10-04)
+
+The user confirmed “all works” after testing the deployed inline PGN build and
+requested merge to main and push. This records overall physical Scribe acceptance
+of implementation `e041215`, binary SHA-256
+`f1cc7aef1ccd588f6365722aec2040360119af1fee2aded2efb05fb107fdf419`.
+No failures or additional individual tap measurements were reported. The previous
+pending-validation note describes deployment-time status; Task 30 is now accepted.
+No new reboot, suspend/resume or crash-recovery observation is inferred.
