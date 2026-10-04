@@ -469,15 +469,25 @@ fn build_document(
                     );
                 }
                 let movement = node.movement.as_ref().expect("non-root move");
+                let mut label = movement.san.clone();
+                for symbol in node
+                    .nags
+                    .iter()
+                    .filter_map(|nag| move_annotation(nag.value()))
+                {
+                    label.push_str(symbol);
+                }
                 builder.push_chip(
                     0,
                     index,
-                    &movement.san,
+                    &label,
                     AnalysisMoveChipSource::TreeMove,
                     selected == Some(index),
                 );
                 for nag in &node.nags {
-                    builder.push_text(0, &format!(" ${}", nag.value()), false);
+                    if move_annotation(nag.value()).is_none() {
+                        builder.push_text(0, &format!(" ${}", nag.value()), false);
+                    }
                 }
                 if !node.content.is_empty() {
                     builder.push_text(0, " {", false);
@@ -499,6 +509,18 @@ fn build_document(
     }
 
     builder.finish()
+}
+
+fn move_annotation(code: u64) -> Option<&'static str> {
+    match code {
+        1 => Some("!"),
+        2 => Some("?"),
+        3 => Some("!!"),
+        4 => Some("??"),
+        5 => Some("!?"),
+        6 => Some("?!"),
+        _ => None,
+    }
 }
 
 fn push_spans(
@@ -634,6 +656,53 @@ mod tests {
             .join(" ")
     }
 
+    fn tree_with_nags(nags: &[u64]) -> AnalysisTree {
+        let mut value: serde_json::Value = serde_json::from_slice(BOOK).unwrap();
+        value["puzzles"][0]["analysis"]["nodes"][1]["nags"] = serde_json::json!(nags);
+        parse_puzzle_file(&serde_json::to_vec(&value).unwrap())
+            .unwrap()
+            .puzzles[0]
+            .analysis
+            .as_ref()
+            .unwrap()
+            .clone()
+    }
+
+    #[test]
+    fn move_quality_annotations_are_attached_to_san_and_wrap_with_the_move() {
+        for (code, symbol) in [
+            (1, "!"),
+            (2, "?"),
+            (3, "!!"),
+            (4, "??"),
+            (5, "!?"),
+            (6, "?!"),
+        ] {
+            let tree = tree_with_nags(&[code]);
+            for width in [1800, 180] {
+                let document = build_document(&[], &tree, None, width, 3);
+                let labels: Vec<_> = document
+                    .lines
+                    .iter()
+                    .flat_map(|line| &line.fragments)
+                    .filter_map(|fragment| match &fragment.kind {
+                        FlowFragmentKind::Chip { label, .. } => Some(label.as_str()),
+                        _ => None,
+                    })
+                    .collect();
+                assert_eq!(labels[0], format!("e4{symbol}"));
+                assert!(!notation(&document).contains(&format!("${code}")));
+            }
+        }
+    }
+
+    #[test]
+    fn multiple_move_annotations_and_unknown_codes_preserve_their_information() {
+        let tree = tree_with_nags(&[3, 5, 99]);
+        let document = build_document(&[], &tree, None, 1800, 3);
+        assert!(notation(&document).starts_with("1. e4!!!? $99 { Central move."));
+    }
+
     #[test]
     fn book_movetext_serializes_ordered_nested_ravs_comments_nags_and_refs() {
         let book = parse_puzzle_file(BOOK).unwrap();
@@ -644,7 +713,7 @@ mod tests {
             notation(&document),
             concat!(
                 "Compare the main knight with c5 and plain Nd5/e2e4. ",
-                "1. e4 $1 { Central move. Compare 1...e5 with e2e4 in plain text. } ",
+                "1. e4! { Central move. Compare 1...e5 with e2e4 in plain text. } ",
                 "1... e5 ( 1... c5 { Sicilian alternative. } 2. Nf3 Nc6 ",
                 "( 2... d6 { Nested sideline. } ) ) 2. Nf3 Nc6"
             )

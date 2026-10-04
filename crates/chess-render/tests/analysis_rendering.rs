@@ -91,6 +91,55 @@ fn long_comment() -> AppState {
     open(&serde_json::to_vec(&value).unwrap())
 }
 
+fn annotated(code: u64) -> AppState {
+    let mut value: serde_json::Value = serde_json::from_slice(MAIN_ONLY).unwrap();
+    value["puzzles"][0]["analysis"]["nodes"][1]["nags"] = serde_json::json!([code]);
+    value["puzzles"][0]["analysis"]["nodes"][1]["comment"] =
+        "Literal $1 in prose stays unchanged.".into();
+    open(&serde_json::to_vec(&value).unwrap())
+}
+
+#[test]
+fn annotated_san_is_tappable_and_inverted_without_mutating_solve_or_progress() {
+    for (code, symbol) in [
+        (1, "!"),
+        (2, "?"),
+        (3, "!!"),
+        (4, "??"),
+        (5, "!?"),
+        (6, "?!"),
+    ] {
+        let mut app = annotated(code);
+        let live = app.live_board().clone();
+        let cursor = app.solution_ply();
+        let progress = app.progress().to_bytes().unwrap();
+        let output = render(&app, SCRIBE).unwrap();
+        let chip = &output.analysis.as_ref().unwrap().move_chips[0];
+        assert_eq!(chip.label, format!("Qg7#{symbol}"));
+        let point = (chip.rect.right() - 5, chip.rect.y + 4);
+        let action = output
+            .hit_test_app(point.0, point.1, &app)
+            .unwrap()
+            .into_action()
+            .unwrap();
+        assert_eq!(action, Action::SelectAnalysisNode(chip.node));
+        app.dispatch(action);
+        let selected = render(&app, SCRIBE).unwrap();
+        let selected_chip = &selected.analysis.as_ref().unwrap().move_chips[0];
+        assert_eq!(selected_chip.rect, chip.rect);
+        assert!(selected_chip.selected);
+        assert_eq!(output.frame.pixel(point.0, point.1), Some(255));
+        assert_eq!(selected.frame.pixel(point.0, point.1), Some(0));
+        assert_eq!(app.live_board(), &live);
+        assert_eq!(app.solution_ply(), cursor);
+        assert_eq!(app.progress().to_bytes().unwrap(), progress);
+        assert_eq!(
+            app.active_puzzle().analysis.as_ref().unwrap().nodes()[1].nags[0].value(),
+            code
+        );
+    }
+}
+
 fn rendered(app: &AppState) -> (u64, AnalysisPanelOutput) {
     let output = render(app, SCRIBE).expect("render succeeds");
     if let Ok(directory) = std::env::var("ANALYSIS_SNAPSHOT_DIR") {
@@ -398,6 +447,28 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     let main = open(MAIN_ONLY);
     actual.push(("main-only", rendered(&main).0));
 
+    for (code, name) in [
+        (1, "annotation-1"),
+        (2, "annotation-2"),
+        (3, "annotation-3"),
+        (4, "annotation-4"),
+        (5, "annotation-5"),
+        (6, "annotation-6"),
+        (99, "annotation-unknown"),
+    ] {
+        actual.push((name, rendered(&annotated(code)).0));
+    }
+    let mut selected_annotation = annotated(3);
+    let node = selected_annotation
+        .active_puzzle()
+        .analysis
+        .as_ref()
+        .unwrap()
+        .node_index("m1")
+        .unwrap();
+    selected_annotation.dispatch(Action::SelectAnalysisNode(node));
+    actual.push(("selected-annotation", rendered(&selected_annotation).0));
+
     let nested = open(NESTED);
     actual.push(("nested-sideline", rendered(&nested).0));
 
@@ -454,13 +525,21 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
 
     const EXPECTED: &[(&str, u64)] = &[
         ("main-only", 6_200_642_319_908_229_732),
+        ("annotation-1", 12_340_347_874_825_737_789),
+        ("annotation-2", 16_760_131_792_241_931_241),
+        ("annotation-3", 5_570_885_601_262_786_182),
+        ("annotation-4", 17_641_368_200_133_337_282),
+        ("annotation-5", 2_187_789_175_943_450_078),
+        ("annotation-6", 17_442_822_758_831_007_618),
+        ("annotation-unknown", 8_773_453_594_363_425_337),
+        ("selected-annotation", 449_966_772_757_995_648),
         ("nested-sideline", 6_869_885_034_225_328_829),
-        ("black-promotion-rich", 9_365_800_311_412_063_746),
-        ("selected-move", 7_151_119_309_953_166_983),
+        ("black-promotion-rich", 3_030_992_997_715_314_301),
+        ("selected-move", 17_064_075_469_879_176_120),
         ("long-comment-first", 9_064_128_044_607_163_602),
         ("long-comment-middle", 82_013_701_252_302_109),
         ("long-comment-last", 4_298_667_443_637_921_271),
-        ("book-nested-ravs", 11_008_779_950_029_694_243),
+        ("book-nested-ravs", 71_842_749_590_942_764),
         ("book-main-only", 7_702_032_852_103_615_242),
         ("no-analysis", 9_482_317_091_365_691_724),
     ];

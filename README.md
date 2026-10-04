@@ -128,8 +128,9 @@ For install/update/uninstall details, KPM commands, and manual recovery, follow
 The first toolbar button is an icon-only book toggle for analysis. Tap it again to
 return to the live puzzle board. It is inverted while analysis is open and disabled
 for collections without rich analysis. The solution panel shows compact inline PGN
-movetext: numbered SAN moves, parenthesized variations, $N annotations, and braced
-comments. Bold SAN tokens and explicit prose move references are tappable.
+movetext: numbered SAN moves, parenthesized variations, and braced comments.
+Standard move-quality annotations appear as `!`, `?`, `!!`, `??`, `!?`, `?!`
+attached to the move; other annotation codes retain their `$N` form. Bold SAN tokens and explicit prose move references are tappable.
 Selected moves have an inverted rectangular background; plain prose remains inert.
 Overflow uses previous/next analysis pages.
 Analysis opens directly on solution text without a separate title/page-count line.

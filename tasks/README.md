@@ -22,6 +22,9 @@ keeps unselected tappable moves bold and selected moves inverted.
 [Task 34 — clean redundant book analysis descriptions](improvements/34-deduplicate-analysis-preface.md)
 cleans imported JSON summaries and attribution already present in PGN.
 
+[Task 35 — conventional analysis annotations](improvements/35-conventional-analysis-annotations.md)
+displays standard move-quality annotations as `!`, `?`, `!!`, `??`, `!?`, `?!`.
+
 ## Working branch
 
 **All Phase 2 tasks are implemented on `phase-2`, not `main`.**

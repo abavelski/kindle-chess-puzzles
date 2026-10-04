@@ -247,7 +247,10 @@ a phase-two parser does not reject hand-authored input merely because a plain pr
 worded differently.
 
 `nags`, when present, is an array of non-negative integer PGN numeric annotation glyph
-numbers. Producers should emit them deterministically.
+numbers. Producers should emit them deterministically. Rendering maps codes 1–6
+to `!`, `?`, `!!`, `??`, `!?`, `?!` attached to tree-move SAN. Other codes retain
+their `$N` display. Stored numeric annotations and explicit prose-reference labels
+are unchanged.
 
 The canonical valid fixture deliberately omits `role`, `comment`, `content`, `nags`,
 and `children` on one sideline node so these defaults are executable rather than implied.
