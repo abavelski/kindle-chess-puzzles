@@ -35,6 +35,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.85.1
         with:
           targets: armv7-unknown-linux-gnueabihf
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-tools.txt
+      - name: Install host tooling dependencies
+        run: python3 -m pip install -r requirements-tools.txt
       - name: Build tested pinned Scribe release
         run: scripts/build-kindle.sh
       - name: Stage runtime and KPM package
