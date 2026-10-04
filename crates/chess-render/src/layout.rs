@@ -1,7 +1,7 @@
 //! DPI-aware deterministic layout and hit testing.
 
 use crate::Rect;
-use chess_core::{Action, AppState, PromotionChoice, COLLECTIONS_PER_PAGE};
+use chess_core::{Action, AnalysisNodeIndex, AppState, PromotionChoice, COLLECTIONS_PER_PAGE};
 
 pub const MIN_TOUCH_MM: u32 = 10;
 
@@ -32,6 +32,10 @@ impl std::error::Error for LayoutError {}
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HitTarget {
     Square(usize),
+    AnalysisMove(AnalysisNodeIndex),
+    AnalysisPreviousPage,
+    AnalysisNextPage,
+    CloseAnalysis,
     ToggleMode,
     ToggleDescription,
     ToggleOrientationLock,
@@ -54,6 +58,10 @@ impl HitTarget {
     pub fn into_action(self) -> Option<Action> {
         match self {
             Self::Square(square) => Some(Action::TapSquare(square)),
+            Self::AnalysisMove(node) => Some(Action::SelectAnalysisNode(node)),
+            Self::AnalysisPreviousPage => Some(Action::AnalysisPreviousPage),
+            Self::AnalysisNextPage => Some(Action::AnalysisNextPage),
+            Self::CloseAnalysis => Some(Action::CloseAnalysis),
             Self::ToggleMode => Some(Action::ToggleMode),
             Self::ToggleDescription => Some(Action::ToggleDescription),
             Self::ToggleOrientationLock => Some(Action::ToggleOrientationLock),

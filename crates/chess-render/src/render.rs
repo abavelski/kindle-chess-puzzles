@@ -28,6 +28,25 @@ pub struct RenderOutput {
     pub analysis: Option<AnalysisPanelOutput>,
 }
 
+impl RenderOutput {
+    pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
+        if state.analysis_browser_open() && !state.collection_picker_open() {
+            if let Some(target) = self
+                .analysis
+                .as_ref()
+                .and_then(|panel| panel.hit_test(x, y))
+            {
+                return Some(target);
+            }
+            if self.layout.board.contains(x, y) {
+                return None;
+            }
+        }
+
+        self.layout.hit_test_app(x, y, state)
+    }
+}
+
 pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput, LayoutError> {
     let layout = Layout::new(metrics)?;
     let mut frame = Gray8::new(metrics.width, metrics.height, WHITE);

@@ -156,12 +156,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             });
             eprintln!("kindle-chess: timing regions={} full={} submit={}ms complete={}ms recognized_touch_to_submit={:?}", timing.regions, timing.full, timing.submit.as_millis(), timing.complete.as_millis(), touch_to_submit);
         }
+        let (x, y) = input.next_tap()?;
+        touch_received = Some(Instant::now());
+        let target = output.hit_test_app(x, y, &app);
         previous = Some(output.frame);
         clean_regions.clear();
 
-        let (x, y) = input.next_tap()?;
-        touch_received = Some(Instant::now());
-        if let Some(target) = output.layout.hit_test_app(x, y, &app) {
+        if let Some(target) = target {
             eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
             if target == HitTarget::Refresh {
                 force_full_next = true;

@@ -6,7 +6,7 @@ use crate::{
         draw_text_regular_vertically_centered, measure_text_bold, measure_text_regular,
         text_line_height,
     },
-    Gray8, Layout, Rect,
+    Gray8, HitTarget, Layout, Rect,
 };
 use chess_core::{AnalysisNodeIndex, AnalysisRole, AnalysisTextSpan, AnalysisTree, AppState};
 
@@ -22,6 +22,7 @@ pub enum AnalysisMoveChipSource {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AnalysisMoveChip {
     pub rect: Rect,
+    pub hit_rect: Rect,
     pub node: AnalysisNodeIndex,
     pub source: AnalysisMoveChipSource,
     pub label: String,
@@ -36,6 +37,59 @@ pub struct AnalysisPanelOutput {
     pub previous_page: Option<Rect>,
     pub close: Rect,
     pub next_page: Option<Rect>,
+}
+
+impl AnalysisPanelOutput {
+    pub fn hit_test(&self, x: u32, y: u32) -> Option<HitTarget> {
+        if self
+            .previous_page
+            .is_some_and(|rect| rect.contains(x, y))
+        {
+            return Some(HitTarget::AnalysisPreviousPage);
+        }
+        if self.close.contains(x, y) {
+            return Some(HitTarget::CloseAnalysis);
+        }
+        if self.next_page.is_some_and(|rect| rect.contains(x, y)) {
+            return Some(HitTarget::AnalysisNextPage);
+        }
+
+        match hit_move_chips(&self.move_chips, x, y, false) {
+            MoveHit::Target(target) => return Some(target),
+            MoveHit::Ambiguous => return None,
+            MoveHit::None => {}
+        }
+
+        match hit_move_chips(&self.move_chips, x, y, true) {
+            MoveHit::Target(target) => Some(target),
+            MoveHit::None | MoveHit::Ambiguous => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MoveHit {
+    None,
+    Target(HitTarget),
+    Ambiguous,
+}
+
+fn hit_move_chips(chips: &[AnalysisMoveChip], x: u32, y: u32, padded: bool) -> MoveHit {
+    let mut hit = None;
+    for chip in chips {
+        let rect = if padded { chip.hit_rect } else { chip.rect };
+        if !rect.contains(x, y) {
+            continue;
+        }
+        let target = HitTarget::AnalysisMove(chip.node);
+        match hit {
+            Some(existing) if existing != target => return MoveHit::Ambiguous,
+            Some(_) => {}
+            None => hit = Some(target),
+        }
+    }
+
+    hit.map_or(MoveHit::None, MoveHit::Target)
 }
 
 #[derive(Clone, Debug)]
@@ -506,6 +560,7 @@ fn draw_line(
                 draw_move_chip(frame, rect, label, *selected, scale);
                 move_chips.push(AnalysisMoveChip {
                     rect,
+                    hit_rect: padded_move_hit_rect(rect, row, scale),
                     node: *node,
                     source: *source,
                     label: label.clone(),
@@ -514,6 +569,16 @@ fn draw_line(
             }
         }
     }
+}
+
+fn padded_move_hit_rect(rect: Rect, row: Rect, scale: u32) -> Rect {
+    let padding = scale.saturating_mul(2).max(4);
+    let x = rect.x.saturating_sub(padding).max(row.x);
+    let right = rect
+        .right()
+        .saturating_add(padding)
+        .min(row.right());
+    Rect::new(x, row.y, right.saturating_sub(x), row.height)
 }
 
 fn draw_move_chip(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
