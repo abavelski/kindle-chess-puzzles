@@ -143,7 +143,7 @@ class LauncherTests(unittest.TestCase):
             signals.unlink(missing_ok=True)
             ready = self.directory / 'ready'
             ready.unlink(missing_ok=True)
-            body = f'cat "{signals}" > "{ready}"\n'
+            body = f'cat "{signals}" > "{ready}.tmp"\nmv "{ready}.tmp" "{ready}"\n'
             body += 'exit 7' if mode == 'normal' else 'exec sleep 30'
             proc = self.launch(self.child(body))
             try:
