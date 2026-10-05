@@ -77,3 +77,6 @@ progress; add physical checkpoints only where device behavior cannot be proven o
 
 [Task 36 — sleeping board overlay](improvements/36-sleeping-overlay.md)
 adds a visible sleeping notice and removes it on wake.
+
+[Task 37 — repeatable button sleep/wake](improvements/37-repeatable-sleep-wake.md)
+fixes native wake completion while the app owns the display.

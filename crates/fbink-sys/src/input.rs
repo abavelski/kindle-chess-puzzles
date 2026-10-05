@@ -117,3 +117,32 @@ extern "C" {
         power: std::os::raw::c_int,
     ) -> std::os::raw::c_int;
 }
+
+/// Wait on an owned pipe with a finite deadline; EOF remains readable.
+pub fn wait_pipe(pipe: &impl std::os::fd::AsRawFd, timeout_ms: i32) -> io::Result<bool> {
+    #[cfg(all(target_os = "linux", target_arch = "arm"))]
+    {
+        let code = unsafe { kcp_pipe_wait(pipe.as_raw_fd(), timeout_ms) };
+        if code < 0 {
+            Err(io::Error::from_raw_os_error(-code))
+        } else {
+            Ok(code != 0)
+        }
+    }
+    #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
+    {
+        let _ = (pipe, timeout_ms);
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "power pipe polling requires the Kindle target",
+        ))
+    }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "arm"))]
+extern "C" {
+    fn kcp_pipe_wait(
+        fd: std::os::raw::c_int,
+        timeout_ms: std::os::raw::c_int,
+    ) -> std::os::raw::c_int;
+}

@@ -1887,3 +1887,75 @@ All five collections and progress match their pre-deploy hashes. The ARM loader
 resolved all dependencies, app/lock remain absent, Xorg/awesome are present and
 powerd reports active. No app launch or synthetic power transition was performed.
 Physical overlay appearance/removal during idle and button sleep/wake is pending.
+
+### Repeated button sleep/wake regression — 2026-10-05, Task 37
+
+User reproduced first button sleep/wake succeeding and the next press having no
+visible effect. Installed app PID 20905 logged Sleeping/Awake once; its listener
+remained alive. powerd reported active and logged a 10-second blanket `load`
+timeout followed by `Splash screen is on. Ignoring power button`. Xorg PID 3233
+(start 2048) was stopped by the existing supervisor; awesome also stayed stopped.
+A bounded blanket property probe timed out while Xorg was stopped.
+
+Verified Xorg name/start/state, temporarily sent CONT, and used an EXIT/INT/TERM/HUP
+trap to STOP the same identity afterward. `lipc-probe com.lab126.blanket`
+responded immediately; blanket emitted `unmap_screensaver` and powerd emitted
+`exitingScreenSaver`. User then confirmed another sleep/wake succeeded but the
+following sleep failed again. This establishes that the paused X server blocks
+native wake completion, rather than loss of the chess power listener. No power
+property or service configuration was changed.
+
+Task 37 prepares a supervisor-owned wake hook: resume only verified Xorg, wait for the existing power listener to receive `exitingScreenSaver` within
+four seconds, then pause the same Xorg identity
+while the app is still alive. If the app has died, leave restoration to supervisor
+cleanup. A failed handoff exits through normal recovery, with Xorg left running for cleanup. Wake redraws the whole
+chess frame because native X writes invalidate pixel damage history. Existing
+manual recovery (verified Xorg CONT, awesome CONT, bounded xrefresh) remains
+applicable. Repeated-cycle physical acceptance of the new build is pending.
+
+The new build passed scripts/build-kindle.sh (full host gate and validated ARMv7/
+glibc-2.35 release), then staged/installed over the existing SSH transport.
+Installed binary SHA-256 is
+`dc5144e76cb13ef1ab299b2ba61ba80094740232cee0a0b0636771a2edddb906`;
+installed supervisor SHA-256 is
+`a80e140b5d96cdbae1332e6aad945f36f005257213a22c0218417623e972a479`.
+Both match local validated files. All five collection hashes and progress
+`133662b61e2fdd710596eb0ca4813d579275d6682b68b30a9d0336bd8998c431`
+match pre-install values. Loader dependencies resolve, no app/lock remains
+before user launch. Physical repeated-cycle/exit review requested and pending.
+
+The first Task 37 candidate (hash dc5144e...) failed physical repeated-cycle
+review: after one wake, subsequent presses were still ignored. A successful
+blanket probe is not a wake-completion barrier; it can answer before the pending
+screensaver/splash teardown. Revised implementation subscribes to powerd
+`exitingScreenSaver` before resuming Xorg, consumes that explicit completion with
+a four-second monotonic deadline, then pauses Xorg and redraws. Timeout returns
+through supervisor recovery. No new event listener or timing delay is used.
+
+The same run's system log at 17:18:27 records ACTIVE -> SCREEN SAVER immediately
+before `goingToScreenSaver` is emitted. Thus the Sleeping overlay already follows
+confirmed logical screensaver entry; it does not assert that the CPU has entered
+hardware suspend. The revised wake keeps this notice until native completion.
+
+## Revised deployment — 2026-10-05
+
+Revised build passed the full scripts/build-kindle.sh gate, including new native
+completion/finite pipe polling contracts, then staged and deployed through the
+existing installer after X exit. Installed binary SHA-256:
+`c3029286a3c37062aa435c8d52deb08fed1f3f5b6caef73c664f8983bc1f63a3`.
+Installed supervisor SHA-256:
+`725b0c4604164c1c948419f83c4258970c311570e0c914aa8b65e6091b9f158c`.
+Both match local build files; loader dependencies resolve. All five collection
+hashes and progress `133662b61e2fdd710596eb0ca4813d579275d6682b68b30a9d0336bd8998c431`
+are unchanged across deployment. No app or lock remains before user launch.
+Repeated sleep/wake, visible overlay and normal exit acceptance remain pending.
+
+### Task 37 physical acceptance — 2026-10-05
+
+User confirmed the revised deployed build works and requested commit/push and
+a fresh main build/deployment. Logs corroborate repeated Sleeping/Awake cycles
+with `beginning wake handoff` followed by `native wake complete` before the
+full board redraw. X exit returned 0; verified Xorg and awesome are S (sleeping,
+not stopped), and no chess process remains. Puzzle/progress hashes still match
+pre-deployment values. This accepts the button-sleep overlay and repeated wake
+fix; no new idle, reboot or crash-recovery checkpoint is inferred.

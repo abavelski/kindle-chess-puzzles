@@ -6,6 +6,7 @@ use std::process::{Child, ChildStdout, Command, Stdio};
 pub enum PowerEvent {
     Sleeping,
     Awake,
+    NativeWakeComplete,
 }
 
 impl PowerEvent {
@@ -13,6 +14,7 @@ impl PowerEvent {
         line.split_whitespace().find_map(|word| match word {
             "goingToScreenSaver" => Some(Self::Sleeping),
             "outOfScreenSaver" => Some(Self::Awake),
+            "exitingScreenSaver" => Some(Self::NativeWakeComplete),
             _ => None,
         })
     }
@@ -33,7 +35,7 @@ impl PowerEvents {
                 "-s",
                 "60",
                 "com.lab126.powerd",
-                "goingToScreenSaver,outOfScreenSaver",
+                "goingToScreenSaver,outOfScreenSaver,exitingScreenSaver",
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -79,5 +81,92 @@ impl Drop for PowerEvents {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+/// Let the supervisor-owned X server finish native wake before chess redraws.
+/// Direct launches without a display handoff have no hook.
+pub fn complete_native_wake(power: &mut PowerEvents) -> io::Result<bool> {
+    let Some(hook) = std::env::var_os("KINDLE_CHESS_WAKE_HOOK") else {
+        return Ok(false);
+    };
+    let run_hook = |mode| -> io::Result<()> {
+        let status = Command::new("sh")
+            .arg(&hook)
+            .arg(mode)
+            .arg(std::process::id().to_string())
+            .stdin(Stdio::null())
+            .status()?;
+        if !status.success() {
+            return Err(io::Error::other(format!(
+                "native wake handoff failed: {status}"
+            )));
+        }
+        Ok(())
+    };
+    run_hook("--wake-display")?;
+    // Already subscribed before CONT, so even immediate completion is retained.
+    let result = wait_wake_complete(|remaining| {
+        let timeout = remaining.as_millis().clamp(1, i32::MAX as u128) as i32;
+        match fbink_sys::wait_pipe(power.stdout(), timeout) {
+            Ok(true) => power.read_ready(),
+            Ok(false) => Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "native wake completion timed out",
+            )),
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => Ok(None),
+            Err(error) => Err(error),
+        }
+    });
+    // On failure normal supervisor cleanup will resume both native processes.
+    result?;
+    run_hook("--finish-wake-display")?;
+    Ok(true)
+}
+
+fn wait_wake_complete(
+    mut next: impl FnMut(std::time::Duration) -> io::Result<Option<PowerEvent>>,
+) -> io::Result<()> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(4);
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "native wake completion timed out",
+            ));
+        }
+        if next(remaining)? == Some(PowerEvent::NativeWakeComplete) {
+            return Ok(());
+        }
+    }
+}
+
+#[cfg(test)]
+mod wake_tests {
+    use super::*;
+
+    #[test]
+    fn completion_waits_past_early_wake_and_partial_lines() {
+        let mut events = [
+            None,
+            Some(PowerEvent::Awake),
+            None,
+            Some(PowerEvent::NativeWakeComplete),
+        ]
+        .into_iter();
+        wait_wake_complete(|remaining| {
+            assert!(remaining <= std::time::Duration::from_secs(4));
+            Ok(events.next().expect("must stop at native completion"))
+        })
+        .unwrap();
+        assert!(events.next().is_none());
+    }
+
+    #[test]
+    fn missing_completion_returns_timeout_for_supervisor_recovery() {
+        let error =
+            wait_wake_complete(|_| Err(io::Error::from(io::ErrorKind::TimedOut))).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
     }
 }

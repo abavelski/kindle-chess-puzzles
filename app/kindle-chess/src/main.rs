@@ -173,6 +173,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         if matches!(event, DeviceEvent::Power(_)) {
             touch_received = None;
         }
+        if event == DeviceEvent::Power(PowerEvent::Awake) {
+            // Native wake can repaint any pixels while Xorg is briefly resumed.
+            force_full_next = kindle_platform::complete_native_wake(&mut power)?;
+        }
         let Some((x, y)) = awake_tap(event, &mut sleeping) else {
             continue;
         };
@@ -219,6 +223,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
 fn awake_tap(event: DeviceEvent, sleeping: &mut bool) -> Option<(u32, u32)> {
     match event {
+        DeviceEvent::Power(PowerEvent::NativeWakeComplete) => None,
         DeviceEvent::Power(event) => {
             *sleeping = event == PowerEvent::Sleeping;
             eprintln!("kindle-chess: power {event:?}");

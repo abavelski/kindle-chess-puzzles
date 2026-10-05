@@ -52,3 +52,14 @@ int kcp_input_wait_power(int first, int second, int power)
     }
     return -EIO;
 }
+
+// Caller retries EINTR against its own monotonic deadline.
+int kcp_pipe_wait(int fd, int timeout_ms)
+{
+    struct pollfd descriptor = { .fd = fd, .events = POLLIN };
+    int rv = poll(&descriptor, 1, timeout_ms);
+    if (rv < 0) return -errno;
+    if (rv == 0) return 0;
+    if (descriptor.revents & (POLLIN | POLLHUP)) return 1;
+    return -EIO;
+}

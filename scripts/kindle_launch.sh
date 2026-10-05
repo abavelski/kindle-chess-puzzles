@@ -46,6 +46,28 @@ resume_display_process() {
         echo "lifecycle: $2 identity changed; refusing to signal reused PID" >&2
     fi
 }
+# Wake handoff: Xorg must drain blanket's pending screensaver/splash requests.
+# Called only by our app. Never create/remove the supervisor lock here.
+case "$binary" in
+    --wake-display|--finish-wake-display)
+        app_pid=${1:-}
+        case "$app_pid" in ''|*[!0-9]*) exit 1;; esac
+        x_pid=${KINDLE_CHESS_WAKE_XORG_PID:-}
+        x_start=${KINDLE_CHESS_WAKE_XORG_START:-}
+        case "$x_pid" in ''|*[!0-9]*) exit 1;; esac
+        display_identity "$x_pid" Xorg "$x_start" || exit 1
+        app_start=$(awk '{print $22}' "$proc_root/$app_pid/stat") || exit 1
+        display_identity "$app_pid" kindle-chess "$app_start" || exit 1
+        case "$binary" in
+            --wake-display)
+                echo "lifecycle: beginning wake handoff Xorg pid=$x_pid" >&2
+                "$display_signal" -CONT "$x_pid";;
+            --finish-wake-display)
+                echo "lifecycle: native wake complete; pausing Xorg pid=$x_pid" >&2
+                "$display_signal" -STOP "$x_pid";;
+        esac
+        exit $?;;
+esac
 # Native repaint verified on Scribe 5.19.6. An explicit empty override disables it.
 repaint=${KINDLE_CHESS_XREFRESH-xrefresh}
 repaint_timeout=${KINDLE_CHESS_TIMEOUT:-/usr/bin/timeout}
@@ -113,6 +135,7 @@ echo "lifecycle: launch $(date -u '+%Y-%m-%dT%H:%M:%SZ') pid=$$ binary=$binary" 
 # Scribe 5.19.6: winmgr's Active App timeout and pending Xorg writes
 # overpaint direct FBInk output. Validate both before taking ownership.
 # Refuse pre-stopped processes so we cannot resume another app's handoff.
+unset KINDLE_CHESS_WAKE_HOOK KINDLE_CHESS_WAKE_XORG_PID KINDLE_CHESS_WAKE_XORG_START
 if [ "${KINDLE_CHESS_DISPLAY_HANDOFF:-1}" = 1 ]; then
     wm_pid=$(pidof awesome) || { echo "lifecycle: awesome unavailable" >&2; exit 1; }
     verify_display_process "$wm_pid" awesome || exit 1
@@ -127,6 +150,10 @@ if [ "${KINDLE_CHESS_DISPLAY_HANDOFF:-1}" = 1 ]; then
     echo "lifecycle: pausing Xorg pid=$x_pid start=$x_start" >&2
     x_owned=1
     "$display_signal" -STOP "$x_pid" || exit 1
+    KINDLE_CHESS_WAKE_XORG_PID=$x_pid
+    KINDLE_CHESS_WAKE_XORG_START=$x_start
+    KINDLE_CHESS_WAKE_HOOK=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/kindle_launch.sh
+    export KINDLE_CHESS_WAKE_XORG_PID KINDLE_CHESS_WAKE_XORG_START KINDLE_CHESS_WAKE_HOOK
 fi
 "$binary" "$@" &
 child=$!

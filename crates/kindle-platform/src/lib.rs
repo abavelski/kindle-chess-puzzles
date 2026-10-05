@@ -6,7 +6,7 @@ mod display;
 mod input;
 mod power;
 mod refresh;
-pub use power::{PowerEvent, PowerEvents};
+pub use power::{complete_native_wake, PowerEvent, PowerEvents};
 mod storage;
 
 pub use display::{

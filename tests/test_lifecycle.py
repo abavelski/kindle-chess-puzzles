@@ -194,6 +194,44 @@ class LauncherTests(unittest.TestCase):
         self.assertFalse(ready.exists())
         self.assertFalse(signals.exists())
 
+    def test_wake_handoff_repeats_and_refuses_reused_or_dead_processes(self):
+        wm, signals = self.wm_fixture()
+        app = wm.parent / str(os.getpid())
+        app.mkdir()
+        (app / 'comm').write_text('kindle-chess\n')
+        (app / 'stat').write_text(f'{os.getpid()} (kindle-chess) S ' + '0 ' * 18 + '789\n')
+        (app / 'status').write_text('State:\tS (test)\n')
+        self.env.update(KINDLE_CHESS_WAKE_XORG_PID='456', KINDLE_CHESS_WAKE_XORG_START='654')
+        def invoke(mode):
+            return subprocess.run(['sh', str(LAUNCHER), mode, str(os.getpid())], env=self.env, capture_output=True, timeout=5)
+        for _ in range(3):
+            signals.unlink(missing_ok=True)
+            self.assertEqual(invoke('--wake-display').returncode, 0)
+            self.assertEqual(signals.read_text().splitlines(), ['-CONT 456'])
+            self.assertEqual(invoke('--finish-wake-display').returncode, 0)
+            self.assertEqual(signals.read_text().splitlines(), ['-CONT 456', '-STOP 456'])
+        signals.unlink()
+        (wm.parent / '456/stat').write_text('456 (Xorg) S ' + '0 ' * 18 + '655\n')
+        self.assertNotEqual(invoke('--wake-display').returncode, 0)
+        self.assertFalse(signals.exists())
+        (wm.parent / '456/stat').write_text('456 (Xorg) S ' + '0 ' * 18 + '654\n')
+        self.assertEqual(invoke('--wake-display').returncode, 0)
+        (app / 'stat').unlink()
+        self.assertNotEqual(invoke('--finish-wake-display').returncode, 0)
+        self.assertEqual(signals.read_text().splitlines(), ['-CONT 456'])
+
+    def test_supervisor_exports_wake_identity_only_for_owned_display(self):
+        capture = self.directory / 'wake-env'
+        body = f'printf "%s\\n" "${{KINDLE_CHESS_WAKE_HOOK-unset}}" "${{KINDLE_CHESS_WAKE_XORG_PID-unset}}" "${{KINDLE_CHESS_WAKE_XORG_START-unset}}" > "{capture}"'
+        self.env['KINDLE_CHESS_WAKE_HOOK'] = '/stale/hook'
+        proc = self.launch(self.child(body))
+        self.assertEqual(proc.wait(timeout=4), 0)
+        self.assertEqual(capture.read_text().splitlines(), ['unset', 'unset', 'unset'])
+        self.wm_fixture()
+        proc = self.launch(self.child(body))
+        self.assertEqual(proc.wait(timeout=4), 0)
+        self.assertEqual(capture.read_text().splitlines(), [str(LAUNCHER), '456', '654'])
+
     def test_static_contract(self):
         source = LAUNCHER.read_text()
         for fragment in ['trap cleanup EXIT', 'trap', 'INT', 'TERM', 'kill -TERM', 'kill -KILL']:

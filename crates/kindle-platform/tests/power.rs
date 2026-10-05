@@ -28,3 +28,15 @@ fn only_screensaver_transitions_change_sleep_overlay() {
         assert_eq!(PowerEvent::parse(line), None);
     }
 }
+
+#[test]
+fn native_completion_is_distinct_from_early_wake_notification() {
+    assert_eq!(
+        PowerEvent::parse("exitingScreenSaver"),
+        Some(PowerEvent::NativeWakeComplete)
+    );
+    assert_ne!(
+        PowerEvent::parse("outOfScreenSaver 1"),
+        Some(PowerEvent::NativeWakeComplete)
+    );
+}

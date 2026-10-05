@@ -248,3 +248,26 @@ Screensaver entry draws a centered white rectangle, black border and bold
 damage. Touches while sleeping are discarded. Board, solution/analysis state
 and progress remain untouched. The new overlay's physical visibility and
 removal on idle/button sleep/wake remain pending user review after deployment.
+
+## Repeated wake completion — Task 37, 2026-10-05
+
+The first sleep/wake can emit both app events while native wake remains blocked
+on stopped Xorg. Subsequent presses are ignored by powerd with `Splash screen is
+on`; blanket `load` requests time out. Temporarily resuming verified Xorg cleared
+this state on the Scribe, and the user reproduced the blockage returning after
+the next cycle. Earlier successful overlay/event observations did not establish
+repeatable native wake completion.
+
+The supervisor now exports its owned Xorg identity and a wake hook to the app.
+On Awake, the hook resumes only that Xorg process, waits for `exitingScreenSaver`
+on the existing subscribed power listener with a four-second monotonic deadline,
+and pauses it again after checking both process identities and that the app
+remains alive.
+App death or completion timeout leaves native restoration to supervisor
+cleanup. Failed hooks cause normal app error recovery. Awesome remains paused throughout. The app redraws the whole frame
+after this handoff because native wake can overwrite arbitrary framebuffer pixels.
+No power policy, service configuration or rotation is changed. Direct launches
+without supervisor display ownership have no wake hook. User confirmed the
+revised repeated-cycle behavior on 2026-10-05; device logs corroborate native
+completion on wake and X exit 0 with both processes resumed. This also closes
+the button-sleep overlay appearance/removal review described under Task 36.

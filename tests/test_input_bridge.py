@@ -32,6 +32,13 @@ int mock_ioctl(int fd, unsigned long request, ...) {
     return 0;
 }
 int mock_poll(struct pollfd *fds, nfds_t count, int timeout) {
+    if (count == 1) {
+        assert(fds[0].fd == 9 && timeout == 4000);
+        if (poll_case == 7) return 0;
+        if (poll_case == 8) { errno=EINTR; return -1; }
+        if (poll_case == 9) { fds[0].revents=POLLNVAL; return 1; }
+        fds[0].revents=POLLIN; return 1;
+    }
     assert((count == 2 || count == 3) && timeout == -1);
     assert(fds[0].fd == 7 && fds[1].fd == 8);
     assert(fds[0].events == POLLIN && fds[1].events == POLLIN);
@@ -52,6 +59,10 @@ int main(void) {
     poll_case=4; assert(kcp_input_wait(7,8)==-EBADF);
     poll_case=5; assert(kcp_input_wait_power(7,8,9)==2);
     poll_case=6; assert(kcp_input_wait_power(7,8,9)==2);
+    poll_case=0; assert(kcp_pipe_wait(9,4000)==1);
+    poll_case=7; assert(kcp_pipe_wait(9,4000)==0);
+    poll_case=8; assert(kcp_pipe_wait(9,4000)==-EINTR);
+    poll_case=9; assert(kcp_pipe_wait(9,4000)==-EIO);
     expected=1;
     assert(kcp_input_grab(7,1)==0 && calls==1);
     expected=0;
