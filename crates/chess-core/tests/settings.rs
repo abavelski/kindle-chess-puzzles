@@ -1,0 +1,78 @@
+use chess_core::{
+    parse_puzzle_file, Action, ActiveCollection, AppState, BoardMode, Effect, Progress, Settings,
+};
+
+const PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/puzzles.json");
+
+fn state(settings: Settings) -> AppState {
+    AppState::new_with_settings(
+        ActiveCollection::from_collection(
+            "puzzles.json",
+            parse_puzzle_file(PUZZLES).expect("fixture parses"),
+        ),
+        Progress::new(),
+        settings,
+    )
+}
+
+#[test]
+fn settings_default_round_trip_and_reject_future_versions() {
+    let settings = Settings::default();
+    assert!(settings.show_free_mode_button());
+    assert!(settings.show_notes_button());
+
+    let bytes = settings.to_bytes().expect("encode settings");
+    assert_eq!(Settings::parse(&bytes).expect("parse settings"), settings);
+    assert!(Settings::parse(br#"{"version":2,"show_free_mode_button":true,"show_notes_button":true}"#).is_err());
+}
+
+#[test]
+fn settings_panel_is_modal_and_toggles_emit_persistence_effects() {
+    let mut app = state(Settings::default());
+    app.dispatch(Action::ToggleMode);
+    assert_eq!(app.mode(), BoardMode::FreeBoard);
+
+    app.dispatch(Action::OpenSettings);
+    assert!(app.settings_open());
+
+    let board = app.board().clone();
+    app.dispatch(Action::TapSquare(0));
+    assert_eq!(app.board(), &board, "settings blocks ordinary board actions");
+
+    assert_eq!(
+        app.dispatch(Action::ToggleFreeModeSetting),
+        vec![Effect::SettingsChanged]
+    );
+    assert!(!app.settings().show_free_mode_button());
+    assert_eq!(
+        app.mode(),
+        BoardMode::Solution,
+        "hiding the free-mode control must not strand the app in free mode"
+    );
+
+    assert_eq!(
+        app.dispatch(Action::ToggleNotesSetting),
+        vec![Effect::SettingsChanged]
+    );
+    assert!(!app.settings().show_notes_button());
+
+    app.dispatch(Action::CloseSettings);
+    assert!(!app.settings_open());
+    app.dispatch(Action::ToggleMode);
+    assert_eq!(app.mode(), BoardMode::Solution);
+    app.dispatch(Action::ToggleDescription);
+    assert!(!app.description_visible());
+}
+
+#[test]
+fn disabling_notes_hides_an_already_visible_note() {
+    let mut app = state(Settings::default());
+    app.dispatch(Action::ToggleDescription);
+    assert!(app.description_visible());
+
+    app.dispatch(Action::OpenSettings);
+    app.dispatch(Action::ToggleNotesSetting);
+
+    assert!(!app.settings().show_notes_button());
+    assert!(!app.description_visible());
+}
