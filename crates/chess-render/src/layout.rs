@@ -52,6 +52,10 @@ pub enum HitTarget {
     Next,
     Promotion(PromotionChoice),
     CancelPromotion,
+    OpenSettings,
+    ToggleFreeModeSetting,
+    ToggleNotesSetting,
+    CloseSettings,
     OpenCollections,
     Collection(usize),
     CollectionPreviousPage,
@@ -83,6 +87,10 @@ impl HitTarget {
             Self::Next => Some(Action::NextPuzzle),
             Self::Promotion(choice) => Some(Action::ChoosePromotion(choice)),
             Self::CancelPromotion => Some(Action::CancelPromotion),
+            Self::OpenSettings => Some(Action::OpenSettings),
+            Self::ToggleFreeModeSetting => Some(Action::ToggleFreeModeSetting),
+            Self::ToggleNotesSetting => Some(Action::ToggleNotesSetting),
+            Self::CloseSettings => Some(Action::CloseSettings),
             Self::OpenCollections => Some(Action::OpenCollectionPicker),
             Self::Collection(index) => Some(Action::SelectCollection(index)),
             Self::CollectionPreviousPage => Some(Action::CollectionPickerPreviousPage),
@@ -103,6 +111,7 @@ pub struct Layout {
     pub metrics: DisplayMetrics,
     pub viewport: Rect,
     pub header: Rect,
+    pub settings: Rect,
     pub refresh: Rect,
     pub collection_button: Rect,
     pub board_outer: Rect,
@@ -128,6 +137,10 @@ pub struct Layout {
     pub collection_page_previous: Rect,
     pub collection_page_next: Rect,
     pub collection_close: Rect,
+    pub settings_modal: Rect,
+    pub settings_free_mode: Rect,
+    pub settings_notes: Rect,
+    pub settings_close: Rect,
     square_size: u32,
     minimum_touch_px: u32,
     coordinate_gutter: u32,
@@ -190,7 +203,13 @@ impl Layout {
             board_size.saturating_add(coordinate_gutter.saturating_mul(2)),
         );
         let header = Rect::new(0, 0, metrics.width, header_height);
-        let refresh = Rect::new(header.x, header.y, minimum_touch_px, header.height);
+        let settings = Rect::new(header.x, header.y, minimum_touch_px, header.height);
+        let refresh = Rect::new(
+            settings.right().saturating_add(small_gap),
+            header.y,
+            minimum_touch_px,
+            header.height,
+        );
         let collection_button_width = minimum_touch_px
             .saturating_mul(2)
             .min(header.width.saturating_div(3).max(minimum_touch_px));
@@ -476,10 +495,46 @@ impl Layout {
         let collection_close = collection_nav_targets[1].rect;
         let collection_page_next = collection_nav_targets[2].rect;
 
+        let settings_modal_width = collection_modal.width;
+        let settings_modal_height = minimum_touch_px
+            .saturating_mul(4)
+            .saturating_add(gap.saturating_mul(3));
+        if settings_modal_height > collection_modal.height {
+            return Err(LayoutError::TooSmall);
+        }
+        let settings_modal = Rect::new(
+            collection_modal.x,
+            collection_modal.y + (collection_modal.height - settings_modal_height) / 2,
+            settings_modal_width,
+            settings_modal_height,
+        );
+        let settings_inner = settings_modal.inset(small_gap);
+        let settings_free_mode = Rect::new(
+            settings_inner.x,
+            settings_modal.y
+                .saturating_add(minimum_touch_px)
+                .saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_notes = Rect::new(
+            settings_inner.x,
+            settings_free_mode.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_close = Rect::new(
+            settings_inner.x,
+            settings_notes.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+
         let layout = Self {
             metrics,
             viewport: Rect::new(0, 0, metrics.width, metrics.height),
             header,
+            settings,
             refresh,
             collection_button,
             board_outer,
@@ -505,6 +560,10 @@ impl Layout {
             collection_page_previous,
             collection_page_next,
             collection_close,
+            settings_modal,
+            settings_free_mode,
+            settings_notes,
+            settings_close,
             square_size,
             minimum_touch_px,
             coordinate_gutter,
@@ -512,6 +571,7 @@ impl Layout {
         };
         if !layout.viewport.contains_rect(layout.board_outer)
             || !layout.viewport.contains_rect(layout.header)
+            || !layout.viewport.contains_rect(layout.settings)
             || !layout.viewport.contains_rect(layout.refresh)
             || !layout.viewport.contains_rect(layout.collection_button)
             || !layout.viewport.contains_rect(layout.toolbar)
@@ -523,6 +583,7 @@ impl Layout {
             || !layout.viewport.contains_rect(layout.promotion_modal)
             || !layout.viewport.contains_rect(layout.goto_modal)
             || !layout.viewport.contains_rect(layout.collection_modal)
+            || !layout.viewport.contains_rect(layout.settings_modal)
         {
             return Err(LayoutError::TooSmall);
         }
@@ -570,6 +631,18 @@ impl Layout {
         if self.exit.contains(x, y) {
             return Some(HitTarget::Exit);
         }
+        if state.settings_open() {
+            if self.settings_free_mode.contains(x, y) {
+                return Some(HitTarget::ToggleFreeModeSetting);
+            }
+            if self.settings_notes.contains(x, y) {
+                return Some(HitTarget::ToggleNotesSetting);
+            }
+            if self.settings_close.contains(x, y) {
+                return Some(HitTarget::CloseSettings);
+            }
+            return None;
+        }
         if state.pending_promotion().is_some() {
             return self.hit_test(x, y, state.flipped(), true);
         }
@@ -612,15 +685,18 @@ impl Layout {
             return None;
         }
 
+        if self.settings.contains(x, y) {
+            return Some(HitTarget::OpenSettings);
+        }
         if !state.collection_entries().is_empty() && self.collection_button.contains(x, y) {
             return Some(HitTarget::OpenCollections);
         }
 
-        let target = self.hit_test(x, y, state.flipped(), false);
-        if target == Some(HitTarget::ToggleAnalysis) && !state.analysis_available() {
-            None
-        } else {
-            target
+        match self.hit_test(x, y, state.flipped(), false) {
+            Some(HitTarget::ToggleAnalysis) if !state.analysis_available() => None,
+            Some(HitTarget::ToggleMode) if !state.settings().show_free_mode_button() => None,
+            Some(HitTarget::ToggleDescription) if !state.settings().show_notes_button() => None,
+            target => target,
         }
     }
 

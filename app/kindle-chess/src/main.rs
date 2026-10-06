@@ -12,7 +12,7 @@ use chess_render::{
 use kindle_platform::{
     clean_regions_for_board_change, DeviceEvent, DiscoveredCollection, KindleDisplay,
     KindleStorage, PowerEvent, PowerEvents, ProgressStore, RefreshPolicy, ScribeInput,
-    StoragePaths, TapPolicy, SCRIBE_DPI,
+    SettingsStore, StoragePaths, TapPolicy, SCRIBE_DPI,
 };
 use std::collections::VecDeque;
 use std::time::Instant;
@@ -37,13 +37,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let discovered = storage.prepare_collections(BUNDLED_PUZZLES)?;
     let (mut progress_store, progress_load) =
         ProgressStore::open(storage.paths().progress_file.clone());
+    let (mut settings_store, settings_load) =
+        SettingsStore::open(storage.paths().settings_file.clone());
     let loaded_progress = progress_load.progress.clone();
 
     let (active_key, collection, persistence_enabled, collection_warning) =
         select_initial_collection(&storage, &discovered, &progress_load.progress)?;
-    let mut app = AppState::new(
+    let mut app = AppState::new_with_settings(
         ActiveCollection::from_collection(active_key, collection),
         progress_load.progress,
+        settings_load.settings,
     );
     app.set_collection_entries(
         discovered
@@ -53,6 +56,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let mut startup_message = progress_load.warning;
+    if let Some(warning) = settings_load.warning {
+        append_message(&mut startup_message, warning);
+    }
     if let Some(warning) = collection_warning {
         append_message(&mut startup_message, warning);
     }
@@ -201,6 +207,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 &mut app,
                 &storage,
                 &mut progress_store,
+                &mut settings_store,
                 persistence_enabled,
                 effects,
             ) {
@@ -216,7 +223,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             );
         } else {
             eprintln!("kindle-chess: tap ({x},{y}) -> no target");
-            retry_dirty_progress(&mut app, &mut progress_store, persistence_enabled);
+            retry_dirty_state(
+                &mut app,
+                &mut progress_store,
+                &mut settings_store,
+                persistence_enabled,
+            );
         }
     }
 }
@@ -289,6 +301,7 @@ fn apply_effects(
     app: &mut AppState,
     storage: &KindleStorage,
     progress_store: &mut ProgressStore,
+    settings_store: &mut SettingsStore,
     persistence_enabled: bool,
     effects: Vec<Effect>,
 ) -> bool {
@@ -303,6 +316,7 @@ fn apply_effects(
                     progress_store.mark_dirty();
                 }
             }
+            Effect::SettingsChanged => settings_store.mark_dirty(),
             Effect::CollectionRequested(filename) => match storage.load_collection(&filename) {
                 Ok(collection) => {
                     queue.extend(app.dispatch(Action::ActivateCollection(
@@ -319,33 +333,36 @@ fn apply_effects(
         }
     }
 
-    retry_dirty_progress(app, progress_store, persistence_enabled);
+    retry_dirty_state(app, progress_store, settings_store, persistence_enabled);
     exit_requested
 }
 
-fn retry_dirty_progress(
+fn retry_dirty_state(
     app: &mut AppState,
     progress_store: &mut ProgressStore,
+    settings_store: &mut SettingsStore,
     persistence_enabled: bool,
 ) {
-    if !persistence_enabled || !progress_store.dirty() {
-        return;
+    let mut warning = None;
+
+    if persistence_enabled && progress_store.dirty() {
+        if let Err(error) = progress_store.retry_if_dirty(app.progress()) {
+            warning = Some(format!("Progress warning: {error}"));
+        }
     }
 
-    match progress_store.retry_if_dirty(app.progress()) {
-        Ok(_) => {
-            if app
-                .transient_message()
-                .is_some_and(|message| message.starts_with("Progress warning:"))
-            {
-                app.dispatch(Action::SetTransientMessage(None));
-            }
+    if settings_store.dirty() {
+        if let Err(error) = settings_store.retry_if_dirty(app.settings()) {
+            append_message(&mut warning, format!("Settings warning: {error}"));
         }
-        Err(error) => {
-            app.dispatch(Action::SetTransientMessage(Some(format!(
-                "Progress warning: {error}"
-            ))));
-        }
+    }
+
+    if let Some(warning) = warning {
+        app.dispatch(Action::SetTransientMessage(Some(warning)));
+    } else if app.transient_message().is_some_and(|message| {
+        message.starts_with("Progress warning:") || message.starts_with("Settings warning:")
+    }) {
+        app.dispatch(Action::SetTransientMessage(None));
     }
 }
 
@@ -395,6 +412,7 @@ mod tests {
             root.join("state/progress.json"),
         ));
         let (mut store, _) = ProgressStore::open(storage.paths().progress_file.clone());
+        let (mut settings_store, _) = SettingsStore::open(storage.paths().settings_file.clone());
         let mut app = AppState::new(
             ActiveCollection::from_collection(
                 "puzzles.json",
@@ -404,7 +422,14 @@ mod tests {
         );
         store.mark_dirty();
         let effects = app.dispatch(Action::Exit);
-        assert!(apply_effects(&mut app, &storage, &mut store, true, effects));
+        assert!(apply_effects(
+            &mut app,
+            &storage,
+            &mut store,
+            &mut settings_store,
+            true,
+            effects
+        ));
         assert!(!store.dirty());
         assert_eq!(
             Progress::parse(&std::fs::read(store.path()).unwrap()).unwrap(),

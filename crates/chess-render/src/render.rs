@@ -80,6 +80,10 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
         draw_collection_picker(&mut frame, state, layout, text_scale);
     }
 
+    if state.settings_open() {
+        draw_settings_panel(&mut frame, state, layout, text_scale);
+    }
+
     if state.puzzle_goto_open() {
         draw_puzzle_goto(&mut frame, state, layout, text_scale);
     }
@@ -153,6 +157,7 @@ fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scal
         draw_button(frame, badge, "SOLVED", true, control_scale);
     }
 
+    draw_settings_button(frame, header_control_visual_rect(layout, layout.settings));
     if !state.collection_entries().is_empty() {
         draw_button(
             frame,
@@ -223,6 +228,12 @@ fn draw_coordinates(frame: &mut Gray8, flipped: bool, layout: Layout, scale: u32
 
 fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
     for target in layout.toolbar_targets {
+        if target.target == HitTarget::ToggleMode && !state.settings().show_free_mode_button() {
+            continue;
+        }
+        if target.target == HitTarget::ToggleDescription && !state.settings().show_notes_button() {
+            continue;
+        }
         if target.target == HitTarget::ToggleAnalysis {
             draw_analysis_toggle(frame, layout.control_visual_rect(target.rect), state);
             continue;
@@ -514,6 +525,48 @@ fn draw_puzzle_goto(frame: &mut Gray8, state: &AppState, layout: Layout, scale: 
     draw_button(frame, layout.goto_cancel, "CANCEL", false, scale.min(3));
 }
 
+fn draw_settings_panel(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    frame.fill_rect(layout.settings_modal, WHITE);
+    frame.stroke_rect(layout.settings_modal, 6, INK);
+
+    let title = Rect::new(
+        layout.settings_modal.x,
+        layout.settings_modal.y,
+        layout.settings_modal.width,
+        layout.minimum_touch_px(),
+    );
+    draw_text_centered(frame, title, "SETTINGS", scale, INK);
+
+    draw_setting_row(
+        frame,
+        layout.settings_free_mode,
+        "FREE MODE BUTTON",
+        state.settings().show_free_mode_button(),
+        scale.min(3),
+    );
+    draw_setting_row(
+        frame,
+        layout.settings_notes,
+        "NOTES BUTTON",
+        state.settings().show_notes_button(),
+        scale.min(3),
+    );
+    draw_button(frame, layout.settings_close, "CLOSE", false, scale);
+}
+
+fn draw_setting_row(frame: &mut Gray8, rect: Rect, label: &str, enabled: bool, scale: u32) {
+    draw_button_chrome(frame, rect, WHITE, INK, false);
+    let padding = (rect.height / 5).max(8);
+    draw_text_bold_vertically_centered(frame, rect.x + padding, rect, label, scale, INK);
+    let value = if enabled { "ON" } else { "OFF" };
+    let value_width = measure_text_bold(value, scale);
+    let value_x = rect
+        .right()
+        .saturating_sub(padding)
+        .saturating_sub(value_width);
+    draw_text_bold_vertically_centered(frame, value_x, rect, value, scale, INK);
+}
+
 fn draw_collection_picker(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
     frame.fill_rect(layout.collection_modal, WHITE);
     frame.stroke_rect(layout.collection_modal, 6, INK);
@@ -678,6 +731,30 @@ fn draw_refresh_icon(frame: &mut Gray8, rect: Rect, thickness: u32, tone: u8) {
         thickness,
         tone,
     );
+}
+
+fn draw_settings_button(frame: &mut Gray8, rect: Rect) {
+    draw_button_chrome(frame, rect, WHITE, INK, false);
+    let icon = rect.inset(rect.width.min(rect.height) / 4);
+    let thickness = (rect.height / 24).clamp(3, 6);
+    for row in 0..3 {
+        let y = icon.y + (row + 1) * icon.height / 4;
+        frame.fill_rect(Rect::new(icon.x, y, icon.width, thickness), INK);
+        let knob_x = if row == 1 {
+            icon.x + icon.width / 3
+        } else {
+            icon.x + icon.width * 2 / 3
+        };
+        frame.fill_rect(
+            Rect::new(
+                knob_x.saturating_sub(thickness),
+                y.saturating_sub(thickness),
+                thickness * 3,
+                thickness * 3,
+            ),
+            INK,
+        );
+    }
 }
 
 fn draw_close_button(frame: &mut Gray8, rect: Rect) {

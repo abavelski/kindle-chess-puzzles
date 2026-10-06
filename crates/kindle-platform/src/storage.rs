@@ -2,7 +2,7 @@
 
 use chess_core::{
     is_puzzle_collection_filename, parse_puzzle_file, sorted_puzzle_collection_filenames,
-    CollectionEntry, Progress, PuzzleCollection,
+    CollectionEntry, Progress, PuzzleCollection, Settings,
 };
 use std::{
     env, fmt,
@@ -15,8 +15,10 @@ use std::{
 
 pub const DEFAULT_PUZZLE_DIR: &str = "/mnt/us/kindle-chess/puzzles";
 pub const DEFAULT_PROGRESS_FILE: &str = "/mnt/us/kindle-chess/state/progress.json";
+pub const DEFAULT_SETTINGS_FILE: &str = "/mnt/us/kindle-chess/state/settings.json";
 pub const PUZZLE_DIR_ENV: &str = "KINDLE_CHESS_PUZZLE_DIR";
 pub const PROGRESS_FILE_ENV: &str = "KINDLE_CHESS_PROGRESS_FILE";
+pub const SETTINGS_FILE_ENV: &str = "KINDLE_CHESS_SETTINGS_FILE";
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -24,13 +26,20 @@ static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 pub struct StoragePaths {
     pub puzzle_dir: PathBuf,
     pub progress_file: PathBuf,
+    pub settings_file: PathBuf,
 }
 
 impl StoragePaths {
     pub fn new(puzzle_dir: impl Into<PathBuf>, progress_file: impl Into<PathBuf>) -> Self {
+        let progress_file = progress_file.into();
+        let settings_file = progress_file
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("settings.json");
         Self {
             puzzle_dir: puzzle_dir.into(),
-            progress_file: progress_file.into(),
+            progress_file,
+            settings_file,
         }
     }
 
@@ -40,14 +49,17 @@ impl StoragePaths {
 
     pub fn from_env() -> Self {
         let defaults = Self::kindle_default();
-        Self {
-            puzzle_dir: env::var_os(PUZZLE_DIR_ENV)
-                .map(PathBuf::from)
-                .unwrap_or(defaults.puzzle_dir),
-            progress_file: env::var_os(PROGRESS_FILE_ENV)
-                .map(PathBuf::from)
-                .unwrap_or(defaults.progress_file),
+        let puzzle_dir = env::var_os(PUZZLE_DIR_ENV)
+            .map(PathBuf::from)
+            .unwrap_or(defaults.puzzle_dir);
+        let progress_file = env::var_os(PROGRESS_FILE_ENV)
+            .map(PathBuf::from)
+            .unwrap_or(defaults.progress_file);
+        let mut paths = Self::new(puzzle_dir, progress_file);
+        if let Some(settings_file) = env::var_os(SETTINGS_FILE_ENV) {
+            paths.settings_file = PathBuf::from(settings_file);
         }
+        paths
     }
 }
 
@@ -56,19 +68,28 @@ pub enum StorageError {
     Io(String),
     InvalidCollection { filename: String, error: String },
     Progress(String),
+    Settings(String),
     ProtectedProgress { path: PathBuf, reason: String },
+    ProtectedSettings { path: PathBuf, reason: String },
 }
 
 impl fmt::Display for StorageError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Io(message) | Self::Progress(message) => formatter.write_str(message),
+            Self::Io(message) | Self::Progress(message) | Self::Settings(message) => {
+                formatter.write_str(message)
+            }
             Self::InvalidCollection { filename, error } => {
                 write!(formatter, "{filename}: {error}")
             }
             Self::ProtectedProgress { path, reason } => write!(
                 formatter,
                 "refusing to overwrite protected progress {}: {reason}",
+                path.display()
+            ),
+            Self::ProtectedSettings { path, reason } => write!(
+                formatter,
+                "refusing to overwrite protected settings {}: {reason}",
                 path.display()
             ),
         }
@@ -354,6 +375,123 @@ impl ProgressStore {
         }
 
         let bytes = progress.to_bytes().map_err(StorageError::Progress)?;
+        atomic_replace(&self.path, &bytes)?;
+        self.dirty = false;
+        Ok(true)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SettingsLoad {
+    pub settings: Settings,
+    pub warning: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct SettingsStore {
+    path: PathBuf,
+    dirty: bool,
+    protected_reason: Option<String>,
+}
+
+impl SettingsStore {
+    pub fn open(path: impl Into<PathBuf>) -> (Self, SettingsLoad) {
+        let path = path.into();
+        match fs::read(&path) {
+            Ok(bytes) => match Settings::parse(&bytes) {
+                Ok(settings) => (
+                    Self {
+                        path,
+                        dirty: false,
+                        protected_reason: None,
+                    },
+                    SettingsLoad {
+                        settings,
+                        warning: None,
+                    },
+                ),
+                Err(reason) => {
+                    let warning = Some(format!(
+                        "Settings warning: existing settings are malformed or from a future version and will not be overwritten: {reason}"
+                    ));
+                    (
+                        Self {
+                            path,
+                            dirty: false,
+                            protected_reason: Some(reason),
+                        },
+                        SettingsLoad {
+                            settings: Settings::default(),
+                            warning,
+                        },
+                    )
+                }
+            },
+            Err(error) if error.kind() == io::ErrorKind::NotFound => (
+                Self {
+                    path,
+                    dirty: false,
+                    protected_reason: None,
+                },
+                SettingsLoad {
+                    settings: Settings::default(),
+                    warning: None,
+                },
+            ),
+            Err(error) => {
+                let reason = format!("could not read existing settings: {error}");
+                let warning = Some(format!(
+                    "Settings warning: existing settings could not be read and will not be overwritten: {error}"
+                ));
+                (
+                    Self {
+                        path,
+                        dirty: false,
+                        protected_reason: Some(reason),
+                    },
+                    SettingsLoad {
+                        settings: Settings::default(),
+                        warning,
+                    },
+                )
+            }
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn dirty(&self) -> bool {
+        self.dirty
+    }
+
+    pub fn protected(&self) -> bool {
+        self.protected_reason.is_some()
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    pub fn save_latest(&mut self, settings: &Settings) -> Result<bool, StorageError> {
+        self.mark_dirty();
+        self.retry_if_dirty(settings)
+    }
+
+    pub fn retry_if_dirty(&mut self, settings: &Settings) -> Result<bool, StorageError> {
+        if !self.dirty {
+            return Ok(false);
+        }
+
+        if let Some(reason) = &self.protected_reason {
+            return Err(StorageError::ProtectedSettings {
+                path: self.path.clone(),
+                reason: reason.clone(),
+            });
+        }
+
+        let bytes = settings.to_bytes().map_err(StorageError::Settings)?;
         atomic_replace(&self.path, &bytes)?;
         self.dirty = false;
         Ok(true)

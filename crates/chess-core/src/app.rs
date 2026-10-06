@@ -2,7 +2,7 @@
 
 use crate::{
     parse_uci_move, AnalysisNodeIndex, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle,
-    PuzzleCollection, TapResult, UciMove,
+    PuzzleCollection, Settings, TapResult, UciMove,
 };
 
 pub const COLLECTIONS_PER_PAGE: usize = 6;
@@ -147,6 +147,10 @@ pub enum Action {
     ToggleMode,
     ToggleOrientationLock,
     ToggleDescription,
+    OpenSettings,
+    CloseSettings,
+    ToggleFreeModeSetting,
+    ToggleNotesSetting,
     OpenCollectionPicker,
     CloseCollectionPicker,
     CollectionPickerPreviousPage,
@@ -160,6 +164,7 @@ pub enum Action {
 pub enum Effect {
     ExitRequested,
     ProgressChanged,
+    SettingsChanged,
     CollectionRequested(String),
 }
 
@@ -175,6 +180,8 @@ pub struct AppState {
     flipped: bool,
     orientation_locked: bool,
     description_visible: bool,
+    settings: Settings,
+    settings_open: bool,
     progress: Progress,
     transient_message: Option<String>,
     collection_entries: Vec<CollectionEntry>,
@@ -187,6 +194,14 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(active_collection: ActiveCollection, progress: Progress) -> Self {
+        Self::new_with_settings(active_collection, progress, Settings::default())
+    }
+
+    pub fn new_with_settings(
+        active_collection: ActiveCollection,
+        progress: Progress,
+        settings: Settings,
+    ) -> Self {
         let puzzle_index = remembered_puzzle_index(&active_collection, &progress);
         let puzzle = active_collection
             .puzzles
@@ -211,6 +226,8 @@ impl AppState {
             flipped,
             orientation_locked: false,
             description_visible: false,
+            settings,
+            settings_open: false,
             progress,
             transient_message: None,
             collection_entries: Vec::new(),
@@ -324,6 +341,14 @@ impl AppState {
         self.description_visible
     }
 
+    pub const fn settings(&self) -> &Settings {
+        &self.settings
+    }
+
+    pub const fn settings_open(&self) -> bool {
+        self.settings_open
+    }
+
     pub const fn progress(&self) -> &Progress {
         &self.progress
     }
@@ -379,6 +404,19 @@ impl AppState {
     }
 
     pub fn dispatch(&mut self, action: Action) -> Vec<Effect> {
+        if self.settings_open
+            && !matches!(
+                &action,
+                Action::Exit
+                    | Action::CloseSettings
+                    | Action::ToggleFreeModeSetting
+                    | Action::ToggleNotesSetting
+                    | Action::SetTransientMessage(_)
+            )
+        {
+            return Vec::new();
+        }
+
         if self.puzzle_goto_input.is_some()
             && !matches!(
                 &action,
@@ -419,6 +457,30 @@ impl AppState {
 
         match action {
             Action::Exit => vec![Effect::ExitRequested],
+            Action::OpenSettings => {
+                self.open_settings();
+                Vec::new()
+            }
+            Action::CloseSettings => {
+                self.settings_open = false;
+                Vec::new()
+            }
+            Action::ToggleFreeModeSetting => {
+                let enabled = !self.settings.show_free_mode_button();
+                self.settings.set_show_free_mode_button(enabled);
+                if !enabled && self.mode == BoardMode::FreeBoard {
+                    self.toggle_mode();
+                }
+                vec![Effect::SettingsChanged]
+            }
+            Action::ToggleNotesSetting => {
+                let enabled = !self.settings.show_notes_button();
+                self.settings.set_show_notes_button(enabled);
+                if !enabled {
+                    self.description_visible = false;
+                }
+                vec![Effect::SettingsChanged]
+            }
             Action::OpenCollectionPicker => {
                 self.open_collection_picker();
                 Vec::new()
@@ -502,7 +564,9 @@ impl AppState {
                 Vec::new()
             }
             Action::ToggleMode => {
-                self.toggle_mode();
+                if self.settings.show_free_mode_button() {
+                    self.toggle_mode();
+                }
                 Vec::new()
             }
             Action::ToggleOrientationLock => {
@@ -510,7 +574,9 @@ impl AppState {
                 Vec::new()
             }
             Action::ToggleDescription => {
-                self.description_visible = !self.description_visible;
+                if self.settings.show_notes_button() {
+                    self.description_visible = !self.description_visible;
+                }
                 Vec::new()
             }
             Action::ActivateCollection(collection) => {
@@ -531,6 +597,17 @@ impl AppState {
         } else {
             Vec::new()
         }
+    }
+
+    fn open_settings(&mut self) {
+        if self.settings_open
+            || self.pending_promotion.is_some()
+            || self.collection_picker_open
+            || self.puzzle_goto_input.is_some()
+        {
+            return;
+        }
+        self.settings_open = true;
     }
 
     fn open_analysis(&mut self) {
@@ -587,6 +664,7 @@ impl AppState {
         if self.puzzle_goto_input.is_some()
             || self.pending_promotion.is_some()
             || self.collection_picker_open
+            || self.settings_open
         {
             return;
         }
@@ -636,7 +714,10 @@ impl AppState {
     }
 
     fn open_collection_picker(&mut self) {
-        if self.collection_entries.is_empty() || self.pending_promotion.is_some() {
+        if self.collection_entries.is_empty()
+            || self.pending_promotion.is_some()
+            || self.settings_open
+        {
             return;
         }
 
@@ -768,7 +849,7 @@ impl AppState {
             SolutionFeedback::Correct
         };
         if complete {
-            self.description_visible = true;
+            self.description_visible = self.settings.show_notes_button();
             return self.mark_current_solved();
         }
         false

@@ -14,6 +14,7 @@ pub mod collection;
 pub mod fen;
 pub mod progress;
 pub mod puzzle;
+pub mod settings;
 pub mod uci;
 
 pub use analysis::{
@@ -30,6 +31,7 @@ pub use collection::{
 };
 pub use fen::{parse_fen, FenError, FenPosition};
 pub use progress::{FileProgress, Progress, PROGRESS_VERSION};
+pub use settings::{Settings, SETTINGS_VERSION};
 pub use puzzle::{
     parse_puzzle_file, Difficulty, Puzzle, PuzzleCollection, LEGACY_PUZZLE_FILE_WARNING_BYTES,
     MAX_PUZZLE_FILE_BYTES,
