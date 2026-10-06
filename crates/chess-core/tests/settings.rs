@@ -23,7 +23,10 @@ fn settings_default_round_trip_and_reject_future_versions() {
 
     let bytes = settings.to_bytes().expect("encode settings");
     assert_eq!(Settings::parse(&bytes).expect("parse settings"), settings);
-    assert!(Settings::parse(br#"{"version":2,"show_free_mode_button":true,"show_notes_button":true}"#).is_err());
+    assert!(Settings::parse(
+        br#"{"version":2,"show_free_mode_button":true,"show_notes_button":true}"#
+    )
+    .is_err());
 }
 
 #[test]
@@ -37,7 +40,11 @@ fn settings_panel_is_modal_and_toggles_emit_persistence_effects() {
 
     let board = app.board().clone();
     app.dispatch(Action::TapSquare(0));
-    assert_eq!(app.board(), &board, "settings blocks ordinary board actions");
+    assert_eq!(
+        app.board(),
+        &board,
+        "settings blocks ordinary board actions"
+    );
 
     assert_eq!(
         app.dispatch(Action::ToggleFreeModeSetting),

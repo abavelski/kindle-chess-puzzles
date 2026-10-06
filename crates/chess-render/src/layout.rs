@@ -511,7 +511,8 @@ impl Layout {
         let settings_inner = settings_modal.inset(small_gap);
         let settings_free_mode = Rect::new(
             settings_inner.x,
-            settings_modal.y
+            settings_modal
+                .y
                 .saturating_add(minimum_touch_px)
                 .saturating_add(gap),
             settings_inner.width,

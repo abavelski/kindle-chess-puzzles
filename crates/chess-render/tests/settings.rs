@@ -30,7 +30,10 @@ fn settings_button_is_left_of_refresh_and_opens_the_settings_panel() {
     assert!(output.layout.settings.right() <= output.layout.refresh.x);
 
     let (x, y) = center(output.layout.settings);
-    assert_eq!(output.hit_test_app(x, y, &app), Some(HitTarget::OpenSettings));
+    assert_eq!(
+        output.hit_test_app(x, y, &app),
+        Some(HitTarget::OpenSettings)
+    );
 }
 
 #[test]
