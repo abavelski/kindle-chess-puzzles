@@ -203,13 +203,7 @@ impl Layout {
             board_size.saturating_add(coordinate_gutter.saturating_mul(2)),
         );
         let header = Rect::new(0, 0, metrics.width, header_height);
-        let settings = Rect::new(header.x, header.y, minimum_touch_px, header.height);
-        let refresh = Rect::new(
-            settings.right().saturating_add(small_gap),
-            header.y,
-            minimum_touch_px,
-            header.height,
-        );
+        let refresh = Rect::new(header.x, header.y, minimum_touch_px, header.height);
         let collection_button_width = minimum_touch_px
             .saturating_mul(2)
             .min(header.width.saturating_div(3).max(minimum_touch_px));
@@ -219,8 +213,16 @@ impl Layout {
             minimum_touch_px,
             header.height,
         );
-        let collection_button = Rect::new(
+        let settings = Rect::new(
             exit.x
+                .saturating_sub(small_gap)
+                .saturating_sub(minimum_touch_px),
+            header.y,
+            minimum_touch_px,
+            header.height,
+        );
+        let collection_button = Rect::new(
+            settings.x
                 .saturating_sub(small_gap)
                 .saturating_sub(collection_button_width),
             header.y,

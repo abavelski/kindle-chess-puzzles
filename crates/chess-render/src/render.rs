@@ -145,7 +145,7 @@ fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scal
     if state.is_current_solved() {
         let badge_width = layout.minimum_touch_px().saturating_mul(2);
         let right = if state.collection_entries().is_empty() {
-            layout.exit.x
+            layout.settings.x
         } else {
             layout.collection_button.x
         };

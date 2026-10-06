@@ -118,6 +118,7 @@ fn header_controls_share_compact_height_and_title_is_visible() {
     let inset = layout.header.height / 10;
     let refresh = layout.refresh.inset(inset);
     let files = layout.collection_button.inset(inset);
+    let settings = layout.settings.inset(inset);
     let close = layout.exit.inset(inset);
     let solved_width = layout
         .minimum_touch_px()
@@ -128,9 +129,13 @@ fn header_controls_share_compact_height_and_title_is_visible() {
     assert_eq!(files.width, solved_width);
     assert_eq!(files.height, solved_height);
     assert_eq!(refresh.height, solved_height);
+    assert_eq!(settings.height, solved_height);
     assert_eq!(close.height, solved_height);
-    assert_eq!(refresh.width, close.width);
+    assert_eq!(refresh.width, settings.width);
+    assert_eq!(settings.width, close.width);
     assert!(close.width < files.width);
+    assert!(files.right() <= settings.x);
+    assert!(settings.right() <= layout.exit.x);
 
     let refresh_mid_y = refresh.y + refresh.height / 2;
     assert_eq!(

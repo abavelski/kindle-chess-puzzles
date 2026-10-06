@@ -15,7 +15,7 @@ Turning off Free mode while Free Board is active returns the app to Solution mod
 
 ## UI flow
 
-A settings icon lives at the far left of the header, immediately to the left of the manual Refresh control. Tapping it opens a modal panel using the same deterministic layout/hit-testing approach as the collection picker.
+A settings icon lives immediately to the left of the close button in the header. The `FILES` control, when present, sits to its left. Tapping it opens a modal panel using the same deterministic layout/hit-testing approach as the collection picker.
 
 While the panel is open, ordinary board and toolbar actions are blocked. The panel exposes two full-width ON/OFF rows and a Close button. Exit and manual Refresh remain available through their existing global header behavior.
 

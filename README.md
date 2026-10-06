@@ -17,7 +17,7 @@ It is intentionally **not a chess engine**. Puzzle grading follows authored solu
 - **Touch-first puzzle solving** on a full 8×8 board, with Scribe pen support for interactive solution browsing.
 - **Graded Solution mode** with exact stored-line checking, automatic opponent replies, wrong-move rollback, completion feedback, and promotion choice.
 - **Free Board mode** for moving pieces without grading.
-- **Persistent settings panel** from the left-side header control, with simple ON/OFF choices for showing the Free Board and Notes toolbar buttons.
+- **Persistent settings panel** from the settings control beside Close, with simple ON/OFF choices for showing the Free Board and Notes toolbar buttons.
 - **Fast navigation** with previous/next controls plus a direct **GOTO** dialog for large collections.
 - **Multiple puzzle collections** with durable current-puzzle and solved progress stored separately from puzzle files.
 - **Board orientation tools** including automatic side-to-move orientation, manual flip, and orientation lock.

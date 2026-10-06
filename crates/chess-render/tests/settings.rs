@@ -24,10 +24,11 @@ fn center(rect: chess_render::Rect) -> (u32, u32) {
 }
 
 #[test]
-fn settings_button_is_left_of_refresh_and_opens_the_settings_panel() {
+fn settings_button_is_immediately_left_of_close_and_opens_the_settings_panel() {
     let app = state();
     let output = render(&app, SCRIBE).expect("render succeeds");
-    assert!(output.layout.settings.right() <= output.layout.refresh.x);
+    assert!(output.layout.settings.right() <= output.layout.exit.x);
+    assert!(output.layout.collection_button.right() <= output.layout.settings.x);
 
     let (x, y) = center(output.layout.settings);
     assert_eq!(
