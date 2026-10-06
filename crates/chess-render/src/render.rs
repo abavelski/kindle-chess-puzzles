@@ -31,6 +31,10 @@ pub struct RenderOutput {
 
 impl RenderOutput {
     pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
+        if state.settings_open() {
+            return self.layout.hit_test_app(x, y, state);
+        }
+
         if state.analysis_browser_open()
             && !state.collection_picker_open()
             && !state.puzzle_goto_open()
