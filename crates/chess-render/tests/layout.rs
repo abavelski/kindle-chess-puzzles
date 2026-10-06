@@ -229,7 +229,7 @@ fn goto_button_is_small_between_prev_next_and_modal_captures_keypad() {
 #[test]
 fn header_edge_controls_are_touch_sized_and_accessible_during_modals() {
     let layout = Layout::new(SCRIBE).expect("Scribe layout");
-    for rect in [layout.refresh, layout.exit] {
+    for rect in [layout.settings, layout.refresh, layout.exit] {
         assert!(rect.width >= layout.minimum_touch_px());
         assert!(rect.height >= layout.minimum_touch_px());
     }
@@ -241,8 +241,11 @@ fn header_edge_controls_are_touch_sized_and_accessible_during_modals() {
     ] {
         assert!(!layout.exit.intersects(rect));
     }
-    assert_eq!(layout.refresh.x, layout.header.x);
+    assert_eq!(layout.settings.x, layout.header.x);
+    assert_eq!(layout.settings.y, layout.header.y);
     assert_eq!(layout.refresh.y, layout.header.y);
+    assert!(layout.settings.right() <= layout.refresh.x);
+    assert!(!layout.settings.intersects(layout.refresh));
     assert_eq!(layout.exit.right(), layout.header.right());
     assert_eq!(layout.exit.y, layout.header.y);
     assert!(!layout.refresh.intersects(layout.exit));
