@@ -1,95 +1,78 @@
-# Kindle Chess Puzzles
+# ♟ Kindle Chess Puzzles
 
-A Kindle-first Rust/FBInk experiment for solving chess puzzles on a jailbroken **Kindle Scribe (1st generation)**.
+**A native, e-ink chess puzzle app for Kindle Scribe.** Solve tactics, browse book-style solutions, and keep your progress on a device that feels much closer to a paper chess book than a phone.
 
-This project starts from the behavior of [abavelski/eink-chess-app](https://github.com/abavelski/eink-chess-app), but it does **not** copy the Kobo/Cobalt runtime architecture. The goal is to keep chess, puzzle, application, layout, and rendering logic platform-neutral and put Kindle-specific framebuffer, input, lifecycle, build, and deployment code behind small adapters. A Kobo backend may be added later without changing the core model.
+> **Current hardware target:** jailbroken **Kindle Scribe (1st generation / Barolo)**, developed and physically validated on **firmware 5.19.6**.
 
-## First milestone: Kindle parity
+Kindle Chess Puzzles is written in Rust and renders directly to the Kindle framebuffer through FBInk. The shared chess and UI logic stays platform-neutral, while a thin Kindle layer handles display, touch/pen input, storage, lifecycle, packaging, and deployment.
 
-The first usable Kindle version should match the currently implemented behavior of the Kobo app:
+It is intentionally **not a chess engine**. Puzzle grading follows authored solution lines, while rich analysis is prepared offline and shipped as deterministic puzzle data.
 
-- 8x8 touch chessboard with the same FEN/UCI semantics;
-- the same version-1 JSON puzzle collection format;
-- exact stored-line solution checking, with automatic opponent replies;
-- wrong-move rollback and clear monochrome result feedback;
-- pawn promotion with Queen/Rook/Bishop/Knight choice;
-- graded **Solution** mode and ungraded **Free Board** mode;
-- reset, previous/next puzzle navigation, and manual board flip;
-- automatic orientation toward the FEN side-to-move plus orientation lock;
-- optional puzzle description reveal and difficulty display;
-- multiple puzzle collections;
-- durable active-collection/current-puzzle/solved progress, stored separately from puzzle files;
-- Sashité Western SVG chess artwork, converted into deterministic e-ink-friendly assets.
+## Screenshot
 
-This is still deliberately **not a chess engine**. Ordinary move legality, check/checkmate, castling rules, en-passant rules, and engine analysis are out of scope unless a later task explicitly adds them.
+<!-- Replace this block later with:
+![Kindle Chess Puzzles running on a Kindle Scribe](docs/images/kindle-chess-puzzles.jpg)
+-->
 
-## Architecture direction
+<p align="center">
+  <strong>📷 Screenshot coming soon</strong><br>
+  <sub>Reserved for the Kindle Scribe UI.</sub>
+</p>
+
+## Features
+
+- **Touch-first puzzle solving** on a full 8×8 board, with Scribe pen support for interactive solution browsing.
+- **Graded Solution mode** with exact stored-line checking, automatic opponent replies, wrong-move rollback, completion feedback, and promotion choice.
+- **Free Board mode** for moving pieces without grading.
+- **Fast navigation** with previous/next controls plus a direct **GOTO** dialog for large collections.
+- **Multiple puzzle collections** with durable current-puzzle and solved progress stored separately from puzzle files.
+- **Board orientation tools** including automatic side-to-move orientation, manual flip, and orientation lock.
+- **Puzzle metadata** including difficulty, topics, notes/descriptions, and Cyrillic text support.
+- **Rich book-style analysis** with inline PGN-style movetext, recursive variations, comments, conventional annotations (`!`, `?`, `!!`, `??`, `!?`, `?!`), and tappable move references that preview the exact position.
+- **E-ink-aware rendering** with deterministic grayscale output, damage-aware refreshes, a manual Refresh control for residual ghosting, and a sleep overlay with repeatable power-button sleep/wake handling.
+- **Reproducible Kindle builds and packaging** for ARMv7 / glibc 2.35, with host tests covering core logic, rendering, input contracts, lifecycle, and packaging.
+
+Phase one (the complete Kindle puzzle experience) and phase two (rich solution browsing) are both complete. The post-phase-two UI improvements above are implemented on `main`.
+
+## How it works
+
+The Kindle runtime stays deliberately small. Puzzle solving, rendering, and analysis browsing are normal Rust code; platform-specific behavior is pushed to the edge.
 
 ```text
-shared Rust core
-  board + FEN/UCI
-  puzzle parser
-  solution/application state
-  progress
-  layout + hit testing
-  deterministic grayscale renderer
-          |
-          +-------------------+
-          |                   |
-          v                   v
-Kindle adapter           future Kobo adapter
-FBInk display            FBInk/other display
-evdev touch              Kobo input
-lifecycle/paths          lifecycle/paths
-packaging/deploy         packaging/deploy
+                         app/kindle-chess
+                         event loop + composition
+                           /            \
+                          v              v
+                 chess-core         chess-render
+              board / puzzles      Gray8 rendering
+              app state / progress layout / hit testing
+              rich analysis        damage tracking
+                          \              /
+                           v            v
+                         kindle-platform
+                 input / storage / lifecycle
+                              |
+                              v
+                           fbink-sys
+                              |
+                              v
+                    FBInk + Kindle framebuffer
 ```
 
-FBInk is the display boundary, not the application model. Device-specific code should translate platform events into shared `Action` values and present shared rendered frames/damage regions.
+The workspace is split into four main crates:
 
-## Development style
+- **`chess-core`** — FEN/UCI board model, puzzle parsing, solution state, collections, progress, and rich-analysis state.
+- **`chess-render`** — deterministic e-ink layout/rendering, hit testing, pieces, text, and damage regions.
+- **`kindle-platform`** — Kindle display presentation, Linux touch/pen input, paths, device lifecycle, and power integration.
+- **`fbink-sys`** — the raw FBInk FFI boundary.
 
-This repository is **test driven**. Every implementation task starts with failing automated tests, then the smallest implementation to make them pass, then refactoring. Pure logic and rendering are tested on the host; FBInk/input/lifecycle boundaries get contract tests plus explicit physical-device checkpoints.
+Rich solutions are authored/imported **offline**. A host-side PGN converter validates moves and emits JSON with precomputed positions, so the Kindle needs neither a PGN parser nor a chess engine to jump through variations.
 
-Start here:
+The architecture is intentionally reusable: a future Kobo backend should be able to replace the platform adapter without forking the chess model or renderer.
 
-- [AGENTS.md](AGENTS.md) — rules for coding agents;
-- [Architecture](docs/ARCHITECTURE.md);
-- [Kindle Scribe notes](docs/KINDLE_SCRIBE.md);
-- [FBInk integration](docs/FBINK.md);
-- [Phase 2: rich solution browsing](docs/PHASE_2.md);
-- [Puzzle format compatibility](docs/PUZZLE_FORMAT.md);
-- [Safe collection updates](docs/COLLECTION_UPDATES.md);
-- [Testing strategy](docs/TESTING.md);
-- [Implementation tasks](tasks/README.md).
+## Build & deploy
 
-## Current state
-
-**Phase one is closed.** Tasks 00-09 establish the first Kindle Scribe parity release:
-platform-neutral puzzle/application/rendering logic, pinned FBInk presentation, measured
-finger input, multiple collections and durable progress, damage-aware e-ink updates,
-supervised display/input ownership, reproducible ARMv7/glibc-2.35 builds, Scriptlet/KPM
-packaging, and reference-parity validation.
-
-The validated hardware target is the **first-generation Kindle Scribe (Barolo), firmware
-5.19.6**. Physical checkpoints covered puzzle solving, promotions, Free Board, navigation,
-orientation, descriptions, collection switching, restart persistence, repeated touch use,
-normal/crash exit recovery, and library launch/exit. See
-[the parity matrix](docs/PARITY.md), [measured results](docs/RESULTS.md), and
-[the device record](docs/device/ks1-barolo.md).
-
-The user confirmed natural idle and power-button sleep/wake with the app open on
-2026-10-04. Library launch after a full device reboot remains unverified. **Phase two is closed**, with rich book
-solutions, main lines, side lines, alternative lines, comments, explicit move references,
-and finger/stylus tap-to-preview positions. The results are in
-[docs/PHASE_2.md](docs/PHASE_2.md) and the completed tasks are archived under
-[tasks/implemented/phase-2/](tasks/implemented/phase-2/). Residual Scribe panel ghosting is no
-longer an active investigation: the existing top-left **Refresh** button is the accepted
-manual workaround when a ghost becomes visible.
-
-## Build, install, and use
-
-The tested workflow is documented in [BUILD_DEPLOY.md](docs/BUILD_DEPLOY.md). From a fresh
-checkout:
+From a fresh checkout:
 
 ```sh
 git submodule update --init --recursive
@@ -98,44 +81,27 @@ scripts/build-kindle.sh
 scripts/stage-kindle.sh
 ```
 
-Deploy over the previously configured SSH transport with the device address supplied at
-runtime:
+Deploy to a configured Scribe over SSH:
 
 ```sh
 scripts/deploy-kindle.sh --host root@DEVICE_IP --port 2222
 ```
 
-The installed layout keeps runtime and user data separate:
+With Scriptlets/SH_Integration installed, the packaged app can be launched from the Kindle library as **Kindle Chess Puzzles**.
 
-- runtime: `/mnt/us/kindle-chess/runtime/`;
-- puzzle collections: `/mnt/us/kindle-chess/puzzles/`;
-- progress: `/mnt/us/kindle-chess/state/progress.json`;
-- logs: `/mnt/us/kindle-chess/logs/`;
-- library Scriptlet: `/mnt/us/documents/kindle-chess.sh`.
+For the full setup and recovery procedure, see [Build & Deploy](docs/BUILD_DEPLOY.md).
 
-With Scriptlets/SH_Integration installed, launch **Kindle Chess Puzzles** from the Kindle
-library. A verified direct-shell fallback is
-`sh /mnt/us/kindle-chess/runtime/launch.sh`. Use the app's top-right **X** to exit;
-it flushes pending progress and lets the supervisor return display/input ownership to the
-native UI.
+## Project notes
 
-For install/update/uninstall details, KPM commands, and manual recovery, follow
-[BUILD_DEPLOY.md](docs/BUILD_DEPLOY.md) and
-[EINK_LIFECYCLE.md](docs/EINK_LIFECYCLE.md). Recovery should preserve
-`puzzles/` and `state/`; do not delete user data to repair a runtime install.
+The project grew from the behavior of [eink-chess-app](https://github.com/abavelski/eink-chess-app), while replacing the original runtime architecture with a portable Rust core and Kindle-specific adapters.
 
-The first toolbar button is an icon-only book toggle for analysis. Tap it again to
-return to the live puzzle board. It is inverted while analysis is open and disabled
-for collections without rich analysis. The solution panel shows compact inline PGN
-movetext: numbered SAN moves, parenthesized variations, and braced comments.
-Standard move-quality annotations appear as `!`, `?`, `!!`, `??`, `!?`, `?!`
-attached to the move; other annotation codes retain their `$N` form. Bold SAN tokens and explicit prose move references are tappable.
-Selected moves have an inverted rectangular background; plain prose remains inert.
-Overflow uses previous/next analysis pages.
-Analysis opens directly on solution text without a separate title/page-count line.
+Useful deep dives:
 
-Phase two keeps the app a physical-board puzzle tool rather than a chess engine. Existing
-version-1 collections remain valid. Rich solution data is designed as an additive extension
-that retains the legacy `solution` main line, with precomputed positions for interactive
-browsing. PGN remains an offline authoring/import format. Stylus tap support for the rich
-solution browser is explicitly part of the phase-two plan.
+- [Architecture](docs/ARCHITECTURE.md)
+- [Kindle Scribe notes](docs/KINDLE_SCRIBE.md)
+- [Puzzle format](docs/PUZZLE_FORMAT.md)
+- [Rich solution browsing](docs/PHASE_2.md)
+- [Measured device results](docs/RESULTS.md)
+- [Implementation task history](tasks/README.md)
+
+Chess piece artwork comes from the **Sashité Western** SVG set and is converted into deterministic e-ink-friendly assets during development.
