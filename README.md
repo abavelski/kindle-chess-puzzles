@@ -10,14 +10,7 @@ It is intentionally **not a chess engine**. Puzzle grading follows authored solu
 
 ## Screenshot
 
-<!-- Replace this block later with:
-![Kindle Chess Puzzles running on a Kindle Scribe](docs/images/kindle-chess-puzzles.jpg)
--->
-
-<p align="center">
-  <strong>📷 Screenshot coming soon</strong><br>
-  <sub>Reserved for the Kindle Scribe UI.</sub>
-</p>
+![Kindle Chess Puzzles running on a Kindle Scribe](docs/images/kindle-chess-puzzles.png)
 
 ## Features
 
