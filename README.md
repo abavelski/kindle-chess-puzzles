@@ -17,6 +17,7 @@ It is intentionally **not a chess engine**. Puzzle grading follows authored solu
 - **Touch-first puzzle solving** on a full 8×8 board, with Scribe pen support for interactive solution browsing.
 - **Graded Solution mode** with exact stored-line checking, automatic opponent replies, wrong-move rollback, completion feedback, and promotion choice.
 - **Free Board mode** for moving pieces without grading.
+- **Persistent settings panel** from the left-side header control, with simple ON/OFF choices for showing the Free Board and Notes toolbar buttons.
 - **Fast navigation** with previous/next controls plus a direct **GOTO** dialog for large collections.
 - **Multiple puzzle collections** with durable current-puzzle and solved progress stored separately from puzzle files.
 - **Board orientation tools** including automatic side-to-move orientation, manual flip, and orientation lock.
@@ -25,7 +26,7 @@ It is intentionally **not a chess engine**. Puzzle grading follows authored solu
 - **E-ink-aware rendering** with deterministic grayscale output, damage-aware refreshes, a manual Refresh control for residual ghosting, and a sleep overlay with repeatable power-button sleep/wake handling.
 - **Reproducible Kindle builds and packaging** for ARMv7 / glibc 2.35, with host tests covering core logic, rendering, input contracts, lifecycle, and packaging.
 
-Phase one (the complete Kindle puzzle experience) and phase two (rich solution browsing) are both complete. The post-phase-two UI improvements above are implemented on `main`.
+Phase one (the complete Kindle puzzle experience) and phase two (rich solution browsing) are both complete. The next UI phase introduces persistent, versioned application settings without coupling preferences to puzzle files or learning progress.
 
 ## How it works
 
@@ -54,7 +55,7 @@ The Kindle runtime stays deliberately small. Puzzle solving, rendering, and anal
 
 The workspace is split into four main crates:
 
-- **`chess-core`** — FEN/UCI board model, puzzle parsing, solution state, collections, progress, and rich-analysis state.
+- **`chess-core`** — FEN/UCI board model, puzzle parsing, solution state, collections, progress, versioned settings, and rich-analysis state.
 - **`chess-render`** — deterministic e-ink layout/rendering, hit testing, pieces, text, and damage regions.
 - **`kindle-platform`** — Kindle display presentation, Linux touch/pen input, paths, device lifecycle, and power integration.
 - **`fbink-sys`** — the raw FBInk FFI boundary.

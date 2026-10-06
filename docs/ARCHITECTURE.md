@@ -17,6 +17,7 @@ crates/
     uci.rs
     puzzle.rs
     progress.rs
+    settings.rs
     app.rs
     view.rs
   chess-render/
@@ -115,6 +116,8 @@ AppState
   flipped
   orientation_locked
   description_visible
+  settings
+  settings_open
   progress
   transient error/warning
 ```
@@ -132,13 +135,17 @@ Flip
 ToggleMode
 ToggleOrientationLock
 ToggleDescription
+OpenSettings
+ToggleFreeModeSetting
+ToggleNotesSetting
+CloseSettings
 OpenCollectionPicker
 SelectCollection(key)
 CloseModal
 Exit
 ```
 
-`dispatch(Action)` should be deterministic and host-testable. It may return small effects for the outer runtime, such as "persist progress" or "exit", but it must not call FBInk or read `/dev/input`.
+`dispatch(Action)` should be deterministic and host-testable. It may return small effects for the outer runtime, such as "persist progress", "persist settings", or "exit", but it must not call FBInk or read `/dev/input`. Settings are application preferences: they belong in core state, while the platform layer owns their filesystem persistence.
 
 ### View state
 
@@ -211,17 +218,18 @@ Because the Scribe has no Kobo-style page-turn buttons, parity navigation maps t
 
 ## Storage
 
-Core parsing/progress serialization takes bytes/strings, not paths.
+Core parsing plus progress/settings serialization takes bytes/strings, not paths.
 
 The Kindle adapter chooses:
 
 - puzzle directory;
 - progress path;
+- settings path;
 - logs/debug path.
 
 Keep paths configurable for tests.
 
-Puzzle collections remain editable source data. The app never writes them for progress. Progress writes should use a safe temp-write + sync + rename pattern when supported by the selected filesystem, with failure surfaced to the app.
+Puzzle collections remain editable source data. The app never writes them for progress or preferences. Progress and settings are separate versioned documents; both use a safe temp-write + sync + rename pattern when supported by the selected filesystem, with malformed/future documents protected from overwrite and failures surfaced to the app.
 
 ## Lifecycle
 

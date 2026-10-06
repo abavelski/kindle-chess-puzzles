@@ -24,6 +24,8 @@ Test:
 - board selection/deselection/move/promotion staging;
 - puzzle version-1 parsing and validation;
 - progress serialization/version handling;
+- settings serialization/version handling;
+- settings-modal action blocking and control visibility;
 - collection filtering/order;
 - exact solution state transitions;
 - wrong-move rollback;
@@ -58,7 +60,8 @@ Maintain snapshot/golden tests for at least:
 - orientation lock selected state;
 - promotion chooser;
 - collection picker;
-- file/progress warning;
+- settings panel and ON/OFF states;
+- file/progress/settings warning;
 - optional difficulty string and number.
 
 Also test layout invariants numerically:
@@ -99,7 +102,8 @@ Host tests can cover:
 - raw touch-range normalization;
 - rotation transforms;
 - storage path selection;
-- safe progress write behavior in temporary directories.
+- safe progress write behavior in temporary directories;
+- safe settings write/protection behavior in temporary directories.
 
 The CI should also cross-compile the Kindle binary once the toolchain is established. A cross-build passing is not a device test, and it is not sufficient evidence of runtime libc compatibility: Task 04 caught a GLIBC_2.38 artifact on a glibc 2.35 Scribe despite a green build. Keep the deployment baseline explicit and verify produced artifacts on-device at the relevant human checkpoint.
 
