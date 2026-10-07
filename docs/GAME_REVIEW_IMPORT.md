@@ -29,6 +29,21 @@ bytes. `--compact` reduces output size; the hard limit is **8 MiB per file**,
 reported after conversion. Split larger PGNs into separate named collections.
 Use `python3 tools/pgn_review_converter.py --help` for metadata options.
 
+For PGNs containing imported `[%pre prose]` wrappers, clean them before conversion:
+
+```sh
+python3 tools/clean_pgn.py data/game1.pgn -o data/game1-clean.pgn
+python3 tools/pgn_review_converter.py data/game1-clean.pgn -o data/games-game1.json --title "My games"
+```
+
+The cleaner unwraps `pre` directives and removes unsupported `csl`/`cal` square
+and arrow directives only inside comments, retaining prose, Unicode, headers,
+moves, variations, and other directives. These marks are discarded only from the
+cleaned copy; keep the original PGN for future annotation support. See the
+[deferred board-annotation plan](PGN_BOARD_ANNOTATIONS.md). Use a separate output
+to preserve the original PGN. Output replacement is atomic; incomplete wrappers
+fail without replacing an existing output. Repeated cleaning is unchanged.
+
 Only explicitly authored references in comments become prose links:
 
 ```text

@@ -2118,3 +2118,30 @@ as progress changes. Acceptance is based on the user report; no additional reboo
 or crash-recovery observation is inferred. Integration into `main` is explicitly
 authorized by the same user request. Existing X exit and SSH recovery remain
 available.
+
+#### Real-game import and comment cleanup — 2026-10-07
+
+Converted the user's local `data/game1.pgn` (Fischer–Sherwin, 1957, Russian
+annotations) with `tools/pgn_review_converter.py`, then copied it via the existing
+scp/SSH transport to `/mnt/us/kindle-chess/games/games-game1.json` while the app
+and supervisor lock were absent. The game contains 65 main-line plies and 164
+variation plies. The user confirmed that the imported game works after `%pre`
+wrappers were unwrapped while retaining their prose.
+
+The user subsequently requested removal of unsupported board annotation markup.
+`tools/clean_pgn.py data/game1.pgn -o data/game1-clean.pgn` now unwraps 35 `%pre`
+directives and removes five `%csl`/`%cal` directives. Converted with title
+`Fischer – Sherwin, 1957`, the resulting JSON is 107,968 bytes and retains the
+same game ID, move tree and FENs; only comment/content text changed.
+
+Uploaded to a hidden temporary filename, verified SHA-256, backed up the previous
+file as `games-game1.json.pre-strip.bak`, and renamed the new file into place.
+Installed SHA-256 matches host output:
+`83195012766ef6893ac44840f56a27e746913e3c24eacbf0e5d7621a8cf8fe8e`.
+All nine other puzzle/state/review files matched their pre-upload hashes,
+including progress and settings. Original PGN and generated files remain local
+under the ignored `data/` directory. Relaunch reloads the updated review library;
+this transfer verification does not assert a new physical visual checkpoint.
+
+Future board marks are described in the
+[deferred PGN annotation proposal](../PGN_BOARD_ANNOTATIONS.md).
