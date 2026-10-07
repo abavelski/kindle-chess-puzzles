@@ -524,10 +524,12 @@ fn draw_status(
     };
     let mut content = layout.status.inset(padding);
 
-    if (state.workspace() == Workspace::Review || state.analysis_browser_open())
-        && let Some(view) = analysis_view(state)
-    {
-        return draw_analysis_panel(frame, view, layout, content, analysis_scale);
+    let show_analysis =
+        state.workspace() == Workspace::Review || state.analysis_browser_open();
+    if show_analysis {
+        if let Some(view) = analysis_view(state) {
+            return draw_analysis_panel(frame, view, layout, content, analysis_scale);
+        }
     }
 
     if state.feedback() == SolutionFeedback::Correct {
