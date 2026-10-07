@@ -191,7 +191,8 @@ fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scal
             }
         }
         Workspace::Review => {
-            if let (Some(entry), Some(review)) = (state.active_review_game(), state.review_state()) {
+            if let (Some(entry), Some(review)) = (state.active_review_game(), state.review_state())
+            {
                 let game = entry.game();
                 let title = format!(
                     "{} - {}  {}",
@@ -208,8 +209,7 @@ fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scal
                     .max(layout.minimum_touch_px().saturating_mul(2))
                     .min(layout.minimum_touch_px().saturating_mul(3));
                 let context_rect = Rect::new(
-                    layout.header.x
-                        + layout.header.width.saturating_sub(context_width) / 2,
+                    layout.header.x + layout.header.width.saturating_sub(context_width) / 2,
                     layout.header.y,
                     context_width,
                     layout.header.height,
@@ -864,12 +864,7 @@ fn draw_collection_picker(frame: &mut Gray8, state: &AppState, layout: Layout, s
     );
 }
 
-fn draw_review_game_picker(
-    frame: &mut Gray8,
-    state: &AppState,
-    layout: Layout,
-    scale: u32,
-) {
+fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
     let Some(review) = state.review_state() else {
         return;
     };
@@ -882,7 +877,9 @@ fn draw_review_game_picker(
         layout.collection_modal.width,
         layout.minimum_touch_px(),
     );
-    let page_count = review.game_picker_page_count(state.review_games().len()).max(1);
+    let page_count = review
+        .game_picker_page_count(state.review_games().len())
+        .max(1);
     draw_text_centered(
         frame,
         title,
@@ -899,20 +896,12 @@ fn draw_review_game_picker(
         let metadata = &entry.game().metadata;
         let rect = layout.collection_rows[slot];
         let selected = index == review.active_game_index();
-        let (background, foreground) = if selected {
-            (INK, WHITE)
-        } else {
-            (WHITE, INK)
-        };
+        let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
         frame.fill_rect(rect, background);
         frame.stroke_rect(rect, 3, INK);
         let text = format!(
             "{} - {}\n{} / {}  {}",
-            metadata.white,
-            metadata.black,
-            metadata.event,
-            metadata.date,
-            metadata.result
+            metadata.white, metadata.black, metadata.event, metadata.date, metadata.result
         );
         draw_wrapped_text(frame, rect.inset(10), &text, scale.min(3), foreground);
     }
@@ -951,21 +940,11 @@ fn draw_workspace_button(frame: &mut Gray8, rect: Rect, selected: bool) {
     let thickness = (size / 24).clamp(3, 6);
     frame.stroke_rect(icon, thickness, ink);
     frame.fill_rect(
-        Rect::new(
-            icon.x + icon.width / 2,
-            icon.y,
-            thickness,
-            icon.height,
-        ),
+        Rect::new(icon.x + icon.width / 2, icon.y, thickness, icon.height),
         ink,
     );
     frame.fill_rect(
-        Rect::new(
-            icon.x,
-            icon.y + icon.height / 2,
-            icon.width,
-            thickness,
-        ),
+        Rect::new(icon.x, icon.y + icon.height / 2, icon.width, thickness),
         ink,
     );
 }

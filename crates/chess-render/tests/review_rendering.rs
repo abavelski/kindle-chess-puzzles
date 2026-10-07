@@ -76,10 +76,7 @@ fn long_review() -> AppState {
         "Long annotated context before the moves keeps deterministic overflow pages readable. "
             .repeat(28)
             .into();
-    review_state(
-        &serde_json::to_vec(&value).unwrap(),
-        "games-long.json",
-    )
+    review_state(&serde_json::to_vec(&value).unwrap(), "games-long.json")
 }
 
 #[test]
@@ -104,7 +101,10 @@ fn review_layout_keeps_touch_targets_and_replaces_goto_with_two_main_line_contro
         .collect::<Vec<_>>();
     assert_eq!(visible.len(), 4);
     assert_eq!(
-        visible.iter().map(|target| target.target).collect::<Vec<_>>(),
+        visible
+            .iter()
+            .map(|target| target.target)
+            .collect::<Vec<_>>(),
         vec![
             HitTarget::ToggleMode,
             HitTarget::Reset,
@@ -129,11 +129,12 @@ fn review_movetext_is_always_visible_and_focuses_the_selected_move_page() {
     let selected = app.selected_analysis_node().expect("selected final move");
     let focused = render(&app, SCRIBE).unwrap();
     let panel = focused.analysis.as_ref().expect("review analysis");
-    assert!(panel.page > 0, "long prefix should push the final move off page one");
+    assert!(
+        panel.page > 0,
+        "long prefix should push the final move off page one"
+    );
     assert!(panel.move_chips.iter().any(|chip| {
-        chip.source == AnalysisMoveChipSource::TreeMove
-            && chip.node == selected
-            && chip.selected
+        chip.source == AnalysisMoveChipSource::TreeMove && chip.node == selected && chip.selected
     }));
 
     app.dispatch(Action::AnalysisPreviousPage);
@@ -178,11 +179,17 @@ fn review_free_board_changes_board_pixels_without_losing_authored_move_selection
     app.dispatch(Action::TapSquare(square("f3")));
 
     let output = render(&app, SCRIBE).unwrap();
-    assert!(output.analysis.as_ref().unwrap().move_chips.iter().any(|chip| {
-        chip.source == AnalysisMoveChipSource::TreeMove
-            && chip.node == selected
-            && chip.selected
-    }));
+    assert!(output
+        .analysis
+        .as_ref()
+        .unwrap()
+        .move_chips
+        .iter()
+        .any(|chip| {
+            chip.source == AnalysisMoveChipSource::TreeMove
+                && chip.node == selected
+                && chip.selected
+        }));
     assert_ne!(
         app.board(),
         app.review_state().unwrap().authored_board(),
@@ -233,14 +240,16 @@ fn review_workspace_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("review-long-last", hash(&long_last)));
 
     let black = review_state(CUSTOM, "games-custom.json");
-    assert!(black.flipped(), "black-to-move review starts oriented for Black");
+    assert!(
+        black.flipped(),
+        "black-to-move review starts oriented for Black"
+    );
     actual.push(("review-black-to-move", hash(&black)));
 
     let mut unicode_value: serde_json::Value = serde_json::from_slice(STANDARD).unwrap();
     unicode_value["games"][0]["white"] =
         "José Raúl Capablanca — København — очень длинное имя".into();
-    unicode_value["games"][0]["black"] =
-        "Александр Алехин — München — très longue identité".into();
+    unicode_value["games"][0]["black"] = "Александр Алехин — München — très longue identité".into();
     let unicode = review_state(
         &serde_json::to_vec(&unicode_value).unwrap(),
         "games-unicode.json",
