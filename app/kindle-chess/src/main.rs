@@ -35,6 +35,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let force_full = std::env::args().skip(1).any(|arg| arg == "--full-refresh");
     let storage = KindleStorage::new(StoragePaths::from_env());
     let discovered = storage.prepare_collections(BUNDLED_PUZZLES)?;
+    let review_library = storage.discover_review_library()?;
     let (mut progress_store, progress_load) =
         ProgressStore::open(storage.paths().progress_file.clone());
     let (mut settings_store, settings_load) =
@@ -54,6 +55,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .map(DiscoveredCollection::as_core_entry)
             .collect(),
     );
+    app.set_review_games(review_library.games);
+    app.set_review_file_errors(review_library.errors);
 
     let mut startup_message = progress_load.warning;
     if let Some(warning) = settings_load.warning {
@@ -91,10 +94,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("kindle-chess: exclusive finger input acquired before first frame");
 
     eprintln!(
-        "kindle-chess: puzzles={} progress={} active={} persistent={}",
+        "kindle-chess: puzzles={} reviews={} progress={} active={} review_games={} persistent={}",
         storage.paths().puzzle_dir.display(),
+        storage.paths().review_dir.display(),
         progress_store.path().display(),
         app.active_collection().key(),
+        app.review_games().len(),
         persistence_enabled
     );
     for entry in &discovered {
@@ -108,6 +113,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 entry.filename, entry.label
             ),
         }
+    }
+    for entry in app.review_games() {
+        eprintln!(
+            "kindle-chess: review game {}::{} -> {}",
+            entry.key().collection_id(),
+            entry.key().game_id(),
+            entry.label().replace('\n', " | ")
+        );
+    }
+    for error in app.review_file_errors() {
+        eprintln!(
+            "kindle-chess: review file {} INVALID: {}",
+            error.collection_id(),
+            error.error()
+        );
     }
     eprintln!(
         "kindle-chess: FBInk {} at {}x{} stride={} bpp={} rotation={}",
@@ -330,6 +350,17 @@ fn apply_effects(
                     ))));
                 }
             },
+            Effect::ReviewGameRequested(key) => match storage.load_review_game(&key) {
+                Ok(game) => {
+                    queue.extend(app.dispatch(Action::ActivateReviewGame(key, game)));
+                }
+                Err(error) => {
+                    app.dispatch(Action::CloseReviewGamePicker);
+                    app.dispatch(Action::SetTransientMessage(Some(format!(
+                        "Review game error: {error}"
+                    ))));
+                }
+            },
         }
     }
 
@@ -402,6 +433,65 @@ mod tests {
             awake_tap(DeviceEvent::Tap(1, 2), &mut sleeping),
             Some((1, 2))
         );
+    }
+
+    #[test]
+    fn review_runtime_keeps_puzzle_progress_bytes_stable() {
+        const REVIEW: &[u8] =
+            include_bytes!("../../../tests/fixtures/game-review/valid-standard.json");
+
+        let root = std::env::temp_dir().join(format!(
+            "kcp-review-runtime-{}",
+            std::process::id()
+        ));
+        let storage = KindleStorage::new(StoragePaths::new(
+            root.join("puzzles"),
+            root.join("state/progress.json"),
+        ));
+        std::fs::create_dir_all(&storage.paths().review_dir).unwrap();
+        std::fs::write(storage.paths().review_dir.join("games.json"), REVIEW).unwrap();
+
+        let library = storage.discover_review_library().unwrap();
+        assert_eq!(library.games.len(), 1);
+        assert!(library.errors.is_empty());
+
+        let mut app = AppState::new(
+            ActiveCollection::from_collection(
+                "puzzles.json",
+                parse_puzzle_file(BUNDLED_PUZZLES).unwrap(),
+            ),
+            Progress::new(),
+        );
+        app.set_review_games(library.games);
+        app.set_review_file_errors(library.errors);
+
+        let original = app.progress().to_bytes().unwrap();
+        std::fs::create_dir_all(storage.paths().progress_file.parent().unwrap()).unwrap();
+        std::fs::write(&storage.paths().progress_file, &original).unwrap();
+        let (mut progress_store, load) =
+            ProgressStore::open(storage.paths().progress_file.clone());
+        assert_eq!(load.progress, *app.progress());
+        let (mut settings_store, _) =
+            SettingsStore::open(storage.paths().settings_file.clone());
+
+        assert!(app.dispatch(Action::ToggleWorkspace).is_empty());
+        assert!(app.dispatch(Action::ReviewNext).is_empty());
+        assert!(app.dispatch(Action::OpenReviewGamePicker).is_empty());
+        let effects = app.dispatch(Action::SelectReviewGame(0));
+        assert!(!apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            true,
+            effects,
+        ));
+        assert!(app.dispatch(Action::ReviewNext).is_empty());
+        assert!(app.dispatch(Action::ToggleWorkspace).is_empty());
+
+        assert!(!progress_store.dirty());
+        assert_eq!(std::fs::read(progress_store.path()).unwrap(), original);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

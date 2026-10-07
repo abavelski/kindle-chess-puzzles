@@ -2,8 +2,8 @@
 
 use crate::{
     parse_uci_move, AnalysisNodeIndex, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle,
-    PuzzleCollection, ReviewFileError, ReviewGameEntry, ReviewState, Settings, TapResult, UciMove,
-    Workspace,
+    PuzzleCollection, ReviewFileError, ReviewGame, ReviewGameEntry, ReviewGameKey, ReviewState,
+    Settings, TapResult, UciMove, Workspace,
 };
 
 pub const COLLECTIONS_PER_PAGE: usize = 6;
@@ -139,6 +139,7 @@ pub enum Action {
     ReviewGamePickerPreviousPage,
     ReviewGamePickerNextPage,
     SelectReviewGame(usize),
+    ActivateReviewGame(ReviewGameKey, ReviewGame),
     TapSquare(usize),
     ChoosePromotion(PromotionChoice),
     CancelPromotion,
@@ -180,6 +181,7 @@ pub enum Effect {
     ProgressChanged,
     SettingsChanged,
     CollectionRequested(String),
+    ReviewGameRequested(ReviewGameKey),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -584,6 +586,7 @@ impl AppState {
                     | Action::ReviewGamePickerPreviousPage
                     | Action::ReviewGamePickerNextPage
                     | Action::SelectReviewGame(_)
+                    | Action::ActivateReviewGame(_, _)
                     | Action::SetTransientMessage(_)
             )
         {
@@ -614,6 +617,7 @@ impl AppState {
                     | Action::ReviewGamePickerPreviousPage
                     | Action::ReviewGamePickerNextPage
                     | Action::SelectReviewGame(_)
+                    | Action::ActivateReviewGame(_, _)
             )
         {
             return Vec::new();
@@ -641,6 +645,7 @@ impl AppState {
                     | Action::ReviewGamePickerPreviousPage
                     | Action::ReviewGamePickerNextPage
                     | Action::SelectReviewGame(_)
+                    | Action::ActivateReviewGame(_, _)
                     | Action::OpenSettings
                     | Action::CloseSettings
                     | Action::ToggleFreeModeSetting
@@ -841,8 +846,9 @@ impl AppState {
                 }
                 Vec::new()
             }
-            Action::SelectReviewGame(index) => {
-                self.activate_review_game(index);
+            Action::SelectReviewGame(index) => self.request_review_game(index),
+            Action::ActivateReviewGame(key, game) => {
+                self.activate_review_game(&key, game);
                 Vec::new()
             }
             Action::OpenPuzzleGoto => {
@@ -947,19 +953,40 @@ impl AppState {
         }
     }
 
-    fn activate_review_game(&mut self, index: usize) {
+    fn request_review_game(&self, index: usize) -> Vec<Effect> {
         let total = self.review_picker_entry_count();
-        let (games, review_state) = (&self.review_games, &mut self.review_state);
+        let Some(review) = self.review_state.as_ref() else {
+            return Vec::new();
+        };
+        if !review.game_picker_open() || !review.game_picker_visible_range(total).contains(&index) {
+            return Vec::new();
+        }
+
+        self.review_games
+            .get(index)
+            .map(|entry| vec![Effect::ReviewGameRequested(entry.key().clone())])
+            .unwrap_or_default()
+    }
+
+    fn activate_review_game(&mut self, key: &ReviewGameKey, game: ReviewGame) {
+        let total = self.review_picker_entry_count();
+        let (games, review_state) = (&mut self.review_games, &mut self.review_state);
         let Some(review) = review_state.as_mut() else {
+            return;
+        };
+        let Some(index) = games.iter().position(|entry| entry.key() == key) else {
             return;
         };
         if !review.game_picker_open() || !review.game_picker_visible_range(total).contains(&index) {
             return;
         }
-        let Some(entry) = games.get(index) else {
+
+        let replacement = ReviewGameEntry::new(key.collection_id().to_owned(), game);
+        if replacement.key() != key {
             return;
-        };
-        review.activate_game(index, entry.game());
+        }
+        games[index] = replacement;
+        review.activate_game(index, games[index].game());
     }
 
     fn progress_effect(changed: bool) -> Vec<Effect> {

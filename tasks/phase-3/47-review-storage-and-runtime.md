@@ -1,7 +1,7 @@
 # Task 47 — Add Kindle review-library storage and runtime wiring
 
-**Status:** Ready  
-**Working branch:** `game-review`  
+**Status:** Implemented  
+**Working branch:** `main` (explicit user-requested exception)  
 **Depends on:** Tasks 43–46  
 **Primary area:** `kindle-platform` storage + Kindle binary effects  
 **Validation:** Automated only  
@@ -36,3 +36,13 @@ No review resume persistence and no packaging UI.
 ## Suggested commit
 
 `kindle: load offline game review library`
+
+
+## Implementation record
+
+- Added the default `/mnt/us/kindle-chess/games` review directory plus `KINDLE_CHESS_REVIEW_DIR` override without changing puzzle progress/settings paths.
+- Added sorted discovery for only `games.json` and `games-*.json`, parsing each file with `chess_core::parse_review_file`, flattening games by filename + game ID, and isolating invalid-file diagnostics.
+- Kept missing/empty/invalid review directories non-fatal and never installs or writes a bundled review file.
+- Routed picker selection through a review-specific core effect; the Kindle binary reloads the selected source game and activates it without emitting or persisting puzzle progress.
+- Added temporary-directory and runtime regressions for sorting/filtering, multiple files/games, cross-file duplicate IDs, malformed isolation, missing directories, environment override, read-only source files, and byte-stable `progress.json` during review switching/navigation.
+- Landed directly on `main` because the user explicitly requested a branch-policy exception.

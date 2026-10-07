@@ -23,9 +23,10 @@ pub use input::{
     SCRIBE_TOUCH_X, SCRIBE_TOUCH_Y,
 };
 pub use storage::{
-    DiscoveredCollection, KindleStorage, ProgressLoad, ProgressStore, SettingsLoad, SettingsStore,
-    StorageError, StoragePaths, DEFAULT_PROGRESS_FILE, DEFAULT_PUZZLE_DIR, DEFAULT_SETTINGS_FILE,
-    PROGRESS_FILE_ENV, PUZZLE_DIR_ENV, SETTINGS_FILE_ENV,
+    is_review_collection_filename, DiscoveredCollection, DiscoveredReviewLibrary, KindleStorage,
+    ProgressLoad, ProgressStore, SettingsLoad, SettingsStore, StorageError, StoragePaths,
+    DEFAULT_PROGRESS_FILE, DEFAULT_PUZZLE_DIR, DEFAULT_REVIEW_DIR, DEFAULT_SETTINGS_FILE,
+    PROGRESS_FILE_ENV, PUZZLE_DIR_ENV, REVIEW_DIR_ENV, SETTINGS_FILE_ENV,
 };
 
 pub use refresh::{

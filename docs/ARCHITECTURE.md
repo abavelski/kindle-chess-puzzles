@@ -226,6 +226,7 @@ Core parsing plus progress/settings serialization takes bytes/strings, not paths
 The Kindle adapter chooses:
 
 - puzzle directory;
+- review-game directory;
 - progress path;
 - settings path;
 - logs/debug path.

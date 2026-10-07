@@ -1,8 +1,9 @@
-//! Kindle filesystem adapter for puzzle collections and durable progress.
+//! Kindle filesystem adapter for puzzle/review libraries and durable progress/settings.
 
 use chess_core::{
-    is_puzzle_collection_filename, parse_puzzle_file, sorted_puzzle_collection_filenames,
-    CollectionEntry, Progress, PuzzleCollection, Settings,
+    is_puzzle_collection_filename, parse_puzzle_file, parse_review_file,
+    sorted_puzzle_collection_filenames, CollectionEntry, Progress, PuzzleCollection,
+    ReviewCollection, ReviewFileError, ReviewGame, ReviewGameEntry, ReviewGameKey, Settings,
 };
 use std::{
     env, fmt,
@@ -14,9 +15,11 @@ use std::{
 };
 
 pub const DEFAULT_PUZZLE_DIR: &str = "/mnt/us/kindle-chess/puzzles";
+pub const DEFAULT_REVIEW_DIR: &str = "/mnt/us/kindle-chess/games";
 pub const DEFAULT_PROGRESS_FILE: &str = "/mnt/us/kindle-chess/state/progress.json";
 pub const DEFAULT_SETTINGS_FILE: &str = "/mnt/us/kindle-chess/state/settings.json";
 pub const PUZZLE_DIR_ENV: &str = "KINDLE_CHESS_PUZZLE_DIR";
+pub const REVIEW_DIR_ENV: &str = "KINDLE_CHESS_REVIEW_DIR";
 pub const PROGRESS_FILE_ENV: &str = "KINDLE_CHESS_PROGRESS_FILE";
 pub const SETTINGS_FILE_ENV: &str = "KINDLE_CHESS_SETTINGS_FILE";
 
@@ -25,26 +28,36 @@ static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoragePaths {
     pub puzzle_dir: PathBuf,
+    pub review_dir: PathBuf,
     pub progress_file: PathBuf,
     pub settings_file: PathBuf,
 }
 
 impl StoragePaths {
     pub fn new(puzzle_dir: impl Into<PathBuf>, progress_file: impl Into<PathBuf>) -> Self {
+        let puzzle_dir = puzzle_dir.into();
+        let review_dir = puzzle_dir
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."))
+            .join("games");
         let progress_file = progress_file.into();
         let settings_file = progress_file
             .parent()
             .unwrap_or_else(|| Path::new("."))
             .join("settings.json");
         Self {
-            puzzle_dir: puzzle_dir.into(),
+            puzzle_dir,
+            review_dir,
             progress_file,
             settings_file,
         }
     }
 
     pub fn kindle_default() -> Self {
-        Self::new(DEFAULT_PUZZLE_DIR, DEFAULT_PROGRESS_FILE)
+        let mut paths = Self::new(DEFAULT_PUZZLE_DIR, DEFAULT_PROGRESS_FILE);
+        paths.review_dir = PathBuf::from(DEFAULT_REVIEW_DIR);
+        paths
     }
 
     pub fn from_env() -> Self {
@@ -52,10 +65,14 @@ impl StoragePaths {
         let puzzle_dir = env::var_os(PUZZLE_DIR_ENV)
             .map(PathBuf::from)
             .unwrap_or(defaults.puzzle_dir);
+        let review_dir = env::var_os(REVIEW_DIR_ENV)
+            .map(PathBuf::from)
+            .unwrap_or(defaults.review_dir);
         let progress_file = env::var_os(PROGRESS_FILE_ENV)
             .map(PathBuf::from)
             .unwrap_or(defaults.progress_file);
         let mut paths = Self::new(puzzle_dir, progress_file);
+        paths.review_dir = review_dir;
         if let Some(settings_file) = env::var_os(SETTINGS_FILE_ENV) {
             paths.settings_file = PathBuf::from(settings_file);
         }
@@ -67,6 +84,7 @@ impl StoragePaths {
 pub enum StorageError {
     Io(String),
     InvalidCollection { filename: String, error: String },
+    InvalidReviewFile { filename: String, error: String },
     Progress(String),
     Settings(String),
     ProtectedProgress { path: PathBuf, reason: String },
@@ -80,6 +98,9 @@ impl fmt::Display for StorageError {
                 formatter.write_str(message)
             }
             Self::InvalidCollection { filename, error } => {
+                write!(formatter, "{filename}: {error}")
+            }
+            Self::InvalidReviewFile { filename, error } => {
                 write!(formatter, "{filename}: {error}")
             }
             Self::ProtectedProgress { path, reason } => write!(
@@ -116,6 +137,12 @@ impl DiscoveredCollection {
             None => CollectionEntry::valid(self.filename.clone(), self.label.clone()),
         }
     }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct DiscoveredReviewLibrary {
+    pub games: Vec<ReviewGameEntry>,
+    pub errors: Vec<ReviewFileError>,
 }
 
 #[derive(Clone, Debug)]
@@ -170,6 +197,68 @@ impl KindleStorage {
                 },
             })
             .collect())
+    }
+
+    pub fn discover_review_library(&self) -> Result<DiscoveredReviewLibrary, StorageError> {
+        let names = self.review_filenames()?;
+        let mut library = DiscoveredReviewLibrary::default();
+
+        for filename in names {
+            match self.load_review_collection(&filename) {
+                Ok(collection) => {
+                    library.games.extend(
+                        collection
+                            .games
+                            .into_iter()
+                            .map(|game| ReviewGameEntry::new(filename.clone(), game)),
+                    );
+                }
+                Err(StorageError::InvalidReviewFile { error, .. }) => {
+                    library.errors.push(ReviewFileError::new(filename, error));
+                }
+                Err(error) => {
+                    library
+                        .errors
+                        .push(ReviewFileError::new(filename, error.to_string()));
+                }
+            }
+        }
+
+        Ok(library)
+    }
+
+    pub fn load_review_game(&self, key: &ReviewGameKey) -> Result<ReviewGame, StorageError> {
+        let collection = self.load_review_collection(key.collection_id())?;
+        collection
+            .games
+            .into_iter()
+            .find(|game| game.id == key.game_id())
+            .ok_or_else(|| StorageError::InvalidReviewFile {
+                filename: key.collection_id().to_owned(),
+                error: format!(
+                    "game {} is no longer present in the review file",
+                    key.game_id()
+                ),
+            })
+    }
+
+    fn load_review_collection(&self, filename: &str) -> Result<ReviewCollection, StorageError> {
+        if !is_review_collection_filename(filename) {
+            return Err(StorageError::InvalidReviewFile {
+                filename: filename.to_owned(),
+                error: "filename does not match the review collection convention".to_owned(),
+            });
+        }
+
+        let path = self.paths.review_dir.join(filename);
+        let bytes = fs::read(&path).map_err(|error| StorageError::InvalidReviewFile {
+            filename: filename.to_owned(),
+            error: format!("could not read review file: {error}"),
+        })?;
+        parse_review_file(&bytes).map_err(|error| StorageError::InvalidReviewFile {
+            filename: filename.to_owned(),
+            error,
+        })
     }
 
     pub fn load_collection(&self, filename: &str) -> Result<PuzzleCollection, StorageError> {
@@ -230,6 +319,51 @@ impl KindleStorage {
         Ok(sorted_puzzle_collection_filenames(names))
     }
 
+    fn review_filenames(&self) -> Result<Vec<String>, StorageError> {
+        let entries = match fs::read_dir(&self.paths.review_dir) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => {
+                return Err(io_error(
+                    "could not read review directory",
+                    &self.paths.review_dir,
+                    error,
+                ));
+            }
+        };
+
+        let mut names = Vec::new();
+        for entry in entries {
+            let entry = entry.map_err(|error| {
+                io_error(
+                    "could not read review directory entry",
+                    &self.paths.review_dir,
+                    error,
+                )
+            })?;
+            let file_type = entry.file_type().map_err(|error| {
+                io_error(
+                    "could not inspect review directory entry",
+                    &entry.path(),
+                    error,
+                )
+            })?;
+            if !file_type.is_file() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            if is_review_collection_filename(&name) {
+                names.push(name);
+            }
+        }
+
+        names.sort();
+        names.dedup();
+        Ok(names)
+    }
+
     fn install_bundled_default(&self, bundled_examples: &[u8]) -> Result<(), StorageError> {
         parse_puzzle_file(bundled_examples).map_err(|error| StorageError::InvalidCollection {
             filename: "bundled examples".to_owned(),
@@ -262,6 +396,21 @@ impl KindleStorage {
         sync_directory(&self.paths.puzzle_dir)?;
         Ok(())
     }
+}
+
+pub fn is_review_collection_filename(name: &str) -> bool {
+    if name == "games.json" {
+        return true;
+    }
+
+    let Some(suffix) = name.strip_prefix("games-") else {
+        return false;
+    };
+    let Some(stem) = suffix.strip_suffix(".json") else {
+        return false;
+    };
+
+    !stem.is_empty() && !stem.contains('/') && !stem.contains('\\')
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

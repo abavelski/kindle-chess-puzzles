@@ -285,6 +285,7 @@ fn review_game_switch_resets_navigation_preserves_locked_orientation_and_source_
     let standard = review_entry("games-standard.json", REVIEW);
     let custom = review_entry("games-custom.json", CUSTOM_REVIEW);
     let custom_source = custom.game().clone();
+    let custom_key = custom.key().clone();
     app.set_review_games(vec![standard, custom]);
     app.dispatch(Action::ToggleWorkspace);
     app.dispatch(Action::ReviewToggleOrientationLock);
@@ -295,7 +296,17 @@ fn review_game_switch_resets_navigation_preserves_locked_orientation_and_source_
 
     app.dispatch(Action::OpenReviewGamePicker);
     assert!(app.review_state().expect("review").game_picker_open());
-    app.dispatch(Action::SelectReviewGame(1));
+    assert_eq!(
+        app.dispatch(Action::SelectReviewGame(1)),
+        vec![Effect::ReviewGameRequested(custom_key.clone())]
+    );
+    assert!(app.review_state().expect("review").game_picker_open());
+    assert!(app
+        .dispatch(Action::ActivateReviewGame(
+            custom_key,
+            custom_source.clone(),
+        ))
+        .is_empty());
 
     assert_eq!(
         app.active_review_game()
