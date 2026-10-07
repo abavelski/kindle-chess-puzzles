@@ -14,10 +14,10 @@ from typing import Any
 
 try:
     from tools import pgn_converter as shared
-    from tools.collection_update import atomic_write_bytes
+    from tools.collection_update import CollectionUpdateError, atomic_write_bytes
 except ModuleNotFoundError:  # Support direct execution as tools/pgn_review_converter.py.
     import pgn_converter as shared
-    from collection_update import atomic_write_bytes
+    from collection_update import CollectionUpdateError, atomic_write_bytes
 
 
 MAX_REVIEW_BYTES = 8 * 1024 * 1024
@@ -251,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
         encoded = encode_collection(collection, compact=options.compact)
         validate_encoded_size(len(encoded))
         _write_output(args.output, encoded)
-    except (ConversionError, OSError, UnicodeError) as exc:
+    except (ConversionError, CollectionUpdateError, OSError, UnicodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

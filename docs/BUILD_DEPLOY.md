@@ -17,6 +17,9 @@ command-line tools; on Ubuntu install `build-essential python3`. Initialize:
 ```sh
 git submodule update --init --recursive
 rustup show
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -r requirements-tools.txt
 scripts/check.sh
 scripts/build-kindle.sh
 scripts/stage-kindle.sh
@@ -76,12 +79,13 @@ Installed layout:
 ```text
 /mnt/us/kindle-chess/runtime/       executable, launchers, receipt, notices, source.tar
 /mnt/us/kindle-chess/puzzles/       immutable user collections; created by the app
-/mnt/us/kindle-chess/state/         progress; created by the app
+/mnt/us/kindle-chess/games/         immutable user review collections
+/mnt/us/kindle-chess/state/         progress and settings; created by the app
 /mnt/us/kindle-chess/logs/          launch.log and lifecycle.log
 /mnt/us/documents/kindle-chess.sh   library scriptlet
 ```
 
-The package contains no puzzle/state/log directories to copy over user data.
+The package contains no puzzle/game/state/log directories to copy over user data.
 The binary already embeds its Task 05 default collection and Task 06 installs
 it only when no matching collection exists. User progress and invalid/future
 records retain Task 06 protections.
@@ -199,3 +203,26 @@ request the stock screen repaint. SSH recovery remains documented in
 was resolved by the verified paired awesome/Xorg display handoff; ordinary library
 launch/interaction/X-exit and native repaint now pass. Post-reboot launch remains the
 explicitly deferred observation described above.
+
+## Import and update review games
+
+With the host virtual environment active, convert ordinary or annotated PGNs:
+
+```sh
+python3 tools/pgn_review_converter.py my-games.pgn -o games-my-games.json --title "My games"
+```
+
+Exit the app, create `/mnt/us/kindle-chess/games/` if needed, and copy the JSON
+there using USB or your established SSH transport. Only `games.json` and
+`games-<nonempty>.json` are discovered; `KINDLE_CHESS_GAME_DIR` overrides the
+directory. Relaunch and tap the workspace icon beside Refresh, then GAMES.
+PREV/NEXT traverse the main line; bold moves preview stored positions. FREE
+provides reversible scratch exploration. Switching back preserves puzzle state
+and progress. Review selection has no durable resume yet.
+
+For updates, back up the JSON and rerun the converter with `-o` targeting the
+same filename. Validation precedes atomic host replacement; annotation-only
+updates retain generated game IDs and duplicate IDs fail. See
+[Game Review import/update](GAME_REVIEW_IMPORT.md) for identity rules, rollback,
+and safe copying. Host tests and the cross-build do not establish physical
+review-mode acceptance; that remains Task 49.

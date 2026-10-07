@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from tools import pgn_converter
 from tools import pgn_review_converter
+from tools.collection_update import CollectionUpdateError
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "pgn-review-converter"
@@ -33,6 +34,88 @@ def resolve_uci_path(game, path):
 
 
 class PgnReviewConverterTests(unittest.TestCase):
+    def test_update_failure_is_reported_without_replacing_existing_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "games.json"
+            previous = b"previous review collection\n"
+            output.write_bytes(previous)
+            stderr = io.StringIO()
+            with redirect_stderr(stderr), patch.object(
+                pgn_review_converter, "atomic_write_bytes",
+                side_effect=CollectionUpdateError("cannot atomically replace collection"),
+            ):
+                rc = pgn_review_converter.main(
+                    [str(FIXTURES / "ordinary.pgn"), "-o", str(output)]
+                )
+            self.assertEqual(rc, 2)
+            self.assertIn("cannot atomically replace", stderr.getvalue())
+            self.assertEqual(output.read_bytes(), previous)
+
+    def test_rejected_updates_preserve_existing_collection_and_progress(self):
+        for name, message in [
+            ("invalid-illegal.pgn", "malformed or illegal PGN"),
+            ("duplicate-ids.pgn", "duplicate game ID"),
+        ]:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                output = Path(tmp) / "games.json"
+                progress = Path(tmp) / "progress.json"
+                previous = pgn_review_converter.encode_collection(
+                    pgn_review_converter.convert_pgn_text(load_fixture("ordinary.pgn"))
+                )
+                output.write_bytes(previous)
+                progress.write_bytes(b"protected progress bytes")
+                stderr = io.StringIO()
+                with redirect_stderr(stderr):
+                    rc = pgn_review_converter.main([str(FIXTURES / name), "-o", str(output)])
+                self.assertEqual(rc, 2)
+                self.assertIn(message, stderr.getvalue())
+                self.assertEqual(output.read_bytes(), previous)
+                self.assertEqual(progress.read_bytes(), b"protected progress bytes")
+                self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), ["games.json", "progress.json"])
+
+    def test_annotation_update_replaces_output_with_stable_ids_and_no_temp_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "games-my-games.json"
+            encoded = []
+            for name in ["id-stability-a.pgn", "id-stability-b.pgn"]:
+                with redirect_stderr(io.StringIO()):
+                    self.assertEqual(pgn_review_converter.main(
+                        [str(FIXTURES / name), "-o", str(output)]
+                    ), 0)
+                encoded.append(output.read_bytes())
+            self.assertNotEqual(*encoded)
+            self.assertEqual(*(json.loads(data)["games"][0]["id"] for data in encoded))
+            self.assertEqual(list(Path(tmp).iterdir()), [output])
+
+    def test_failed_atomic_rename_removes_temp_and_preserves_existing_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "games.json"
+            output.write_bytes(b"previous bytes")
+            with redirect_stderr(io.StringIO()), patch(
+                "tools.collection_update.os.replace", side_effect=OSError("rename failed")
+            ):
+                rc = pgn_review_converter.main(
+                    [str(FIXTURES / "ordinary.pgn"), "-o", str(output)]
+                )
+            self.assertEqual(rc, 2)
+            self.assertEqual(output.read_bytes(), b"previous bytes")
+            self.assertEqual(list(Path(tmp).iterdir()), [output])
+
+    def test_oversized_update_preserves_existing_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "games.json"
+            output.write_bytes(b"previous bytes")
+            with redirect_stderr(io.StringIO()), patch.object(pgn_review_converter, "MAX_REVIEW_BYTES", 1):
+                rc = pgn_review_converter.main(
+                    [str(FIXTURES / "ordinary.pgn"), "-o", str(output)]
+                )
+            self.assertEqual(rc, 2)
+            self.assertEqual(output.read_bytes(), b"previous bytes")
+
+    def test_duplicate_generated_ids_fail_clearly(self):
+        with self.assertRaisesRegex(pgn_review_converter.ConversionError, "duplicate game ID 'game-"):
+            pgn_review_converter.convert_pgn_text(load_fixture("ordinary.pgn") + "\n\n" + load_fixture("ordinary.pgn"))
+
     def test_ordinary_pgn_without_custom_tags_uses_shared_tree_and_review_shape(self):
         original_builder = pgn_converter._build_tree
         with patch.object(pgn_converter, "_build_tree", wraps=original_builder) as build_tree:

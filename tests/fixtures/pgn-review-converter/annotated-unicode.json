@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "games": [
+    {
+      "id": "game-7cc19b152121d1613f6f",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "white": "José Raúl",
+      "black": "Александр",
+      "result": "1/2-1/2",
+      "event": "Mémorial José",
+      "site": "München GER",
+      "date": "2024.03.14",
+      "round": "7",
+      "source": "fixture:classics",
+      "analysis": {
+        "version": 1,
+        "root": "n0",
+        "nodes": [
+          {
+            "id": "n0",
+            "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "children": [
+              "n1"
+            ]
+          },
+          {
+            "id": "n1",
+            "parent": "n0",
+            "move": {
+              "uci": "d2d4",
+              "san": "d4"
+            },
+            "fen": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1",
+            "role": "main",
+            "nags": [
+              1
+            ],
+            "children": [
+              "n2",
+              "n3"
+            ],
+            "comment": "Compare 2.c4 with plain Nc3.",
+            "content": [
+              {
+                "type": "text",
+                "text": "Compare "
+              },
+              {
+                "type": "move_ref",
+                "node": "n7",
+                "label": "2.c4"
+              },
+              {
+                "type": "text",
+                "text": " with plain Nc3."
+              }
+            ]
+          },
+          {
+            "id": "n2",
+            "parent": "n1",
+            "move": {
+              "uci": "d7d5",
+              "san": "d5"
+            },
+            "fen": "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq d6 0 2",
+            "role": "main",
+            "children": [
+              "n7"
+            ]
+          },
+          {
+            "id": "n3",
+            "parent": "n1",
+            "move": {
+              "uci": "g8f6",
+              "san": "Nf6"
+            },
+            "fen": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2",
+            "role": "alternative",
+            "children": [
+              "n4"
+            ],
+            "comment": "Indian setup.",
+            "content": [
+              {
+                "type": "text",
+                "text": "Indian setup."
+              }
+            ]
+          },
+          {
+            "id": "n4",
+            "parent": "n3",
+            "move": {
+              "uci": "c2c4",
+              "san": "c4"
+            },
+            "fen": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2",
+            "role": "sideline",
+            "children": [
+              "n5",
+              "n6"
+            ]
+          },
+          {
+            "id": "n5",
+            "parent": "n4",
+            "move": {
+              "uci": "e7e6",
+              "san": "e6"
+            },
+            "fen": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+            "role": "sideline"
+          },
+          {
+            "id": "n6",
+            "parent": "n4",
+            "move": {
+              "uci": "g7g6",
+              "san": "g6"
+            },
+            "fen": "rnbqkb1r/pppppp1p/5np1/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+            "role": "sideline",
+            "comment": "Nested sideline.",
+            "content": [
+              {
+                "type": "text",
+                "text": "Nested sideline."
+              }
+            ]
+          },
+          {
+            "id": "n7",
+            "parent": "n2",
+            "move": {
+              "uci": "c2c4",
+              "san": "c4"
+            },
+            "fen": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2",
+            "role": "main",
+            "children": [
+              "n8"
+            ]
+          },
+          {
+            "id": "n8",
+            "parent": "n7",
+            "move": {
+              "uci": "e7e6",
+              "san": "e6"
+            },
+            "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+            "role": "main",
+            "children": [
+              "n9"
+            ]
+          },
+          {
+            "id": "n9",
+            "parent": "n8",
+            "move": {
+              "uci": "b1c3",
+              "san": "Nc3"
+            },
+            "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3",
+            "role": "main",
+            "children": [
+              "n10"
+            ]
+          },
+          {
+            "id": "n10",
+            "parent": "n9",
+            "move": {
+              "uci": "g8f6",
+              "san": "Nf6"
+            },
+            "fen": "rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4",
+            "role": "main"
+          }
+        ]
+      }
+    }
+  ]
+}

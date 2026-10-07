@@ -13,7 +13,9 @@ Task 41 was committed directly to `main` by explicit user request. Unless the us
 | [45](45-review-rendering.md) | Review header, controls, movetext, SMALL-board layout | Ready | No |
 | [46](46-review-hit-testing-and-picker.md) | Game picker and review hit testing | Ready | No |
 | [47](47-review-storage-and-runtime.md) | Kindle game-library discovery/loading + binary wiring | Ready | No |
-| [48](48-review-import-and-host-validation.md) | Import/update workflow + end-to-end host validation | Ready | No |
+| [48](48-review-import-and-host-validation.md) | Import/update workflow + end-to-end host validation | Implemented | No |
 | [49](49-review-device-validation.md) | Physical Scribe acceptance and phase closure | Ready | **Yes** |
 
 Use the same red -> green -> refactor discipline as the existing task series. Do not implement later tasks opportunistically.
+
+Task 48 was implemented and committed directly to `main` by explicit user request; its host gates passed, with Task 49 physical acceptance still pending.

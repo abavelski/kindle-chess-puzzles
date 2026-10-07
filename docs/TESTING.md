@@ -174,3 +174,22 @@ For each task:
 7. cross-build if platform code changed;
 8. perform the human checkpoint if required;
 9. update task status and verified docs.
+
+## Game review import acceptance (Task 48)
+
+Install `requirements-tools.txt` into an active host virtual environment before
+running the Rust workspace tests: `chess-render/tests/review_import.rs` invokes
+`python3 tools/pgn_review_converter.py` directly. CI installs this dependency
+before both the host gate and pinned Kindle build.
+
+The annotated Unicode PGN in `tests/fixtures/pgn-review-converter/` is compared
+byte-for-byte with its generated JSON before runtime parsing. The integration
+test exercises full main-line traversal, every rendered tree/reference target,
+variation return navigation, stored FEN previews, FREE/reset/exit, puzzle session
+restoration, identical serialized puzzle progress, and regional damage replay
+at Scribe resolution for STANDARD and SMALL boards. Snapshot checksums were
+accepted after inspecting their Gray8 frames; inspectable copies are emitted as
+`target/review-import-standard.pgm` and `target/review-import-small.pgm`.
+
+Run `scripts/check.sh` and `scripts/build-kindle.sh` for the complete gates.
+These automated checks do not replace Task 49's physical Scribe acceptance.
