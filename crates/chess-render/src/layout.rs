@@ -1,7 +1,9 @@
 //! DPI-aware deterministic layout and hit testing.
 
 use crate::Rect;
-use chess_core::{Action, AnalysisNodeIndex, AppState, PromotionChoice, COLLECTIONS_PER_PAGE};
+use chess_core::{
+    Action, AnalysisNodeIndex, AppState, PromotionChoice, Workspace, COLLECTIONS_PER_PAGE,
+};
 
 pub const MIN_TOUCH_MM: u32 = 10;
 
@@ -138,6 +140,7 @@ pub struct Layout {
     pub header: Rect,
     pub settings: Rect,
     pub refresh: Rect,
+    pub workspace: Rect,
     pub collection_button: Rect,
     pub board_outer: Rect,
     pub board: Rect,
@@ -176,7 +179,7 @@ pub struct Layout {
 
 impl Layout {
     pub fn new(metrics: DisplayMetrics) -> Result<Self, LayoutError> {
-        Self::with_toolbar_visibility(metrics, true, true, false, APP_TOOLBAR_ALIGNMENT)
+        Self::with_toolbar_visibility(metrics, true, true, false, false, APP_TOOLBAR_ALIGNMENT)
     }
 
     pub fn for_app(metrics: DisplayMetrics, state: &AppState) -> Result<Self, LayoutError> {
@@ -193,6 +196,7 @@ impl Layout {
             state.settings().show_free_mode_button(),
             state.settings().show_notes_button(),
             state.settings().small_board(),
+            state.workspace() == Workspace::Review,
             alignment,
         )
     }
@@ -202,6 +206,7 @@ impl Layout {
         show_free: bool,
         show_notes: bool,
         small_board: bool,
+        review: bool,
         alignment: ToolbarAlignment,
     ) -> Result<Self, LayoutError> {
         if metrics.width == 0 || metrics.height == 0 || metrics.dpi == 0 {
@@ -274,6 +279,7 @@ impl Layout {
         );
         let header = Rect::new(0, 0, metrics.width, header_height);
         let refresh = Rect::new(header.x, header.y, minimum_touch_px, header.height);
+        let workspace = Rect::new(refresh.right(), header.y, minimum_touch_px, header.height);
         let collection_button_width = minimum_touch_px
             .saturating_mul(2)
             .min(header.width.saturating_div(3).max(minimum_touch_px));
@@ -318,38 +324,73 @@ impl Layout {
             minimum_touch_px,
         );
 
-        let toolbar_specs = [
-            ToolbarButtonSpec {
-                target: HitTarget::ToggleAnalysis,
-                visible: true,
-                kind: ToolbarButtonKind::Icon,
-            },
-            ToolbarButtonSpec {
-                target: HitTarget::ToggleMode,
-                visible: show_free,
-                kind: ToolbarButtonKind::Text,
-            },
-            ToolbarButtonSpec {
-                target: HitTarget::ToggleDescription,
-                visible: show_notes,
-                kind: ToolbarButtonKind::Text,
-            },
-            ToolbarButtonSpec {
-                target: HitTarget::ToggleOrientationLock,
-                visible: true,
-                kind: ToolbarButtonKind::Text,
-            },
-            ToolbarButtonSpec {
-                target: HitTarget::Reset,
-                visible: true,
-                kind: ToolbarButtonKind::Text,
-            },
-            ToolbarButtonSpec {
-                target: HitTarget::Flip,
-                visible: true,
-                kind: ToolbarButtonKind::Text,
-            },
-        ];
+        let toolbar_specs = if review {
+            [
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleMode,
+                    visible: show_free,
+                    kind: ToolbarButtonKind::Text,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::Reset,
+                    visible: true,
+                    kind: ToolbarButtonKind::Text,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleOrientationLock,
+                    visible: true,
+                    kind: ToolbarButtonKind::Text,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::Flip,
+                    visible: true,
+                    kind: ToolbarButtonKind::Text,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleAnalysis,
+                    visible: false,
+                    kind: ToolbarButtonKind::Icon,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleDescription,
+                    visible: false,
+                    kind: ToolbarButtonKind::Text,
+                },
+            ]
+        } else {
+            [
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleAnalysis,
+                    visible: true,
+                    kind: ToolbarButtonKind::Icon,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleMode,
+                    visible: show_free,
+                    kind: ToolbarButtonKind::Text,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleDescription,
+                    visible: show_notes,
+                    kind: ToolbarButtonKind::Text,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleOrientationLock,
+                    visible: true,
+                    kind: ToolbarButtonKind::Text,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::Reset,
+                    visible: true,
+                    kind: ToolbarButtonKind::Text,
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::Flip,
+                    visible: true,
+                    kind: ToolbarButtonKind::Text,
+                },
+            ]
+        };
         let toolbar_targets = place_toolbar(
             toolbar_touch,
             small_gap,
@@ -361,35 +402,57 @@ impl Layout {
 
         let nav_y = toolbar.bottom().saturating_add(gap);
         let nav_touch_y = nav_y.saturating_sub(control_visual_inset);
-        let goto_width = minimum_touch_px;
-        let side_nav_width = content_bounds
-            .width
-            .saturating_sub(goto_width)
-            .saturating_sub(small_gap.saturating_mul(2))
-            / 2;
-        let previous = Rect::new(
-            content_bounds.x,
-            nav_touch_y,
-            side_nav_width,
-            minimum_touch_px,
-        );
-        let goto = Rect::new(
-            previous.right().saturating_add(small_gap),
-            nav_touch_y,
-            goto_width,
-            minimum_touch_px,
-        );
-        let next = Rect::new(
-            goto.right().saturating_add(small_gap),
-            nav_touch_y,
-            content_bounds
-                .right()
-                .saturating_sub(goto.right().saturating_add(small_gap)),
-            minimum_touch_px,
-        );
+        let (previous, goto, next) = if review {
+            let side_nav_width = content_bounds.width.saturating_sub(small_gap) / 2;
+            let previous = Rect::new(
+                content_bounds.x,
+                nav_touch_y,
+                side_nav_width,
+                minimum_touch_px,
+            );
+            let next_x = previous.right().saturating_add(small_gap);
+            (
+                previous,
+                Rect::new(previous.right(), nav_touch_y, 0, minimum_touch_px),
+                Rect::new(
+                    next_x,
+                    nav_touch_y,
+                    content_bounds.right().saturating_sub(next_x),
+                    minimum_touch_px,
+                ),
+            )
+        } else {
+            let goto_width = minimum_touch_px;
+            let side_nav_width = content_bounds
+                .width
+                .saturating_sub(goto_width)
+                .saturating_sub(small_gap.saturating_mul(2))
+                / 2;
+            let previous = Rect::new(
+                content_bounds.x,
+                nav_touch_y,
+                side_nav_width,
+                minimum_touch_px,
+            );
+            let goto = Rect::new(
+                previous.right().saturating_add(small_gap),
+                nav_touch_y,
+                goto_width,
+                minimum_touch_px,
+            );
+            let next = Rect::new(
+                goto.right().saturating_add(small_gap),
+                nav_touch_y,
+                content_bounds
+                    .right()
+                    .saturating_sub(goto.right().saturating_add(small_gap)),
+                minimum_touch_px,
+            );
+            (previous, goto, next)
+        };
         if previous.width < minimum_touch_px
-            || goto.width < minimum_touch_px
             || next.width < minimum_touch_px
+            || (!review && goto.width < minimum_touch_px)
         {
             return Err(LayoutError::TooSmall);
         }
@@ -613,6 +676,7 @@ impl Layout {
             header,
             settings,
             refresh,
+            workspace,
             collection_button,
             board_outer,
             board,
@@ -652,6 +716,7 @@ impl Layout {
             || !layout.viewport.contains_rect(layout.header)
             || !layout.viewport.contains_rect(layout.settings)
             || !layout.viewport.contains_rect(layout.refresh)
+            || !layout.viewport.contains_rect(layout.workspace)
             || !layout.viewport.contains_rect(layout.collection_button)
             || !layout.viewport.contains_rect(layout.toolbar)
             || !layout.viewport.contains_rect(layout.exit)

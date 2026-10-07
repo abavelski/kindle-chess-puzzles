@@ -8,10 +8,19 @@ use crate::{
     },
     Gray8, HitTarget, Layout, Rect,
 };
-use chess_core::{AnalysisNodeIndex, AnalysisTextSpan, AnalysisTree, AppState, Color};
+use chess_core::{AnalysisNodeIndex, AnalysisTextSpan, AnalysisTree, Color};
 
 const WHITE: u8 = 255;
 const INK: u8 = 0;
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct AnalysisView<'a> {
+    pub tree: &'a AnalysisTree,
+    pub leading_content: &'a [AnalysisTextSpan],
+    pub selected: Option<AnalysisNodeIndex>,
+    pub page: usize,
+    pub focus: Option<AnalysisNodeIndex>,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AnalysisMoveChipSource {
@@ -315,18 +324,16 @@ impl FlowBuilder {
 
 pub(crate) fn draw_analysis_panel(
     frame: &mut Gray8,
-    state: &AppState,
+    view: AnalysisView<'_>,
     layout: Layout,
     content: Rect,
     scale: u32,
 ) -> Option<AnalysisPanelOutput> {
-    let puzzle = state.active_puzzle();
-    let analysis = puzzle.analysis.as_ref()?;
-    let selected = state.selected_analysis_node();
+    let analysis = view.tree;
     let document = build_document(
-        puzzle.description_content.as_slice(),
+        view.leading_content,
         analysis,
-        selected,
+        view.selected,
         content.width,
         scale,
     );
@@ -353,7 +360,26 @@ pub(crate) fn draw_analysis_panel(
         .unwrap_or(0)
         .max(1);
     let page_count = document.lines.len().div_ceil(rows_per_page).max(1);
-    let page = state.analysis_page().min(page_count.saturating_sub(1));
+    let requested_page = view.page.min(page_count.saturating_sub(1));
+    let page = view
+        .focus
+        .and_then(|focus| {
+            document.lines.iter().position(|line| {
+                line.fragments.iter().any(|fragment| {
+                    matches!(
+                        &fragment.kind,
+                        FlowFragmentKind::Chip {
+                            node,
+                            source: AnalysisMoveChipSource::TreeMove,
+                            ..
+                        } if *node == focus
+                    )
+                })
+            })
+        })
+        .map(|line| line / rows_per_page)
+        .unwrap_or(requested_page)
+        .min(page_count.saturating_sub(1));
 
     let start = page.saturating_mul(rows_per_page);
     let end = start

@@ -1,6 +1,6 @@
 # Task 45 — Render the game-review workspace
 
-**Status:** Ready  
+**Status:** Implemented  
 **Working branch:** `game-review`  
 **Depends on:** Task 44  
 **Primary area:** `crates/chess-render`  
