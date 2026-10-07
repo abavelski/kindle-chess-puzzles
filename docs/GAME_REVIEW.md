@@ -79,9 +79,11 @@ No review action emits `ProgressChanged`. Puzzle progress remains puzzle-only.
 
 ## Review data contract
 
+Task 41 freezes the authoritative version-1 contract in [`GAME_REVIEW_FORMAT.md`](GAME_REVIEW_FORMAT.md), backed by the executable corpus in `tests/fixtures/game-review/`.
+
 PGN remains an offline authoring/import format. A host tool converts one or more PGN games into deterministic JSON before copying files to the Kindle.
 
-Proposed root shape:
+Version-1 root shape:
 
 ```json
 {
@@ -109,7 +111,7 @@ Proposed root shape:
 }
 ```
 
-Task 41 freezes the exact optional/required fields and validation rules.
+The exact optional/required fields, filename rules, 8 MiB cap, main-line semantics, and validation rules are frozen in `GAME_REVIEW_FORMAT.md`.
 
 The nested `analysis` object should use the existing phase-two tree contract. Review parsing should share the same graph/FEN/UCI/SAN/comment/`move_ref` validation. The puzzle parser additionally keeps its existing “analysis main line must equal `solution`” invariant; review parsing instead requires a non-empty ordered main line but has no `solution` field.
 

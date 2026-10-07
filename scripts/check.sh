@@ -8,6 +8,7 @@ cargo test --locked --workspace
 python3 scripts/generate_sashite.py --check
 python3 -m unittest tests/test_decode_evdev.py
 python3 -m unittest tests/test_rich_analysis_contract.py
+python3 -m unittest tests/test_game_review_contract.py
 python3 -m unittest tests/test_pgn_converter.py
 python3 -m unittest tests/test_collection_update.py
 python3 -m unittest tests/test_clean_book_descriptions.py

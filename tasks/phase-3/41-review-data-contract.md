@@ -1,7 +1,7 @@
 # Task 41 — Freeze the game-review data contract
 
-**Status:** Ready  
-**Working branch:** `game-review`  
+**Status:** Implemented  
+**Working branch:** `main` (explicit user-requested exception)  
 **Depends on:** none  
 **Primary area:** docs + fixtures + contract tests  
 **Validation:** Automated only  
@@ -26,7 +26,7 @@ Define version-1 review collection JSON for complete games while reusing the exi
 
 ## Tests
 
-Contract tests should fail first because review parsing does not yet exist. They should validate the frozen JSON shape independently of Kindle/device code.
+Contract validation is executable independently of the production Rust parser. `tests/test_game_review_contract.py` validates the frozen JSON shape, shared analysis-tree invariants, filename rules, and file-size limit against the Task-41 fixtures. The production Rust review parser remains Task 43.
 
 ## Non-goals
 
@@ -35,3 +35,11 @@ No PGN converter, AppState, rendering, storage, or persistence.
 ## Suggested commit
 
 `test: freeze game review data contract`
+
+## Implementation record
+
+- Added `docs/GAME_REVIEW_FORMAT.md` as the authoritative version-1 review collection contract.
+- Added valid and intentionally invalid fixtures under `tests/fixtures/game-review/`.
+- Added `tests/test_game_review_contract.py` and wired it into `scripts/check.sh`.
+- Preserved puzzle JSON, grading, progress, runtime parsing, storage, and rendering unchanged.
+- This task landed directly on `main` because the user explicitly requested that branch-policy exception.

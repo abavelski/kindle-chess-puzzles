@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "title": "Annotated classics",
+  "source": "Task 41 contract fixture",
+  "games": [
+    {
+      "id": "unicode-castling-sample",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "white": "José Raúl Capablanca",
+      "black": "Александр Алехин",
+      "result": "1/2-1/2",
+      "event": "Тестовый турнир — København",
+      "site": "København, DK",
+      "date": "1927.09.16",
+      "round": "1",
+      "source": "synthetic contract example",
+      "analysis": {
+        "version": 1,
+        "root": "n0",
+        "nodes": [
+          {
+            "id": "n0",
+            "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "comment": "A short annotated opening line with one nested alternative.",
+            "content": [
+              {
+                "type": "text",
+                "text": "Main line reaches "
+              },
+              {
+                "type": "move_ref",
+                "node": "n7",
+                "label": "4.O-O"
+              },
+              {
+                "type": "text",
+                "text": "; compare the Sicilian branch."
+              }
+            ],
+            "children": [
+              "n1"
+            ]
+          },
+          {
+            "id": "n1",
+            "parent": "n0",
+            "move": {
+              "uci": "e2e4",
+              "san": "e4"
+            },
+            "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+            "role": "main",
+            "comment": "Claims central space.",
+            "nags": [
+              1
+            ],
+            "children": [
+              "n2",
+              "v1"
+            ]
+          },
+          {
+            "id": "n2",
+            "parent": "n1",
+            "move": {
+              "uci": "e7e5",
+              "san": "e5"
+            },
+            "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+            "role": "main",
+            "children": [
+              "n3"
+            ]
+          },
+          {
+            "id": "n3",
+            "parent": "n2",
+            "move": {
+              "uci": "g1f3",
+              "san": "Nf3"
+            },
+            "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+            "role": "main",
+            "children": [
+              "n4"
+            ]
+          },
+          {
+            "id": "n4",
+            "parent": "n3",
+            "move": {
+              "uci": "b8c6",
+              "san": "Nc6"
+            },
+            "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
+            "role": "main",
+            "children": [
+              "n5"
+            ]
+          },
+          {
+            "id": "n5",
+            "parent": "n4",
+            "move": {
+              "uci": "f1b5",
+              "san": "Bb5"
+            },
+            "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+            "role": "main",
+            "children": [
+              "n6"
+            ]
+          },
+          {
+            "id": "n6",
+            "parent": "n5",
+            "move": {
+              "uci": "g8f6",
+              "san": "Nf6"
+            },
+            "fen": "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+            "role": "main",
+            "children": [
+              "n7"
+            ]
+          },
+          {
+            "id": "n7",
+            "parent": "n6",
+            "move": {
+              "uci": "e1g1",
+              "san": "O-O"
+            },
+            "fen": "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 5 4",
+            "role": "main",
+            "comment": "White castles.",
+            "content": [
+              {
+                "type": "text",
+                "text": "King safety completes the sample main line."
+              }
+            ],
+            "children": []
+          },
+          {
+            "id": "v1",
+            "parent": "n1",
+            "move": {
+              "uci": "c7c5",
+              "san": "c5"
+            },
+            "fen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2",
+            "role": "alternative",
+            "comment": "The Sicilian Defence.",
+            "nags": [
+              5
+            ],
+            "children": [
+              "v2"
+            ]
+          },
+          {
+            "id": "v2",
+            "parent": "v1",
+            "move": {
+              "uci": "g1f3",
+              "san": "Nf3"
+            },
+            "fen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
+            "comment": "A nested sideline node; omitted role defaults to sideline.",
+            "children": [
+              "v1"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -2,11 +2,11 @@
 
 Tasks 41–49 implement the planned game-review workspace described in [`docs/GAME_REVIEW.md`](../../docs/GAME_REVIEW.md).
 
-All implementation work stays on the dedicated `game-review` branch until the user explicitly asks to integrate it into `main`.
+Task 41 was committed directly to `main` by explicit user request. Unless the user requests another exception, Tasks 42–49 stay on the dedicated `game-review` branch until integration is explicitly requested.
 
 | Task | Outcome | Status | Physical Scribe required? |
 | --- | --- | --- | --- |
-| [41](41-review-data-contract.md) | Freeze review JSON contract and fixtures | Ready | No |
+| [41](41-review-data-contract.md) | Freeze review JSON contract and fixtures | Implemented | No |
 | [42](42-pgn-review-converter.md) | Deterministic PGN -> review JSON converter | Ready | No |
 | [43](43-core-review-model.md) | Review model + shared analysis parsing | Ready | No |
 | [44](44-review-workspace-state.md) | Workspace/review state machine + main-line/free navigation | Ready | No |

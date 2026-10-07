@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "games": [
+    {
+      "id": "setup-black-promotion",
+      "fen": "k7/8/8/8/8/8/7p/K7 b - - 0 1",
+      "white": "White",
+      "black": "Black",
+      "result": "*",
+      "event": "SetUp contract example",
+      "site": "?",
+      "date": "????.??.??",
+      "round": "?",
+      "analysis": {
+        "version": 1,
+        "root": "n0",
+        "nodes": [
+          {
+            "id": "n0",
+            "fen": "k7/8/8/8/8/8/7p/K7 b - - 0 1",
+            "comment": "Equivalent to a PGN imported with SetUp \"1\" and FEN.",
+            "children": [
+              "n1",
+              "v1"
+            ]
+          },
+          {
+            "id": "n1",
+            "parent": "n0",
+            "move": {
+              "uci": "h2h1q",
+              "san": "h1=Q+"
+            },
+            "fen": "k7/8/8/8/8/8/8/K6q w - - 0 2",
+            "role": "main",
+            "nags": [
+              1
+            ],
+            "content": [
+              {
+                "type": "text",
+                "text": "Promotion is the authored continuation."
+              }
+            ]
+          },
+          {
+            "id": "v1",
+            "parent": "n0",
+            "move": {
+              "uci": "h2h1n",
+              "san": "h1=N"
+            },
+            "fen": "k7/8/8/8/8/8/8/K6n w - - 0 2",
+            "role": "alternative",
+            "comment": "Underpromotion alternative."
+          }
+        ]
+      }
+    }
+  ]
+}
