@@ -80,3 +80,9 @@ adds a visible sleeping notice and removes it on wake.
 
 [Task 37 — repeatable button sleep/wake](improvements/37-repeatable-sleep-wake.md)
 fixes native wake completion while the app owns the display.
+
+[Task 38 — dynamic right-aligned toolbar](improvements/38-dynamic-toolbar-layout.md)
+compacts visible icon and text controls when Settings hides FREE or NOTE.
+
+[Task 39 — toolbar alignment policies](improvements/39-toolbar-alignment.md)
+adds developer-selectable left, right, and full-width placement; full width is active.

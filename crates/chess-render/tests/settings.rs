@@ -1,5 +1,5 @@
 use chess_core::{parse_puzzle_file, Action, ActiveCollection, AppState, Progress, Settings};
-use chess_render::{render, DisplayMetrics, HitTarget};
+use chess_render::{render, DisplayMetrics, HitTarget, Layout, ToolbarAlignment};
 
 const PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/puzzles.json");
 const SCRIBE: DisplayMetrics = DisplayMetrics {
@@ -21,6 +21,43 @@ fn state() -> AppState {
 
 fn center(rect: chess_render::Rect) -> (u32, u32) {
     (rect.x + rect.width / 2, rect.y + rect.height / 2)
+}
+
+#[test]
+fn default_toolbar_fills_the_available_width_with_fixed_icon_and_stretched_text() {
+    let output = render(&state(), SCRIBE).expect("render succeeds");
+    let controls = output.layout.toolbar_targets;
+    assert_eq!(controls[0].rect.x, output.layout.toolbar.x);
+    assert_eq!(controls[5].rect.right(), output.layout.toolbar.right());
+    assert_eq!(controls[0].rect.width, output.layout.minimum_touch_px());
+    let text_widths: Vec<_> = controls[1..].iter().map(|c| c.rect.width).collect();
+    assert!(text_widths
+        .iter()
+        .all(|width| *width > controls[0].rect.width));
+    assert!(text_widths.iter().max().unwrap() - text_widths.iter().min().unwrap() <= 1);
+}
+
+#[test]
+fn developer_alignment_choice_places_compact_controls_at_either_edge() {
+    let app = state();
+    let left = Layout::for_app_with_alignment(SCRIBE, &app, ToolbarAlignment::Left).unwrap();
+    let right = Layout::for_app_with_alignment(SCRIBE, &app, ToolbarAlignment::Right).unwrap();
+    let full = Layout::for_app_with_alignment(SCRIBE, &app, ToolbarAlignment::FullWidth).unwrap();
+    assert_eq!(left.toolbar_targets[0].rect.x, left.toolbar.x);
+    assert_eq!(right.toolbar_targets[5].rect.right(), right.toolbar.right());
+    assert_eq!(
+        left.toolbar_targets[0].rect.width,
+        right.toolbar_targets[0].rect.width
+    );
+    for index in 1..6 {
+        assert_eq!(
+            left.toolbar_targets[index].rect.width,
+            right.toolbar_targets[index].rect.width
+        );
+        assert!(full.toolbar_targets[index].rect.width > left.toolbar_targets[index].rect.width);
+    }
+    assert!(left.toolbar_targets[5].rect.right() < left.toolbar.right());
+    assert!(right.toolbar_targets[0].rect.x > right.toolbar.x);
 }
 
 #[test]
@@ -147,8 +184,73 @@ fn hidden_toolbar_controls_are_not_hit_targets() {
         .find(|target| target.target == HitTarget::ToggleDescription)
         .expect("notes target");
 
-    for rect in [free.rect, notes.rect] {
-        let (x, y) = center(rect);
-        assert_eq!(output.hit_test_app(x, y, &app), None);
+    assert_eq!(free.rect.width, 0);
+    assert_eq!(notes.rect.width, 0);
+    let visible: Vec<_> = output
+        .layout
+        .toolbar_targets
+        .iter()
+        .filter(|control| control.rect.width > 0)
+        .collect();
+    assert_eq!(visible.len(), 4);
+    assert_eq!(visible.first().unwrap().target, HitTarget::ToggleAnalysis);
+    assert_eq!(visible.last().unwrap().target, HitTarget::Flip);
+    assert_eq!(
+        visible.last().unwrap().rect.right(),
+        output.layout.toolbar.right()
+    );
+    for pair in visible.windows(2) {
+        assert!(pair[0].rect.right() < pair[1].rect.x);
+    }
+    for control in visible {
+        let (x, y) = center(control.rect);
+        let expected = (control.target != HitTarget::ToggleAnalysis).then_some(control.target);
+        assert_eq!(output.hit_test_app(x, y, &app), expected);
+    }
+}
+
+#[test]
+fn each_optional_button_compacts_the_full_width_toolbar() {
+    for (toggle, hidden) in [
+        (Action::ToggleFreeModeSetting, HitTarget::ToggleMode),
+        (Action::ToggleNotesSetting, HitTarget::ToggleDescription),
+    ] {
+        let mut app = state();
+        app.dispatch(Action::OpenSettings);
+        app.dispatch(toggle);
+        app.dispatch(Action::CloseSettings);
+        let output = render(&app, SCRIBE).expect("render succeeds");
+        let visible: Vec<_> = output
+            .layout
+            .toolbar_targets
+            .iter()
+            .filter(|control| control.rect.width > 0)
+            .collect();
+        assert_eq!(visible.len(), 5);
+        assert_eq!(
+            visible.last().unwrap().rect.right(),
+            output.layout.toolbar.right()
+        );
+        for pair in visible.windows(2) {
+            assert!(pair[0].rect.right() < pair[1].rect.x);
+        }
+        assert_eq!(
+            output
+                .layout
+                .toolbar_targets
+                .iter()
+                .find(|control| control.target == hidden)
+                .unwrap()
+                .rect
+                .width,
+            0
+        );
+        for control in visible
+            .into_iter()
+            .filter(|c| c.target != HitTarget::ToggleAnalysis)
+        {
+            let (x, y) = center(control.rect);
+            assert_eq!(output.hit_test_app(x, y, &app), Some(control.target));
+        }
     }
 }

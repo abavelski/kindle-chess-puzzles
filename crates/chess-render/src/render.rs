@@ -56,7 +56,7 @@ impl RenderOutput {
 }
 
 pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput, LayoutError> {
-    let layout = Layout::new(metrics)?;
+    let layout = Layout::for_app(metrics, state)?;
     let mut frame = Gray8::new(metrics.width, metrics.height, WHITE);
     let text_scale = (metrics.dpi / 100).clamp(2, 5);
     let coordinate_scale = (metrics.dpi / 100).clamp(2, 4);
@@ -232,10 +232,7 @@ fn draw_coordinates(frame: &mut Gray8, flipped: bool, layout: Layout, scale: u32
 
 fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
     for target in layout.toolbar_targets {
-        if target.target == HitTarget::ToggleMode && !state.settings().show_free_mode_button() {
-            continue;
-        }
-        if target.target == HitTarget::ToggleDescription && !state.settings().show_notes_button() {
+        if target.rect.width == 0 {
             continue;
         }
         if target.target == HitTarget::ToggleAnalysis {

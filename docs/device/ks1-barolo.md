@@ -1959,3 +1959,44 @@ full board redraw. X exit returned 0; verified Xorg and awesome are S (sleeping,
 not stopped), and no chess process remains. Puzzle/progress hashes still match
 pre-deployment values. This accepts the button-sleep overlay and repeated wake
 fix; no new idle, reboot or crash-recovery checkpoint is inferred.
+
+### Task 38 toolbar deployment — 2026-10-07
+
+Built the uncommitted `main` working tree with `scripts/build-kindle.sh` and
+staged/deployed it through `scripts/stage-kindle.sh` and
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`. The full host
+gate and ARMv7/glibc-2.35 release validation passed. Installed binary SHA-256
+`71ea3e0abc7f3389b00fc8ccb941d80766a20ed926851b1aed98260b8f0d9959`
+matches the local validated artifact, and the device loader resolves all
+dependencies. The app and supervisor lock were absent before and after install;
+Xorg and awesome were present afterward.
+
+All five puzzle collection hashes, progress
+`5187d98b839b26b5749ffbeca89479eb39ee8439c36ec2abb32eb2503d5d5a3d`,
+and settings `c838d38e34fe81d9ce3135459a1efa9541d6904c2a76999cadd19741106ec443`
+matched their pre-deploy values. The library scriptlet is present. Physical
+toolbar appearance and tapping in this build await user review after launch;
+installation and host snapshots do not establish that observation.
+
+### Task 39 full-width toolbar deployment — 2026-10-07
+
+Staged the validated uncommitted `main` build and installed it with
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222` while the app
+and supervisor lock were absent. Installed runtime SHA-256
+`485f0ceb72a373bf6cab8e302b3120921b1a62727b4fdfdd6441f5efc3f113ed`
+matches the local validated build. `/lib/ld-linux-armhf.so.3 --list` resolved
+all dependencies; the library scriptlet is present. Xorg and awesome remained
+running, and the app and lock were absent after installation.
+
+All five collection hashes matched pre-deployment values. Progress
+`5187d98b839b26b5749ffbeca89479eb39ee8439c36ec2abb32eb2503d5d5a3d`
+and settings `36e521b24db1db917b1039e6d1e66166f4ff71a996b2424df23d7d787a3130ac`
+also matched. The app was left stopped for user launch. Full-width toolbar
+appearance and taps are pending physical review.
+
+### Task 39 physical acceptance — 2026-10-07
+
+After launching the full-width toolbar build, the user reported that it works
+fine and requested commit and push to `main`. This accepts the deployed toolbar
+change. No separate observations about sleep, reboot, or other device behavior
+were reported in this check.

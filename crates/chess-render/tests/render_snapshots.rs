@@ -405,6 +405,11 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     settings.dispatch(Action::OpenSettings);
     actual.push(("settings-panel", hash(&settings)));
 
+    settings.dispatch(Action::ToggleFreeModeSetting);
+    settings.dispatch(Action::ToggleNotesSetting);
+    settings.dispatch(Action::CloseSettings);
+    actual.push(("toolbar-both-hidden", hash(&settings)));
+
     let mut picker = state(PUZZLES);
     picker.set_collection_entries(vec![
         CollectionEntry::valid("puzzles.json", "Lichess sample puzzles"),
@@ -467,32 +472,33 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("white", 7_957_699_456_514_577_913),
-        ("black", 14_798_886_833_988_792_579),
-        ("selected", 15_059_074_740_480_016_713),
-        ("correct", 6_691_938_765_292_547_691),
-        ("wrong", 5_991_080_478_588_831_352),
-        ("complete", 13_691_773_846_420_504_838),
-        ("solved", 8_530_804_768_025_387_968),
-        ("free-board", 2_694_638_410_034_142_234),
-        ("orientation-lock", 10_015_370_501_788_012_873),
-        ("description", 4_777_335_427_765_586_272),
-        ("promotion", 11_420_232_204_371_506_675),
-        ("long-description", 6_268_353_940_497_024_965),
-        ("number-difficulty", 13_522_868_894_118_326_321),
-        ("settings-panel", 7_742_268_361_669_711_872),
-        ("collection-picker", 6_366_171_363_803_236_902),
-        ("puzzle-goto", 10_167_705_919_489_586_484),
-        ("collection-picker-error", 10_234_045_745_365_231_897),
-        ("progress-warning", 14_841_661_667_632_548_174),
-        ("topic-default", 17_713_303_588_172_969_062),
-        ("black-side-header", 17_976_896_691_185_053_304),
-        ("topic-note", 4_777_335_427_765_586_272),
-        ("topic-wrong", 13_423_127_406_729_336_171),
-        ("topic-reset", 17_713_303_588_172_969_062),
-        ("topic-free-board", 17_649_508_734_205_039_848),
-        ("topic-only", 8_102_547_619_884_212_078),
-        ("long-header", 13_486_776_688_704_960_631),
+        ("white", 15_898_105_144_560_560_113),
+        ("black", 10_597_491_095_544_494_603),
+        ("selected", 11_884_922_200_896_160_705),
+        ("correct", 13_567_027_576_737_319_443),
+        ("wrong", 12_288_600_687_491_817_208),
+        ("complete", 15_688_075_688_181_130_814),
+        ("solved", 1_938_991_838_494_852_896),
+        ("free-board", 16_630_936_454_178_993_222),
+        ("orientation-lock", 8_346_524_184_733_962_609),
+        ("description", 10_234_110_192_457_197_856),
+        ("promotion", 7_482_005_193_071_199_643),
+        ("long-description", 5_847_670_733_413_713_085),
+        ("number-difficulty", 9_605_319_101_006_217_009),
+        ("settings-panel", 10_603_805_752_818_077_024),
+        ("toolbar-both-hidden", 9_468_082_363_268_306_796),
+        ("collection-picker", 11_954_497_480_904_358_718),
+        ("puzzle-goto", 5_596_807_428_357_495_156),
+        ("collection-picker-error", 6_781_302_961_308_685_073),
+        ("progress-warning", 3_618_114_168_701_400_326),
+        ("topic-default", 8_753_361_684_752_708_606),
+        ("black-side-header", 15_064_736_329_695_635_008),
+        ("topic-note", 10_234_110_192_457_197_856),
+        ("topic-wrong", 11_011_101_145_248_848_875),
+        ("topic-reset", 8_753_361_684_752_708_606),
+        ("topic-free-board", 6_276_563_786_704_713_564),
+        ("topic-only", 9_474_856_626_167_950_254),
+        ("long-header", 16_199_670_713_903_920_055),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);

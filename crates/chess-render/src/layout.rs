@@ -6,6 +6,29 @@ use chess_core::{Action, AnalysisNodeIndex, AppState, PromotionChoice, COLLECTIO
 pub const MIN_TOUCH_MM: u32 = 10;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ToolbarAlignment {
+    Left,
+    Right,
+    FullWidth,
+}
+
+/// Developer-facing layout policy. This is deliberately not a saved setting.
+pub const APP_TOOLBAR_ALIGNMENT: ToolbarAlignment = ToolbarAlignment::FullWidth;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ToolbarButtonKind {
+    Icon,
+    Text,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ToolbarButtonSpec {
+    target: HitTarget,
+    visible: bool,
+    kind: ToolbarButtonKind,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DisplayMetrics {
     pub width: u32,
     pub height: u32,
@@ -150,6 +173,32 @@ pub struct Layout {
 
 impl Layout {
     pub fn new(metrics: DisplayMetrics) -> Result<Self, LayoutError> {
+        Self::with_toolbar_visibility(metrics, true, true, APP_TOOLBAR_ALIGNMENT)
+    }
+
+    pub fn for_app(metrics: DisplayMetrics, state: &AppState) -> Result<Self, LayoutError> {
+        Self::for_app_with_alignment(metrics, state, APP_TOOLBAR_ALIGNMENT)
+    }
+
+    pub fn for_app_with_alignment(
+        metrics: DisplayMetrics,
+        state: &AppState,
+        alignment: ToolbarAlignment,
+    ) -> Result<Self, LayoutError> {
+        Self::with_toolbar_visibility(
+            metrics,
+            state.settings().show_free_mode_button(),
+            state.settings().show_notes_button(),
+            alignment,
+        )
+    }
+
+    fn with_toolbar_visibility(
+        metrics: DisplayMetrics,
+        show_free: bool,
+        show_notes: bool,
+        alignment: ToolbarAlignment,
+    ) -> Result<Self, LayoutError> {
         if metrics.width == 0 || metrics.height == 0 || metrics.dpi == 0 {
             return Err(LayoutError::InvalidMetrics);
         }
@@ -249,48 +298,46 @@ impl Layout {
             minimum_touch_px,
         );
 
-        let analysis_target = ControlTarget {
-            rect: Rect::new(
-                toolbar_touch.x,
-                toolbar_touch.y,
-                minimum_touch_px,
-                minimum_touch_px,
-            ),
-            target: HitTarget::ToggleAnalysis,
-        };
-        let remaining_toolbar = Rect::new(
-            analysis_target.rect.right() + small_gap,
-            toolbar_touch.y,
-            toolbar_touch
-                .width
-                .saturating_sub(minimum_touch_px + small_gap),
-            toolbar_touch.height,
-        );
-        let other_targets = split_targets(
-            remaining_toolbar,
-            small_gap,
-            [
-                HitTarget::ToggleMode,
-                HitTarget::ToggleDescription,
-                HitTarget::ToggleOrientationLock,
-                HitTarget::Reset,
-                HitTarget::Flip,
-            ],
-        );
-        let toolbar_targets = [
-            analysis_target,
-            other_targets[0],
-            other_targets[1],
-            other_targets[2],
-            other_targets[3],
-            other_targets[4],
+        let toolbar_specs = [
+            ToolbarButtonSpec {
+                target: HitTarget::ToggleAnalysis,
+                visible: true,
+                kind: ToolbarButtonKind::Icon,
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::ToggleMode,
+                visible: show_free,
+                kind: ToolbarButtonKind::Text,
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::ToggleDescription,
+                visible: show_notes,
+                kind: ToolbarButtonKind::Text,
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::ToggleOrientationLock,
+                visible: true,
+                kind: ToolbarButtonKind::Text,
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::Reset,
+                visible: true,
+                kind: ToolbarButtonKind::Text,
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::Flip,
+                visible: true,
+                kind: ToolbarButtonKind::Text,
+            },
         ];
-        if toolbar_targets
-            .iter()
-            .any(|target| target.rect.width < minimum_touch_px)
-        {
-            return Err(LayoutError::TooSmall);
-        }
+        let toolbar_targets = place_toolbar(
+            toolbar_touch,
+            small_gap,
+            minimum_touch_px,
+            px_for_mm(metrics.dpi, 16).max(minimum_touch_px),
+            toolbar_specs,
+            alignment,
+        )?;
 
         let nav_y = toolbar.bottom().saturating_add(gap);
         let nav_touch_y = nav_y.saturating_sub(control_visual_inset);
@@ -770,6 +817,76 @@ impl Layout {
     }
 }
 
+fn place_toolbar<const N: usize>(
+    rect: Rect,
+    gap: u32,
+    icon_width: u32,
+    text_width: u32,
+    specs: [ToolbarButtonSpec; N],
+    alignment: ToolbarAlignment,
+) -> Result<[ControlTarget; N], LayoutError> {
+    let visible_count = specs.iter().filter(|spec| spec.visible).count() as u32;
+    let text_count = specs
+        .iter()
+        .filter(|spec| spec.visible && spec.kind == ToolbarButtonKind::Text)
+        .count() as u32;
+    let gap_count = visible_count.saturating_sub(1);
+    let required = specs.iter().filter(|spec| spec.visible).fold(
+        gap.saturating_mul(gap_count),
+        |sum, spec| {
+            sum.saturating_add(match spec.kind {
+                ToolbarButtonKind::Icon => icon_width,
+                ToolbarButtonKind::Text => text_width,
+            })
+        },
+    );
+    if required > rect.width {
+        return Err(LayoutError::TooSmall);
+    }
+    let extra = rect.width - required;
+    let stretch_text =
+        alignment == ToolbarAlignment::FullWidth && visible_count > 1 && text_count > 0;
+    let spread_icons =
+        alignment == ToolbarAlignment::FullWidth && visible_count > 1 && text_count == 0;
+    let mut x = match alignment {
+        ToolbarAlignment::Right => rect.right() - required,
+        ToolbarAlignment::Left | ToolbarAlignment::FullWidth => rect.x,
+    };
+    let mut seen = 0;
+    let mut text_seen = 0;
+    let mut targets = specs.map(|spec| ControlTarget {
+        rect: Rect::new(0, 0, 0, 0),
+        target: spec.target,
+    });
+    for (index, spec) in specs.iter().enumerate() {
+        if !spec.visible {
+            continue;
+        }
+        let mut width = match spec.kind {
+            ToolbarButtonKind::Icon => icon_width,
+            ToolbarButtonKind::Text => text_width,
+        };
+        if stretch_text && spec.kind == ToolbarButtonKind::Text {
+            width += extra / text_count;
+            width += u32::from(text_seen < extra % text_count);
+            text_seen += 1;
+        }
+        targets[index].rect = Rect::new(x, rect.y, width, rect.height);
+        x += width;
+        seen += 1;
+        if seen < visible_count {
+            x += gap;
+            if spread_icons {
+                x += extra / gap_count;
+                if seen == gap_count {
+                    x += extra % gap_count;
+                }
+            }
+        }
+    }
+    Ok(targets)
+}
+
 fn split_targets<const N: usize>(
     rect: Rect,
     gap: u32,
@@ -798,4 +915,65 @@ const fn px_for_mm(dpi: u32, millimeters: u32) -> u32 {
         .saturating_mul(10)
         .saturating_add(127)
         / 254
+}
+
+#[cfg(test)]
+mod toolbar_tests {
+    use super::*;
+
+    #[test]
+    fn full_width_icon_only_toolbar_distributes_space_between_icons() {
+        let rect = Rect::new(12, 20, 400, 80);
+        let specs = [
+            ToolbarButtonSpec {
+                target: HitTarget::ToggleAnalysis,
+                visible: true,
+                kind: ToolbarButtonKind::Icon,
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::Reset,
+                visible: true,
+                kind: ToolbarButtonKind::Icon,
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::Flip,
+                visible: true,
+                kind: ToolbarButtonKind::Icon,
+            },
+        ];
+        let controls =
+            place_toolbar(rect, 10, 80, 120, specs, ToolbarAlignment::FullWidth).unwrap();
+        assert_eq!(controls.map(|control| control.rect.x), [12, 172, 332]);
+        assert!(controls.iter().all(|control| control.rect.width == 80));
+        assert_eq!(controls[2].rect.right(), rect.right());
+    }
+
+    #[test]
+    fn one_button_stays_at_left_at_its_compact_width() {
+        let rect = Rect::new(12, 20, 400, 80);
+        for kind in [ToolbarButtonKind::Icon, ToolbarButtonKind::Text] {
+            let controls = place_toolbar(
+                rect,
+                10,
+                80,
+                120,
+                [ToolbarButtonSpec {
+                    target: HitTarget::Reset,
+                    visible: true,
+                    kind,
+                }],
+                ToolbarAlignment::FullWidth,
+            )
+            .unwrap();
+            assert_eq!(controls[0].rect.x, rect.x);
+            assert_eq!(
+                controls[0].rect.width,
+                if kind == ToolbarButtonKind::Icon {
+                    80
+                } else {
+                    120
+                }
+            );
+        }
+    }
 }

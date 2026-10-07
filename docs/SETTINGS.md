@@ -13,6 +13,8 @@ Both default to **ON** so existing behavior is unchanged after upgrading.
 
 Turning off Free mode while Free Board is active returns the app to Solution mode before hiding the control. Turning off Notes immediately hides an open note. Disabled controls are neither rendered nor hit-testable.
 
+The toolbar below the board currently fills its width. Its icon control uses a square touch target; visible text controls stretch evenly to consume the remaining space. Hiding FREE or NOTE removes that control's space and reallocates it among the visible text controls. The renderer also supports compact left and right alignment through the developer-facing `ToolbarAlignment` choice. Alignment is not a persisted preference or a Settings panel control.
+
 ## UI flow
 
 A settings icon lives immediately to the left of the close button in the header. The `FILES` control, when present, sits to its left. Tapping it opens a modal panel using the same deterministic layout/hit-testing approach as the collection picker.
