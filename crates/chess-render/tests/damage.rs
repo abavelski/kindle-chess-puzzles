@@ -224,3 +224,14 @@ fn scribe_navigation_and_selection_do_not_fragment_into_dozens_of_updates() {
         "navigation stays regional"
     );
 }
+
+#[test]
+fn board_size_changes_clear_old_geometry_through_partial_damage() {
+    let mut app = state();
+    check_transition(&mut app, Action::OpenSettings);
+    check_transition(&mut app, Action::ToggleBoardSizeSetting);
+    check_transition(&mut app, Action::CloseSettings);
+    check_transition(&mut app, Action::OpenSettings);
+    check_transition(&mut app, Action::ToggleBoardSizeSetting);
+    check_transition(&mut app, Action::CloseSettings);
+}

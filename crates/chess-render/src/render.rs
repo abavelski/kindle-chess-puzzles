@@ -323,11 +323,26 @@ fn draw_status(
 ) -> Option<AnalysisPanelOutput> {
     draw_button_chrome(frame, layout.status, WHITE, INK, false);
 
-    let padding = (layout.status.height / 12).max(8);
+    let small_board = state.settings().small_board();
+    let analysis_scale = if small_board {
+        (scale + 1).min(5)
+    } else {
+        scale.min(3)
+    };
+    let scale = if small_board {
+        (scale + 1).min(5)
+    } else {
+        scale
+    };
+    let padding = if small_board {
+        (layout.minimum_touch_px() / 4).max(8)
+    } else {
+        (layout.status.height / 12).max(8)
+    };
     let mut content = layout.status.inset(padding);
 
     if state.analysis_browser_open() {
-        return draw_analysis_panel(frame, state, layout, content, scale.min(3));
+        return draw_analysis_panel(frame, state, layout, content, analysis_scale);
     }
 
     if state.feedback() == SolutionFeedback::Correct {
@@ -564,14 +579,34 @@ fn draw_settings_panel(frame: &mut Gray8, state: &AppState, layout: Layout, scal
         state.settings().show_notes_button(),
         scale.min(3),
     );
+    draw_setting_value_row(
+        frame,
+        layout.settings_board_size,
+        "BOARD SIZE",
+        if state.settings().small_board() {
+            "SMALL"
+        } else {
+            "STANDARD"
+        },
+        scale.min(3),
+    );
     draw_button(frame, layout.settings_close, "CLOSE", false, scale);
 }
 
 fn draw_setting_row(frame: &mut Gray8, rect: Rect, label: &str, enabled: bool, scale: u32) {
+    draw_setting_value_row(
+        frame,
+        rect,
+        label,
+        if enabled { "ON" } else { "OFF" },
+        scale,
+    );
+}
+
+fn draw_setting_value_row(frame: &mut Gray8, rect: Rect, label: &str, value: &str, scale: u32) {
     draw_button_chrome(frame, rect, WHITE, INK, false);
     let padding = (rect.height / 5).max(8);
     draw_text_bold_vertically_centered(frame, rect.x + padding, rect, label, scale, INK);
-    let value = if enabled { "ON" } else { "OFF" };
     let value_width = measure_text_bold(value, scale);
     let value_x = rect
         .right()

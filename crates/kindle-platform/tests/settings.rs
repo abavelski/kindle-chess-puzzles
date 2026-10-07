@@ -60,6 +60,7 @@ fn settings_round_trip_through_atomic_store() {
     let mut settings = load.settings;
     settings.set_show_free_mode_button(false);
     settings.set_show_notes_button(false);
+    settings.set_small_board(true);
     assert!(store.save_latest(&settings).expect("save settings"));
 
     let (reopened, loaded) = SettingsStore::open(paths.settings_file);

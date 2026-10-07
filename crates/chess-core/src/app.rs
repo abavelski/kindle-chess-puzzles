@@ -151,6 +151,7 @@ pub enum Action {
     CloseSettings,
     ToggleFreeModeSetting,
     ToggleNotesSetting,
+    ToggleBoardSizeSetting,
     OpenCollectionPicker,
     CloseCollectionPicker,
     CollectionPickerPreviousPage,
@@ -411,6 +412,7 @@ impl AppState {
                     | Action::CloseSettings
                     | Action::ToggleFreeModeSetting
                     | Action::ToggleNotesSetting
+                    | Action::ToggleBoardSizeSetting
                     | Action::SetTransientMessage(_)
             )
         {
@@ -479,6 +481,10 @@ impl AppState {
                 if !enabled {
                     self.description_visible = false;
                 }
+                vec![Effect::SettingsChanged]
+            }
+            Action::ToggleBoardSizeSetting => {
+                self.settings.set_small_board(!self.settings.small_board());
                 vec![Effect::SettingsChanged]
             }
             Action::OpenCollectionPicker => {

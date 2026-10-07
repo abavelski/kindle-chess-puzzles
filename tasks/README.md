@@ -86,3 +86,6 @@ compacts visible icon and text controls when Settings hides FREE or NOTE.
 
 [Task 39 — toolbar alignment policies](improvements/39-toolbar-alignment.md)
 adds developer-selectable left, right, and full-width placement; full width is active.
+
+[Task 40 — Board size setting](improvements/40-board-size-setting.md)
+adds STANDARD/SMALL board sizes and a larger text panel in the smaller layout.

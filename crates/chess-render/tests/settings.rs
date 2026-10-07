@@ -250,7 +250,90 @@ fn each_optional_button_compacts_the_full_width_toolbar() {
             .filter(|c| c.target != HitTarget::ToggleAnalysis)
         {
             let (x, y) = center(control.rect);
-            assert_eq!(output.hit_test_app(x, y, &app), Some(control.target));
+            let expected =
+                if control.target == HitTarget::ToggleAnalysis && !app.analysis_available() {
+                    None
+                } else {
+                    Some(control.target)
+                };
+            assert_eq!(output.hit_test_app(x, y, &app), expected);
         }
+    }
+}
+
+#[test]
+fn smaller_board_is_centered_and_reclaims_space_for_full_width_text() {
+    let app = state();
+    let standard = Layout::for_app(SCRIBE, &app).unwrap();
+    let small = AppState::new_with_settings(
+        ActiveCollection::from_collection("puzzles.json", parse_puzzle_file(PUZZLES).unwrap()),
+        Progress::new(),
+        Settings::parse(br#"{"version":1,"small_board":true}"#).unwrap(),
+    );
+    let layout = Layout::for_app(SCRIBE, &small).unwrap();
+    assert_eq!(layout.board.width, standard.board.width * 3 / 5 / 8 * 8);
+    assert_eq!(layout.board.y, standard.board.y);
+    assert_eq!(layout.board.x, (SCRIBE.width - layout.board.width) / 2);
+    assert_eq!(layout.toolbar.width, standard.toolbar.width);
+    assert_eq!(
+        layout.toolbar.y - layout.board_outer.bottom(),
+        standard.toolbar.y - standard.board_outer.bottom()
+    );
+    assert_eq!(layout.status.width, standard.status.width);
+    assert!(layout.status.height > standard.status.height + 600);
+}
+
+#[test]
+fn board_size_row_toggles_and_small_square_targets_follow_both_orientations() {
+    let mut app = state();
+    app.dispatch(Action::OpenSettings);
+    let output = render(&app, SCRIBE).unwrap();
+    let (x, y) = center(output.layout.settings_board_size);
+    let target = output.hit_test_app(x, y, &app).unwrap();
+    assert_eq!(target, HitTarget::ToggleBoardSizeSetting);
+    app.dispatch(target.into_action().unwrap());
+    app.dispatch(Action::CloseSettings);
+    for metrics in [
+        SCRIBE,
+        DisplayMetrics {
+            width: 2480,
+            height: 1860,
+            dpi: 300,
+        },
+    ] {
+        for _ in 0..2 {
+            let output = render(&app, metrics).unwrap();
+            let layout = output.layout;
+            for index in 0..64 {
+                let (x, y) = center(layout.square_rect(index));
+                let logical = if app.flipped() { 63 - index } else { index };
+                assert_eq!(
+                    output.hit_test_app(x, y, &app),
+                    Some(HitTarget::Square(logical))
+                );
+            }
+            for control in layout.toolbar_targets {
+                assert!(control.rect.height >= layout.minimum_touch_px());
+                assert!(control.rect.width >= layout.minimum_touch_px());
+                assert!(!control.rect.intersects(layout.board_outer));
+                let (x, y) = center(control.rect);
+                let expected =
+                    if control.target == HitTarget::ToggleAnalysis && !app.analysis_available() {
+                        None
+                    } else {
+                        Some(control.target)
+                    };
+                assert_eq!(output.hit_test_app(x, y, &app), expected);
+            }
+            assert!(layout.status.y >= layout.next.bottom());
+            app.dispatch(Action::Flip);
+        }
+        app.dispatch(Action::OpenSettings);
+        let layout = Layout::for_app(metrics, &app).unwrap();
+        assert!(layout.settings_board_size.bottom() < layout.settings_close.y);
+        assert!(layout
+            .settings_modal
+            .contains_rect(layout.settings_board_size));
+        app.dispatch(Action::CloseSettings);
     }
 }

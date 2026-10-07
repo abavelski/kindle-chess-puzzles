@@ -78,6 +78,7 @@ pub enum HitTarget {
     OpenSettings,
     ToggleFreeModeSetting,
     ToggleNotesSetting,
+    ToggleBoardSizeSetting,
     CloseSettings,
     OpenCollections,
     Collection(usize),
@@ -113,6 +114,7 @@ impl HitTarget {
             Self::OpenSettings => Some(Action::OpenSettings),
             Self::ToggleFreeModeSetting => Some(Action::ToggleFreeModeSetting),
             Self::ToggleNotesSetting => Some(Action::ToggleNotesSetting),
+            Self::ToggleBoardSizeSetting => Some(Action::ToggleBoardSizeSetting),
             Self::CloseSettings => Some(Action::CloseSettings),
             Self::OpenCollections => Some(Action::OpenCollectionPicker),
             Self::Collection(index) => Some(Action::SelectCollection(index)),
@@ -163,6 +165,7 @@ pub struct Layout {
     pub settings_modal: Rect,
     pub settings_free_mode: Rect,
     pub settings_notes: Rect,
+    pub settings_board_size: Rect,
     pub settings_close_icon: Rect,
     pub settings_close: Rect,
     square_size: u32,
@@ -173,7 +176,7 @@ pub struct Layout {
 
 impl Layout {
     pub fn new(metrics: DisplayMetrics) -> Result<Self, LayoutError> {
-        Self::with_toolbar_visibility(metrics, true, true, APP_TOOLBAR_ALIGNMENT)
+        Self::with_toolbar_visibility(metrics, true, true, false, APP_TOOLBAR_ALIGNMENT)
     }
 
     pub fn for_app(metrics: DisplayMetrics, state: &AppState) -> Result<Self, LayoutError> {
@@ -189,6 +192,7 @@ impl Layout {
             metrics,
             state.settings().show_free_mode_button(),
             state.settings().show_notes_button(),
+            state.settings().small_board(),
             alignment,
         )
     }
@@ -197,6 +201,7 @@ impl Layout {
         metrics: DisplayMetrics,
         show_free: bool,
         show_notes: bool,
+        small_board: bool,
         alignment: ToolbarAlignment,
     ) -> Result<Self, LayoutError> {
         if metrics.width == 0 || metrics.height == 0 || metrics.dpi == 0 {
@@ -236,6 +241,21 @@ impl Layout {
             .saturating_sub(board_shrink)
             / 8
             * 8;
+        if board_size < 8 * 24 {
+            return Err(LayoutError::TooSmall);
+        }
+        // Controls and dialogs keep their standard width and touch dimensions.
+        let content_bounds = Rect::new(
+            (metrics.width - board_size) / 2 - coordinate_gutter,
+            header_height + small_gap,
+            board_size + coordinate_gutter * 2,
+            board_size + coordinate_gutter * 2,
+        );
+        let board_size = if small_board {
+            board_size * 3 / 5 / 8 * 8
+        } else {
+            board_size
+        };
         if board_size < 8 * 24 {
             return Err(LayoutError::TooSmall);
         }
@@ -286,9 +306,9 @@ impl Layout {
             .saturating_add(coordinate_gutter)
             .saturating_add(small_gap);
         let toolbar = Rect::new(
-            board_outer.x,
+            content_bounds.x,
             toolbar_y,
-            board_outer.width,
+            content_bounds.width,
             compact_control_height,
         );
         let toolbar_touch = Rect::new(
@@ -342,12 +362,17 @@ impl Layout {
         let nav_y = toolbar.bottom().saturating_add(gap);
         let nav_touch_y = nav_y.saturating_sub(control_visual_inset);
         let goto_width = minimum_touch_px;
-        let side_nav_width = board_outer
+        let side_nav_width = content_bounds
             .width
             .saturating_sub(goto_width)
             .saturating_sub(small_gap.saturating_mul(2))
             / 2;
-        let previous = Rect::new(board_outer.x, nav_touch_y, side_nav_width, minimum_touch_px);
+        let previous = Rect::new(
+            content_bounds.x,
+            nav_touch_y,
+            side_nav_width,
+            minimum_touch_px,
+        );
         let goto = Rect::new(
             previous.right().saturating_add(small_gap),
             nav_touch_y,
@@ -357,7 +382,7 @@ impl Layout {
         let next = Rect::new(
             goto.right().saturating_add(small_gap),
             nav_touch_y,
-            board_outer
+            content_bounds
                 .right()
                 .saturating_sub(goto.right().saturating_add(small_gap)),
             minimum_touch_px,
@@ -377,24 +402,24 @@ impl Layout {
             return Err(LayoutError::TooSmall);
         }
         let status = Rect::new(
-            board_outer.x,
+            content_bounds.x,
             status_y,
-            board_outer.width,
+            content_bounds.width,
             status_bottom - status_y,
         );
 
-        let modal_width = (board_outer.width * 3 / 4)
+        let modal_width = (content_bounds.width * 3 / 4)
             .max(minimum_touch_px.saturating_mul(5))
-            .min(board_outer.width);
+            .min(content_bounds.width);
         let modal_height = minimum_touch_px
             .saturating_mul(3)
             .saturating_add(gap.saturating_mul(2));
-        if modal_width > board_outer.width || modal_height > board_outer.height {
+        if modal_width > content_bounds.width || modal_height > content_bounds.height {
             return Err(LayoutError::TooSmall);
         }
         let promotion_modal = Rect::new(
-            board_outer.x + (board_outer.width - modal_width) / 2,
-            board_outer.y + (board_outer.height - modal_height) / 2,
+            content_bounds.x + (content_bounds.width - modal_width) / 2,
+            content_bounds.y + (content_bounds.height - modal_height) / 2,
             modal_width,
             modal_height,
         );
@@ -421,19 +446,19 @@ impl Layout {
             minimum_touch_px,
         );
 
-        let goto_modal_width = minimum_touch_px.saturating_mul(4).min(board_outer.width);
+        let goto_modal_width = minimum_touch_px.saturating_mul(4).min(content_bounds.width);
         let goto_modal_height = minimum_touch_px
             .saturating_mul(7)
             .saturating_add(gap.saturating_mul(3))
             .saturating_add(small_gap.saturating_mul(3));
         if goto_modal_width < minimum_touch_px.saturating_mul(3)
-            || goto_modal_height > board_outer.height
+            || goto_modal_height > content_bounds.height
         {
             return Err(LayoutError::TooSmall);
         }
         let goto_modal = Rect::new(
-            board_outer.x + (board_outer.width - goto_modal_width) / 2,
-            board_outer.y + (board_outer.height - goto_modal_height) / 2,
+            content_bounds.x + (content_bounds.width - goto_modal_width) / 2,
+            content_bounds.y + (content_bounds.height - goto_modal_height) / 2,
             goto_modal_width,
             goto_modal_height,
         );
@@ -494,7 +519,7 @@ impl Layout {
             return Err(LayoutError::TooSmall);
         }
 
-        let collection_modal = board_outer.inset(minimum_touch_px / 3);
+        let collection_modal = content_bounds.inset(minimum_touch_px / 3);
         let collection_rows_y = collection_modal
             .y
             .saturating_add(minimum_touch_px)
@@ -563,6 +588,12 @@ impl Layout {
             settings_inner.width,
             minimum_touch_px,
         );
+        let settings_board_size = Rect::new(
+            settings_inner.x,
+            settings_notes.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
         let settings_close_icon = Rect::new(
             settings_inner.right().saturating_sub(minimum_touch_px),
             settings_modal.y.saturating_add(small_gap),
@@ -609,6 +640,7 @@ impl Layout {
             settings_modal,
             settings_free_mode,
             settings_notes,
+            settings_board_size,
             settings_close_icon,
             settings_close,
             square_size,
@@ -690,6 +722,9 @@ impl Layout {
             }
             if self.settings_notes.contains(x, y) {
                 return Some(HitTarget::ToggleNotesSetting);
+            }
+            if self.settings_board_size.contains(x, y) {
+                return Some(HitTarget::ToggleBoardSizeSetting);
             }
             if self.settings_close.contains(x, y) {
                 return Some(HitTarget::CloseSettings);

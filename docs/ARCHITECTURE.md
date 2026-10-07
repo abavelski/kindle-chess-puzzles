@@ -138,6 +138,7 @@ ToggleDescription
 OpenSettings
 ToggleFreeModeSetting
 ToggleNotesSetting
+ToggleBoardSizeSetting
 CloseSettings
 OpenCollectionPicker
 SelectCollection(key)
@@ -178,7 +179,7 @@ The renderer owns:
 
 The renderer does **not** own interaction state.
 
-Toolbar placement is derived in `chess-render::Layout` from display metrics, the core settings visibility flags, and a renderer alignment policy. The renderer uses those same rectangles for pixels and hit testing. Icon and text controls have different minimum widths. Left and right policies pack controls at their chosen edge; the current full-width policy stretches text controls evenly, spreads icon-only rows across their gaps, and keeps a single control at the left. No device coordinates or placement policy enter core state. A future user-selectable alignment would add a versioned core preference while leaving geometry in the renderer.
+Toolbar placement is derived in `chess-render::Layout` from display metrics, the core settings visibility flags, and a renderer alignment policy. The renderer uses those same rectangles for pixels and hit testing. Icon and text controls have different minimum widths. Left and right policies pack controls at their chosen edge; the current full-width policy stretches text controls evenly, spreads icon-only rows across their gaps, and keeps a single control at the left. No device coordinates or placement policy enter core state. The saved board-size preference selects the standard board or a centered board at 60% of its width and height (rounded down to whole squares). Both control rows retain their standard widths and follow the board upward; the text panel grows and uses larger text. Dialog bounds retain their standard dimensions. A future user-selectable alignment would add a versioned core preference while leaving geometry in the renderer.
 
 ## Sashité pieces
 

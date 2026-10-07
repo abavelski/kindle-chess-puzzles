@@ -15,6 +15,8 @@ pub struct Settings {
     show_free_mode_button: bool,
     #[serde(default = "enabled_by_default")]
     show_notes_button: bool,
+    #[serde(default)]
+    small_board: bool,
 }
 
 impl Default for Settings {
@@ -23,6 +25,7 @@ impl Default for Settings {
             version: SETTINGS_VERSION,
             show_free_mode_button: true,
             show_notes_button: true,
+            small_board: false,
         }
     }
 }
@@ -46,6 +49,14 @@ impl Settings {
 
     pub fn set_show_notes_button(&mut self, value: bool) {
         self.show_notes_button = value;
+    }
+
+    pub const fn small_board(&self) -> bool {
+        self.small_board
+    }
+
+    pub fn set_small_board(&mut self, value: bool) {
+        self.small_board = value;
     }
 
     pub fn parse(contents: &[u8]) -> Result<Self, String> {

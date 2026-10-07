@@ -485,7 +485,7 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("promotion", 7_482_005_193_071_199_643),
         ("long-description", 5_847_670_733_413_713_085),
         ("number-difficulty", 9_605_319_101_006_217_009),
-        ("settings-panel", 10_603_805_752_818_077_024),
+        ("settings-panel", 17_178_598_779_946_395_329),
         ("toolbar-both-hidden", 9_468_082_363_268_306_796),
         ("collection-picker", 11_954_497_480_904_358_718),
         ("puzzle-goto", 5_596_807_428_357_495_156),
@@ -501,5 +501,54 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("long-header", 16_199_670_713_903_920_055),
     ];
 
+    assert_eq!(actual.as_slice(), EXPECTED);
+}
+
+#[test]
+fn smaller_board_visual_states_match_reviewed_gray8_snapshots() {
+    fn small(bytes: &[u8]) -> AppState {
+        let mut app = state(bytes);
+        app.dispatch(Action::OpenSettings);
+        app.dispatch(Action::ToggleBoardSizeSetting);
+        app.dispatch(Action::CloseSettings);
+        app
+    }
+    let mut actual = Vec::new();
+    let mut app = small(PUZZLES);
+    actual.push(("small-board", hash(&app)));
+    app.dispatch(Action::ToggleDescription);
+    actual.push(("small-description", hash(&app)));
+    app.dispatch(Action::OpenSettings);
+    actual.push(("small-settings", hash(&app)));
+    app.dispatch(Action::CloseSettings);
+    app.dispatch(Action::OpenPuzzleGoto);
+    actual.push(("small-goto", hash(&app)));
+    app.dispatch(Action::CancelPuzzleGoto);
+    app.set_collection_entries(vec![CollectionEntry::valid("puzzles.json", "Puzzles")]);
+    app.dispatch(Action::OpenCollectionPicker);
+    actual.push(("small-collections", hash(&app)));
+    let mut promotion = small(PROMOTIONS);
+    play(&mut promotion, "a7a8");
+    assert!(promotion.pending_promotion().is_some());
+    actual.push(("small-promotion", hash(&promotion)));
+    let rich = include_bytes!("../../../tests/fixtures/rich-analysis/valid-rich.json");
+    let mut analysis = small(rich);
+    analysis.dispatch(Action::ToggleAnalysis);
+    actual.push(("small-analysis", hash(&analysis)));
+    let mut topic = small(r#"{"version":1,"puzzles":[{"id":"topic","fen":"7k/8/5KQ1/8/8/8/8/8 w - - 0 1","solution":["g6g7"],"topic":"Find the winning move.\nНайдите лучший ход."}]}"#.as_bytes());
+    actual.push(("small-topic", hash(&topic)));
+    topic.dispatch(Action::Flip);
+    actual.push(("small-flipped", hash(&topic)));
+    const EXPECTED: &[(&str, u64)] = &[
+        ("small-board", 16103031563951854356),
+        ("small-description", 1261350503540264152),
+        ("small-settings", 5341385181555161798),
+        ("small-goto", 8548407355156642118),
+        ("small-collections", 7586115573848333633),
+        ("small-promotion", 1894710401841698662),
+        ("small-analysis", 17949574109544594705),
+        ("small-topic", 9202058866072652097),
+        ("small-flipped", 10812786783933383639),
+    ];
     assert_eq!(actual.as_slice(), EXPECTED);
 }

@@ -2000,3 +2000,37 @@ After launching the full-width toolbar build, the user reported that it works
 fine and requested commit and push to `main`. This accepts the deployed toolbar
 change. No separate observations about sleep, reboot, or other device behavior
 were reported in this check.
+
+### Task 40 board-size setting deployed for testing — 2026-10-07
+
+Built the uncommitted `main` tree based on `a53950a` with
+`scripts/build-kindle.sh`, including all host gates and the validated ARMv7 /
+glibc 2.35 release. Staged and deployed through `scripts/stage-kindle.sh` and
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`. The app and
+supervisor lock were absent before installation.
+
+Installed runtime SHA-256
+`b001f5d024af00dd8de99f491bcd5e11ca50694c9f5e703b7d58b21ddb3c89ef`
+matches the validated local binary. The device loader resolved all dependencies,
+the library scriptlet is present, Xorg and awesome are present, and the app and
+supervisor lock remain absent for user launch.
+
+All five puzzle collection hashes matched before/after deployment. Progress
+`5187d98b839b26b5749ffbeca89479eb39ee8439c36ec2abb32eb2503d5d5a3d`
+and settings
+`c838d38e34fe81d9ce3135459a1efa9541d6904c2a76999cadd19741106ec443`
+also matched. No user collections or progress/settings files were rewritten.
+
+Physical review is pending: open Settings, tap BOARD SIZE to select SMALL,
+check the centered smaller board, raised toolbar/navigation, larger text panel,
+notes and analysis readability/taps, then switch back to STANDARD. Check that
+the selected size persists across exit/relaunch. Deployment does not establish
+those visual or interaction observations. Changes remain uncommitted.
+
+### Task 40 physical acceptance — 2026-10-07
+
+The user tested the deployed board-size update on the Scribe, reported “works”,
+and requested commit and push. This accepts the board-size setting and smaller
+layout. No separate sleep/reboot observations or detailed persistence-check
+results were reported. The pending-review note above records deployment-time
+status.
