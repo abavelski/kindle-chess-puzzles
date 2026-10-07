@@ -440,10 +440,7 @@ mod tests {
         const REVIEW: &[u8] =
             include_bytes!("../../../tests/fixtures/game-review/valid-standard.json");
 
-        let root = std::env::temp_dir().join(format!(
-            "kcp-review-runtime-{}",
-            std::process::id()
-        ));
+        let root = std::env::temp_dir().join(format!("kcp-review-runtime-{}", std::process::id()));
         let storage = KindleStorage::new(StoragePaths::new(
             root.join("puzzles"),
             root.join("state/progress.json"),
@@ -468,11 +465,9 @@ mod tests {
         let original = app.progress().to_bytes().unwrap();
         std::fs::create_dir_all(storage.paths().progress_file.parent().unwrap()).unwrap();
         std::fs::write(&storage.paths().progress_file, &original).unwrap();
-        let (mut progress_store, load) =
-            ProgressStore::open(storage.paths().progress_file.clone());
+        let (mut progress_store, load) = ProgressStore::open(storage.paths().progress_file.clone());
         assert_eq!(load.progress, *app.progress());
-        let (mut settings_store, _) =
-            SettingsStore::open(storage.paths().settings_file.clone());
+        let (mut settings_store, _) = SettingsStore::open(storage.paths().settings_file.clone());
 
         assert!(app.dispatch(Action::ToggleWorkspace).is_empty());
         assert!(app.dispatch(Action::ReviewNext).is_empty());
