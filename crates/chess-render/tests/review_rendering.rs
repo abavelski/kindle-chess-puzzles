@@ -282,20 +282,20 @@ fn review_workspace_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("review-no-games", hash(&no_games)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("review-root-standard", 0),
-        ("review-middle-main", 0),
-        ("review-final-main", 0),
-        ("review-selected-variation", 0),
-        ("review-long-first", 0),
-        ("review-long-middle", 0),
-        ("review-long-last", 0),
-        ("review-black-to-move", 0),
-        ("review-unicode-header", 0),
-        ("review-free-scratch", 0),
-        ("review-flipped", 0),
-        ("review-small-board", 0),
-        ("review-game-picker", 0),
-        ("review-no-games", 0),
+        ("review-root-standard", 11_765_130_088_749_038_892),
+        ("review-middle-main", 1_483_975_510_969_405_458),
+        ("review-final-main", 9_462_369_133_115_775_466),
+        ("review-selected-variation", 3_878_135_319_240_275_682),
+        ("review-long-first", 16_395_587_122_926_988_907),
+        ("review-long-middle", 13_505_780_319_366_563_043),
+        ("review-long-last", 120_065_743_217_836_767),
+        ("review-black-to-move", 16_717_819_373_179_671_942),
+        ("review-unicode-header", 13_579_626_513_863_133_788),
+        ("review-free-scratch", 3_083_208_783_060_766_309),
+        ("review-flipped", 15_636_352_702_640_996_138),
+        ("review-small-board", 16_859_584_786_504_984_638),
+        ("review-game-picker", 17_308_979_411_350_942_764),
+        ("review-no-games", 11_567_526_096_340_990_005),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
