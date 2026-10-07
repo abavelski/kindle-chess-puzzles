@@ -4,9 +4,7 @@ use chess_core::{
     parse_puzzle_file, parse_review_file, Action, ActiveCollection, AnalysisNodeIndex, AppState,
     Board, Progress, ReviewFileError, ReviewGameEntry, Workspace,
 };
-use chess_render::{
-    render, AnalysisMoveChipSource, DisplayMetrics, HitTarget, Rect, RenderOutput,
-};
+use chess_render::{render, AnalysisMoveChipSource, DisplayMetrics, HitTarget, Rect, RenderOutput};
 
 const PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/puzzles.json");
 const REVIEW: &[u8] = include_bytes!("../../../tests/fixtures/game-review/valid-standard.json");
@@ -65,12 +63,7 @@ fn center(rect: Rect) -> (u32, u32) {
     (rect.x + rect.width / 2, rect.y + rect.height / 2)
 }
 
-fn assert_rect_target(
-    output: &RenderOutput,
-    app: &AppState,
-    rect: Rect,
-    expected: HitTarget,
-) {
+fn assert_rect_target(output: &RenderOutput, app: &AppState, rect: Rect, expected: HitTarget) {
     assert!(rect.width > 0 && rect.height > 0);
     let points = [
         center(rect),
@@ -130,11 +123,7 @@ fn review_controls_map_to_review_actions_while_puzzle_controls_keep_their_action
             HitTarget::ReviewPrevious,
             Some(Action::ReviewPrevious),
         ),
-        (
-            layout.next,
-            HitTarget::ReviewNext,
-            Some(Action::ReviewNext),
-        ),
+        (layout.next, HitTarget::ReviewNext, Some(Action::ReviewNext)),
     ];
     for (rect, target, action) in review_controls {
         assert_rect_target(&output, &review, rect, target);
@@ -163,12 +152,7 @@ fn review_controls_map_to_review_actions_while_puzzle_controls_keep_their_action
         HitTarget::ToggleOrientationLock,
     );
     assert_rect_target(&output, &puzzle, layout.previous, HitTarget::Previous);
-    assert_rect_target(
-        &output,
-        &puzzle,
-        layout.goto,
-        HitTarget::OpenPuzzleGoto,
-    );
+    assert_rect_target(&output, &puzzle, layout.goto, HitTarget::OpenPuzzleGoto);
     assert_rect_target(&output, &puzzle, layout.next, HitTarget::Next);
     assert_eq!(
         HitTarget::Previous.into_action(),
@@ -230,12 +214,7 @@ fn review_movetext_reuses_move_and_page_hit_targets_without_linking_plain_prose(
         pages += 1;
 
         if let Some(previous) = panel.previous_page {
-            assert_rect_target(
-                &output,
-                &app,
-                previous,
-                HitTarget::AnalysisPreviousPage,
-            );
+            assert_rect_target(&output, &app, previous, HitTarget::AnalysisPreviousPage);
             assert_eq!(
                 HitTarget::AnalysisPreviousPage.into_action(),
                 Some(Action::AnalysisPreviousPage)
@@ -243,12 +222,7 @@ fn review_movetext_reuses_move_and_page_hit_targets_without_linking_plain_prose(
         }
 
         for chip in &panel.move_chips {
-            assert_rect_target(
-                &output,
-                &app,
-                chip.rect,
-                HitTarget::AnalysisMove(chip.node),
-            );
+            assert_rect_target(&output, &app, chip.rect, HitTarget::AnalysisMove(chip.node));
             assert_eq!(
                 HitTarget::AnalysisMove(chip.node).into_action(),
                 Some(Action::SelectAnalysisNode(chip.node))
@@ -287,7 +261,11 @@ fn review_movetext_reuses_move_and_page_hit_targets_without_linking_plain_prose(
         assert!(pages < 32, "analysis pagination must terminate");
     }
 
-    let analysis = &app.active_review_game().expect("review game").game().analysis;
+    let analysis = &app
+        .active_review_game()
+        .expect("review game")
+        .game()
+        .analysis;
     assert!(pages > 1);
     assert_eq!(
         tree_chips,
