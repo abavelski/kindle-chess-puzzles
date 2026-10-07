@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use chess_core::{
     parse_puzzle_file, parse_review_file, Action, ActiveCollection, AnalysisNodeIndex, AppState,
-    Board, Progress, ReviewFileError, ReviewGameEntry, Workspace,
+    Board, Effect, Progress, ReviewFileError, ReviewGameEntry, Workspace,
 };
 use chess_render::{render, AnalysisMoveChipSource, DisplayMetrics, HitTarget, Rect, RenderOutput};
 
@@ -367,10 +367,19 @@ fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_pro
     app.dispatch(Action::SelectReviewGame(7));
     assert_eq!(app, invalid_before, "invalid picker index must be inert");
 
+    let requested = app.review_games()[6].clone();
     let select = HitTarget::ReviewGame(6)
         .into_action()
         .expect("review-game action");
-    app.dispatch(select);
+    assert_eq!(
+        app.dispatch(select),
+        vec![Effect::ReviewGameRequested(requested.key().clone())]
+    );
+    assert!(app.review_state().expect("review state").game_picker_open());
+    app.dispatch(Action::ActivateReviewGame(
+        requested.key().clone(),
+        Box::new(requested.game().clone()),
+    ));
     let review = app.review_state().expect("review state");
     assert!(!review.game_picker_open());
     assert_eq!(review.main_line_ply(), 0);
