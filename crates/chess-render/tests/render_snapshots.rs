@@ -480,7 +480,7 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("promotion", 11_420_232_204_371_506_675),
         ("long-description", 6_268_353_940_497_024_965),
         ("number-difficulty", 13_522_868_894_118_326_321),
-        ("settings-panel", 11_798_874_284_219_548_084),
+        ("settings-panel", 7_742_268_361_669_711_872),
         ("collection-picker", 6_366_171_363_803_236_902),
         ("puzzle-goto", 10_167_705_919_489_586_484),
         ("collection-picker-error", 10_234_045_745_365_231_897),

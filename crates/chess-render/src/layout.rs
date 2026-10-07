@@ -140,6 +140,7 @@ pub struct Layout {
     pub settings_modal: Rect,
     pub settings_free_mode: Rect,
     pub settings_notes: Rect,
+    pub settings_close_icon: Rect,
     pub settings_close: Rect,
     square_size: u32,
     minimum_touch_px: u32,
@@ -515,6 +516,12 @@ impl Layout {
             settings_inner.width,
             minimum_touch_px,
         );
+        let settings_close_icon = Rect::new(
+            settings_inner.right().saturating_sub(minimum_touch_px),
+            settings_modal.y.saturating_add(small_gap),
+            minimum_touch_px,
+            minimum_touch_px,
+        );
         let settings_close = Rect::new(
             settings_inner.x,
             settings_inner.bottom().saturating_sub(minimum_touch_px),
@@ -555,6 +562,7 @@ impl Layout {
             settings_modal,
             settings_free_mode,
             settings_notes,
+            settings_close_icon,
             settings_close,
             square_size,
             minimum_touch_px,
@@ -576,6 +584,9 @@ impl Layout {
             || !layout.viewport.contains_rect(layout.goto_modal)
             || !layout.viewport.contains_rect(layout.collection_modal)
             || !layout.viewport.contains_rect(layout.settings_modal)
+            || !layout
+                .settings_modal
+                .contains_rect(layout.settings_close_icon)
         {
             return Err(LayoutError::TooSmall);
         }
@@ -624,6 +635,9 @@ impl Layout {
             return Some(HitTarget::Exit);
         }
         if state.settings_open() {
+            if self.settings_close_icon.contains(x, y) {
+                return Some(HitTarget::CloseSettings);
+            }
             if self.settings_free_mode.contains(x, y) {
                 return Some(HitTarget::ToggleFreeModeSetting);
             }

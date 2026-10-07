@@ -534,12 +534,24 @@ fn draw_settings_panel(frame: &mut Gray8, state: &AppState, layout: Layout, scal
     frame.stroke_rect(layout.settings_modal, 6, INK);
 
     let title = Rect::new(
-        layout.settings_modal.x,
+        layout
+            .settings_modal
+            .x
+            .saturating_add(layout.minimum_touch_px()),
         layout.settings_modal.y,
-        layout.settings_modal.width,
+        layout
+            .settings_modal
+            .width
+            .saturating_sub(layout.minimum_touch_px().saturating_mul(2)),
         layout.minimum_touch_px(),
     );
     draw_text_centered(frame, title, "SETTINGS", scale, INK);
+    draw_close_button(
+        frame,
+        layout
+            .settings_close_icon
+            .inset(layout.minimum_touch_px() / 10),
+    );
 
     draw_setting_row(
         frame,

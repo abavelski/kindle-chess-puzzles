@@ -57,6 +57,30 @@ fn settings_modal_exposes_free_mode_notes_and_close_targets() {
 }
 
 #[test]
+fn settings_header_close_icon_has_the_same_close_action_as_the_bottom_button() {
+    let mut app = state();
+    app.dispatch(Action::OpenSettings);
+    let output = render(&app, SCRIBE).expect("render succeeds");
+    let layout = output.layout;
+    let icon = layout.settings_close_icon;
+
+    assert!(layout.settings_modal.contains_rect(icon));
+    assert_eq!(icon.width, icon.height);
+    assert!(icon.width >= layout.minimum_touch_px());
+    assert!(icon.x > layout.settings_modal.x + layout.settings_modal.width / 2);
+    assert!(icon.bottom() < layout.settings_free_mode.y);
+
+    let (x, y) = center(icon);
+    let target = output
+        .hit_test_app(x, y, &app)
+        .expect("close icon is tappable");
+    assert_eq!(target, HitTarget::CloseSettings);
+    assert_eq!(target.into_action(), Some(Action::CloseSettings));
+    app.dispatch(target.into_action().expect("close target has an action"));
+    assert!(!app.settings_open());
+}
+
+#[test]
 fn settings_panel_matches_files_size_and_anchors_close_at_bottom() {
     let mut app = state();
     app.dispatch(Action::OpenSettings);
@@ -80,12 +104,18 @@ fn settings_panel_matches_files_size_and_anchors_close_at_bottom() {
         for rect in [
             layout.settings_free_mode,
             layout.settings_notes,
+            layout.settings_close_icon,
             layout.settings_close,
         ] {
             assert!(layout.settings_modal.contains_rect(rect));
             assert!(rect.height >= layout.minimum_touch_px());
         }
         let (x, y) = center(layout.settings_close);
+        assert_eq!(
+            output.hit_test_app(x, y, &app),
+            Some(HitTarget::CloseSettings)
+        );
+        let (x, y) = center(layout.settings_close_icon);
         assert_eq!(
             output.hit_test_app(x, y, &app),
             Some(HitTarget::CloseSettings)
