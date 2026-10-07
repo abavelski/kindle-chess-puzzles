@@ -40,6 +40,8 @@ pub use review::{
     parse_review_file, ReviewCollection, ReviewGame, ReviewGameKey, ReviewMetadata, ReviewResult,
     MAX_REVIEW_FILE_BYTES,
 };
-pub use review_state::{ReviewGameEntry, ReviewState, Workspace, REVIEW_GAMES_PER_PAGE};
+pub use review_state::{
+    ReviewFileError, ReviewGameEntry, ReviewState, Workspace, REVIEW_GAMES_PER_PAGE,
+};
 pub use settings::{Settings, SETTINGS_VERSION};
 pub use uci::{algebraic_to_square, parse_uci_move, square_to_algebraic, UciError, UciMove};

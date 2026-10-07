@@ -2,7 +2,8 @@
 
 use crate::{
     parse_uci_move, AnalysisNodeIndex, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle,
-    PuzzleCollection, ReviewGameEntry, ReviewState, Settings, TapResult, UciMove, Workspace,
+    PuzzleCollection, ReviewFileError, ReviewGameEntry, ReviewState, Settings, TapResult, UciMove,
+    Workspace,
 };
 
 pub const COLLECTIONS_PER_PAGE: usize = 6;
@@ -205,6 +206,7 @@ pub struct AppState {
     analysis_preview_board: Option<Board>,
     workspace: Workspace,
     review_games: Vec<ReviewGameEntry>,
+    review_file_errors: Vec<ReviewFileError>,
     review_state: Option<ReviewState>,
 }
 
@@ -254,6 +256,7 @@ impl AppState {
             analysis_preview_board: None,
             workspace: Workspace::Puzzles,
             review_games: Vec::new(),
+            review_file_errors: Vec::new(),
             review_state: None,
         }
     }
@@ -291,6 +294,28 @@ impl AppState {
 
     pub fn review_games(&self) -> &[ReviewGameEntry] {
         &self.review_games
+    }
+
+    pub fn set_review_file_errors(&mut self, errors: Vec<ReviewFileError>) {
+        self.review_file_errors = errors;
+    }
+
+    pub fn review_file_errors(&self) -> &[ReviewFileError] {
+        &self.review_file_errors
+    }
+
+    pub fn review_picker_entry_count(&self) -> usize {
+        self.review_games.len() + self.review_file_errors.len()
+    }
+
+    pub fn review_picker_game(&self, picker_index: usize) -> Option<&ReviewGameEntry> {
+        self.review_games.get(picker_index)
+    }
+
+    pub fn review_picker_error(&self, picker_index: usize) -> Option<&ReviewFileError> {
+        picker_index
+            .checked_sub(self.review_games.len())
+            .and_then(|index| self.review_file_errors.get(index))
     }
 
     pub fn review_state(&self) -> Option<&ReviewState> {
@@ -810,7 +835,7 @@ impl AppState {
                 Vec::new()
             }
             Action::ReviewGamePickerNextPage => {
-                let total = self.review_games.len();
+                let total = self.review_picker_entry_count();
                 if let Some(review) = self.review_state.as_mut() {
                     review.game_picker_next_page(total);
                 }
@@ -916,14 +941,14 @@ impl AppState {
     }
 
     fn open_review_game_picker(&mut self) {
-        let total = self.review_games.len();
+        let total = self.review_picker_entry_count();
         if let Some(review) = self.review_state.as_mut() {
             review.open_game_picker(total);
         }
     }
 
     fn activate_review_game(&mut self, index: usize) {
-        let total = self.review_games.len();
+        let total = self.review_picker_entry_count();
         let (games, review_state) = (&self.review_games, &mut self.review_state);
         let Some(review) = review_state.as_mut() else {
             return;

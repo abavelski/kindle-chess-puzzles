@@ -1,6 +1,6 @@
 # Task 46 — Wire review hit testing and the GAMES picker
 
-**Status:** Ready  
+**Status:** Implemented  
 **Working branch:** `game-review`  
 **Depends on:** Tasks 44–45  
 **Primary area:** shared layout/hit testing + core picker actions  

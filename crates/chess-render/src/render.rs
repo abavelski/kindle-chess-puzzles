@@ -35,9 +35,16 @@ impl RenderOutput {
             return self.layout.hit_test_app(x, y, state);
         }
 
-        if state.analysis_browser_open()
+        let review_picker_open = state
+            .review_state()
+            .is_some_and(|review| review.game_picker_open());
+        let analysis_visible =
+            state.workspace() == Workspace::Review || state.analysis_browser_open();
+        if analysis_visible
             && !state.collection_picker_open()
+            && !review_picker_open
             && !state.puzzle_goto_open()
+            && state.pending_promotion().is_none()
         {
             if let Some(target) = self
                 .analysis
@@ -46,7 +53,7 @@ impl RenderOutput {
             {
                 return Some(target);
             }
-            if self.layout.board.contains(x, y) {
+            if state.workspace() == Workspace::Puzzles && self.layout.board.contains(x, y) {
                 return None;
             }
         }
@@ -874,9 +881,8 @@ fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, 
         layout.collection_modal.width,
         layout.minimum_touch_px(),
     );
-    let page_count = review
-        .game_picker_page_count(state.review_games().len())
-        .max(1);
+    let total = state.review_picker_entry_count();
+    let page_count = review.game_picker_page_count(total).max(1);
     draw_text_centered(
         frame,
         title,
@@ -885,21 +891,32 @@ fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, 
         INK,
     );
 
-    for (slot, index) in review
-        .game_picker_visible_range(state.review_games().len())
-        .enumerate()
-    {
-        let entry = &state.review_games()[index];
-        let metadata = &entry.game().metadata;
+    for (slot, index) in review.game_picker_visible_range(total).enumerate() {
         let rect = layout.collection_rows[slot];
-        let selected = index == review.active_game_index();
-        let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
+        let (text, selected, invalid) = if let Some(entry) = state.review_picker_game(index) {
+            (
+                entry.label().to_owned(),
+                index == review.active_game_index(),
+                false,
+            )
+        } else if let Some(error) = state.review_picker_error(index) {
+            (
+                format!("{}\n! {}", error.collection_id(), error.error()),
+                false,
+                true,
+            )
+        } else {
+            continue;
+        };
+        let (background, foreground) = if selected {
+            (INK, WHITE)
+        } else if invalid {
+            (SOFT_GRAY, INK)
+        } else {
+            (WHITE, INK)
+        };
         frame.fill_rect(rect, background);
         frame.stroke_rect(rect, 3, INK);
-        let text = format!(
-            "{} - {}\n{} / {}  {}",
-            metadata.white, metadata.black, metadata.event, metadata.date, metadata.result
-        );
         draw_wrapped_text(frame, rect.inset(10), &text, scale.min(3), foreground);
     }
 
@@ -915,7 +932,7 @@ fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, 
         frame,
         layout.collection_page_next,
         "PAGE >",
-        review.game_picker_can_next_page(state.review_games().len()),
+        review.game_picker_can_next_page(total),
         scale,
     );
 }

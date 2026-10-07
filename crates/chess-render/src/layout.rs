@@ -68,6 +68,18 @@ pub enum HitTarget {
     Flip,
     Refresh,
     Exit,
+    ToggleWorkspace,
+    ReviewToggleFree,
+    ReviewReset,
+    ReviewToggleOrientationLock,
+    ReviewFlip,
+    ReviewPrevious,
+    ReviewNext,
+    OpenReviewGamePicker,
+    ReviewGame(usize),
+    ReviewGamePickerPreviousPage,
+    ReviewGamePickerNextPage,
+    CloseReviewGamePicker,
     Previous,
     OpenPuzzleGoto,
     PuzzleGotoDigit(u8),
@@ -104,6 +116,18 @@ impl HitTarget {
             Self::Flip => Some(Action::Flip),
             Self::Refresh => None,
             Self::Exit => Some(Action::Exit),
+            Self::ToggleWorkspace => Some(Action::ToggleWorkspace),
+            Self::ReviewToggleFree => Some(Action::ReviewToggleFree),
+            Self::ReviewReset => Some(Action::ReviewReset),
+            Self::ReviewToggleOrientationLock => Some(Action::ReviewToggleOrientationLock),
+            Self::ReviewFlip => Some(Action::ReviewFlip),
+            Self::ReviewPrevious => Some(Action::ReviewPrevious),
+            Self::ReviewNext => Some(Action::ReviewNext),
+            Self::OpenReviewGamePicker => Some(Action::OpenReviewGamePicker),
+            Self::ReviewGame(index) => Some(Action::SelectReviewGame(index)),
+            Self::ReviewGamePickerPreviousPage => Some(Action::ReviewGamePickerPreviousPage),
+            Self::ReviewGamePickerNextPage => Some(Action::ReviewGamePickerNextPage),
+            Self::CloseReviewGamePicker => Some(Action::CloseReviewGamePicker),
             Self::Previous => Some(Action::PreviousPuzzle),
             Self::OpenPuzzleGoto => Some(Action::OpenPuzzleGoto),
             Self::PuzzleGotoDigit(digit) => Some(Action::PuzzleGotoDigit(digit)),
@@ -818,6 +842,30 @@ impl Layout {
             return None;
         }
 
+        if let Some(review) = state
+            .review_state()
+            .filter(|review| review.game_picker_open())
+        {
+            let total = state.review_picker_entry_count();
+            for (slot, index) in review.game_picker_visible_range(total).enumerate() {
+                if self.collection_rows[slot].contains(x, y) {
+                    return state
+                        .review_picker_game(index)
+                        .map(|_| HitTarget::ReviewGame(index));
+                }
+            }
+            if self.collection_page_previous.contains(x, y) {
+                return Some(HitTarget::ReviewGamePickerPreviousPage);
+            }
+            if self.collection_page_next.contains(x, y) {
+                return Some(HitTarget::ReviewGamePickerNextPage);
+            }
+            if self.collection_close.contains(x, y) {
+                return Some(HitTarget::CloseReviewGamePicker);
+            }
+            return None;
+        }
+
         if state.puzzle_goto_open() {
             for digit in 0..=9 {
                 if self.goto_digits[digit].contains(x, y) {
@@ -838,18 +886,55 @@ impl Layout {
             return None;
         }
 
+        if self.workspace.contains(x, y) {
+            return Some(HitTarget::ToggleWorkspace);
+        }
         if self.settings.contains(x, y) {
             return Some(HitTarget::OpenSettings);
         }
-        if !state.collection_entries().is_empty() && self.collection_button.contains(x, y) {
-            return Some(HitTarget::OpenCollections);
+        if self.collection_button.contains(x, y) {
+            match state.workspace() {
+                Workspace::Puzzles if !state.collection_entries().is_empty() => {
+                    return Some(HitTarget::OpenCollections);
+                }
+                Workspace::Review if state.review_state().is_some() => {
+                    return Some(HitTarget::OpenReviewGamePicker);
+                }
+                Workspace::Puzzles | Workspace::Review => {}
+            }
         }
 
-        match self.hit_test(x, y, state.flipped(), false) {
-            Some(HitTarget::ToggleAnalysis) if !state.analysis_available() => None,
-            Some(HitTarget::ToggleMode) if !state.settings().show_free_mode_button() => None,
-            Some(HitTarget::ToggleDescription) if !state.settings().show_notes_button() => None,
-            target => target,
+        let target = self.hit_test(x, y, state.flipped(), false);
+        match state.workspace() {
+            Workspace::Puzzles => match target {
+                Some(HitTarget::ToggleAnalysis) if !state.analysis_available() => None,
+                Some(HitTarget::ToggleMode) if !state.settings().show_free_mode_button() => None,
+                Some(HitTarget::ToggleDescription) if !state.settings().show_notes_button() => None,
+                target => target,
+            },
+            Workspace::Review => match target {
+                Some(HitTarget::Square(_))
+                    if !state
+                        .review_state()
+                        .is_some_and(|review| review.free_board_enabled()) =>
+                {
+                    None
+                }
+                Some(HitTarget::ToggleMode) => Some(HitTarget::ReviewToggleFree),
+                Some(HitTarget::Reset) => Some(HitTarget::ReviewReset),
+                Some(HitTarget::ToggleOrientationLock) => {
+                    Some(HitTarget::ReviewToggleOrientationLock)
+                }
+                Some(HitTarget::Flip) => Some(HitTarget::ReviewFlip),
+                Some(HitTarget::Previous) => Some(HitTarget::ReviewPrevious),
+                Some(HitTarget::Next) => Some(HitTarget::ReviewNext),
+                Some(
+                    HitTarget::ToggleAnalysis
+                    | HitTarget::ToggleDescription
+                    | HitTarget::OpenPuzzleGoto,
+                ) => None,
+                target => target,
+            },
         }
     }
 

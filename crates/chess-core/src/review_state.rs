@@ -17,21 +17,54 @@ pub enum Workspace {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReviewGameEntry {
     key: ReviewGameKey,
+    label: String,
     game: ReviewGame,
 }
 
 impl ReviewGameEntry {
     pub fn new(collection_id: impl Into<String>, game: ReviewGame) -> Self {
         let key = game.key(collection_id);
-        Self { key, game }
+        let metadata = &game.metadata;
+        let label = format!(
+            "{} - {}\n{} / {}  {}",
+            metadata.white, metadata.black, metadata.event, metadata.date, metadata.result
+        );
+        Self { key, label, game }
     }
 
     pub const fn key(&self) -> &ReviewGameKey {
         &self.key
     }
 
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
     pub const fn game(&self) -> &ReviewGame {
         &self.game
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReviewFileError {
+    collection_id: String,
+    error: String,
+}
+
+impl ReviewFileError {
+    pub fn new(collection_id: impl Into<String>, error: impl Into<String>) -> Self {
+        Self {
+            collection_id: collection_id.into(),
+            error: error.into(),
+        }
+    }
+
+    pub fn collection_id(&self) -> &str {
+        &self.collection_id
+    }
+
+    pub fn error(&self) -> &str {
+        &self.error
     }
 }
 
