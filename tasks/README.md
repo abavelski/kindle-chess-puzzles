@@ -4,7 +4,9 @@ Phase one is complete and archived under [`implemented/phase-1/`](implemented/ph
 Phase two is complete and archived under [`implemented/phase-2/`](implemented/phase-2/).
 Post-phase-two improvements are tracked under `improvements/`.
 
-Phase 3 game review is planned under [`phase-3/`](phase-3/) and described in [`docs/GAME_REVIEW.md`](../docs/GAME_REVIEW.md). Tasks 41-49 stay on the dedicated `game-review` branch until explicit integration.
+Phase three game review is complete under [`phase-3/`](phase-3/) and described in
+[`docs/GAME_REVIEW.md`](../docs/GAME_REVIEW.md). Checkpoint 49A passed on
+2026-10-07; integration from `game-review` into `main` was explicitly authorized.
 [Task 29 — compact analysis toolbar toggle](improvements/29-analysis-toolbar-toggle.md)
 moves analysis into the first icon-only toolbar control.
 [Task 30 — inline PGN analysis](improvements/30-inline-pgn-analysis.md) replaces

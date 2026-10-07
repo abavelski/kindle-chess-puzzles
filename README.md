@@ -26,7 +26,9 @@ It is intentionally **not a chess engine**. Puzzle grading follows authored solu
 - **E-ink-aware rendering** with deterministic grayscale output, damage-aware refreshes, a manual Refresh control for residual ghosting, and a sleep overlay with repeatable power-button sleep/wake handling.
 - **Reproducible Kindle builds and packaging** for ARMv7 / glibc 2.35, with host tests covering core logic, rendering, input contracts, lifecycle, and packaging.
 
-Phase one (the complete Kindle puzzle experience) and phase two (rich solution browsing) are complete. Game Review now supports offline imports of annotated PGNs and host-tested browsing; its physical Scribe checkpoint remains pending.
+Phase one (the complete Kindle puzzle experience), phase two (rich solution browsing),
+and phase three (Game Review) are complete. Game Review supports offline imports
+of annotated PGNs and browsing validated on the physical Scribe.
 
 ## How it works
 
@@ -96,8 +98,7 @@ Copy the JSON to `/mnt/us/kindle-chess/games/` while the app is closed, relaunch
 and tap the workspace icon beside Refresh. Use GAMES to select a game, PREV/NEXT
 to follow its main line, or tap moves to preview variations. See
 [Game Review import/update](docs/GAME_REVIEW_IMPORT.md) for setup, safe updates,
-stable IDs, Free Board behavior, and rollback. Physical review-mode acceptance
-is still pending.
+stable IDs, Free Board behavior, and rollback. Physical review-mode acceptance passed on 2026-10-07.
 
 ## Project notes
 

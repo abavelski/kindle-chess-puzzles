@@ -2,8 +2,8 @@
 
 Game Review accepts precomputed JSON generated on your computer. PGN parsing and
 legal move validation run only in the host converter; the Kindle displays stored
-positions. Task 48 verifies this workflow on the host. Physical Scribe acceptance
-remains Task 49.
+positions. Task 48 verifies this workflow on the host. Task 49 physical Scribe acceptance
+passed on 2026-10-07.
 
 ## Convert a PGN
 

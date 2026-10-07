@@ -224,5 +224,6 @@ For updates, back up the JSON and rerun the converter with `-o` targeting the
 same filename. Validation precedes atomic host replacement; annotation-only
 updates retain generated game IDs and duplicate IDs fail. See
 [Game Review import/update](GAME_REVIEW_IMPORT.md) for identity rules, rollback,
-and safe copying. Host tests and the cross-build do not establish physical
-review-mode acceptance; that remains Task 49.
+and safe copying. Task 49 physical
+review-mode acceptance passed on 2026-10-07; see the device record for the
+tested build, preserved data hashes and accepted checklist.

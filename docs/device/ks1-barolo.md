@@ -2034,3 +2034,87 @@ and requested commit and push. This accepts the board-size setting and smaller
 layout. No separate sleep/reboot observations or detailed persistence-check
 results were reported. The pending-review note above records deployment-time
 status.
+
+
+### Task 49 prepared deployment — 2026-10-07
+
+Deployed the latest implementation from `main` commit
+`cd3fa5ac043523cb7e096094ee108dceed3b5e51`, copied by fast-forward onto the
+required `game-review` branch. `main` was not moved. No production behavior
+change was needed to prepare this checkpoint.
+
+`scripts/build-kindle.sh` passed formatting, strict Clippy, the full Rust
+workspace (including review import snapshots and regional damage replay),
+Python tooling, generated assets, lifecycle/FFI/packaging contracts, and the
+pinned ARMv7/glibc-2.35 release validation. The host dependency was installed
+in `target/task49-venv`; its `bin` directory was prepended to PATH for the build.
+
+- Build source SHA-256: `78c6c05fc37670bc614be039d0b62b65430a4e1ab49372a476fecfd5218b241a`.
+- Local and installed binary SHA-256: `a5c11aa336314286f8c1f562386586222b6423543dbad2bdfebff27a66b422ad`.
+- Device reconfirmed: first-generation Scribe, ARMv7, firmware 5.19.6.
+- Staged with `scripts/stage-kindle.sh`, installed with
+  `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+- The device loader resolved all dependencies. The scriptlet is present;
+  app process and `/tmp/kindle-chess.lock` were absent before/after deployment.
+  Xorg and awesome were present afterward. Left closed for user library launch.
+
+Prepared review files from the existing synthetic converter fixtures:
+
+| Installed file under `/mnt/us/kindle-chess/games/` | Source fixture | SHA-256 |
+| --- | --- | --- |
+| `games-task49-annotated.json` | `tests/fixtures/pgn-review-converter/annotated-unicode.pgn` | `ba00fae1ddcc8acd7ccf5ccfa988b6b790267190da404c012e0b19a7e65d1e14` |
+| `games-task49-short.json` | `tests/fixtures/pgn-review-converter/multi.pgn` | `3718a2cd2b329d387ac3d999622cddef6e861805b557eb063edf8b49f6072fb2` |
+
+Converted with `tools/pgn_review_converter.py -o`, titles “Task 49 annotated
+game” and “Task 49 short games”, respectively. The annotated José Raúl /
+Александр game has main line `1.d4 d5 2.c4 e6 3.Nc3 Nf6`, variation
+`1...Nf6 2.c4 e6`, nested `2...g6`, and the explicit `2.c4` prose reference.
+The two short games are One / Two (`1.e4 c5`) and Three / Four
+(`1.Nf3 d5 2.g3`). Both installed JSON hashes match host output.
+
+All puzzle collections, progress and settings matched byte-for-byte across
+installation. Preserved pre/post-deploy SHA-256 manifest:
+
+```text
+b22b1b1b2bd4b331ee00ce154934b576ce1e31bc59867543c8b833d1e992edf3  /mnt/us/kindle-chess/puzzles/puzzles-eink-book-001.json
+8dfadf965472f5e6d744df85e10435c1bd1af887c125020af39f1042ba4bad0a  /mnt/us/kindle-chess/puzzles/puzzles-eink-book-002.json
+b8c0eaed5e01a19c023db746594d3ca024009a5daf09d8bb3e5fe8d0a65e5357  /mnt/us/kindle-chess/puzzles/puzzles-eink-book-003.json
+7685d3583e42855c80a760454223e9727623bffa881f18444cfe220e78ed5d6e  /mnt/us/kindle-chess/puzzles/puzzles-eink-book-004.json
+3ddf457bbac3472c3f952ed082c46904023e644ddd2c814b9404729bfde27b84  /mnt/us/kindle-chess/puzzles/puzzles-task26-stylus.json
+64251392ff04ba3e7933b53766686a706cb6bda138764e3e62bcf6f242f70659  /mnt/us/kindle-chess/state/progress.json
+2d55c1bfb8651448d0caefd8700ed7b69c40c398faad4d65c6d1bde4f93e369c  /mnt/us/kindle-chess/state/settings.json
+```
+
+#### HUMAN CHECKPOINT 49A — passed 2026-10-07
+
+The user confirmed “it all works” after device testing and requested Task 49
+closure, commit and push to `main`. All twelve checkpoint items are accepted
+by that report. Task 49 is Implemented and Phase 3 is closed.
+Review-only testing should avoid puzzle navigation/solving so the recorded
+progress baseline can be compared after the run. Board-size settings may change
+intentionally. First leave a recognizable puzzle attempt/analysis state, then
+switch to Review; compare that exact session when switching back before Close.
+
+| Item | Physical observation | Status |
+| --- | --- | --- |
+| 1 | Library launch with the three installed games and annotations/variations | Passed (user confirmation) |
+| 2 | Refresh and workspace icon distinguishable and tappable | Passed (user confirmation) |
+| 3 | GAMES selection updates metadata and board | Passed (user confirmation) |
+| 4 | PREV/NEXT traverse main line; root/final disabled controls | Passed (user confirmation) |
+| 5 | Main-line, variation and explicit prose-reference taps show intended positions | Passed (user confirmation) |
+| 6 | Variation PREV/NEXT return predictably to main line | Passed (user confirmation) |
+| 7 | FREE scratch moves, RESET, authored navigation and FREE exit | Passed (user confirmation) |
+| 8 | STANDARD/SMALL readability and analysis tap targets | Passed (user confirmation) |
+| 9 | FLIP/LOCK; matching finger/stylus movetext and picker targets | Passed (user confirmation) |
+| 10 | Returning to Puzzles restores the exact previous session | Passed (user confirmation) |
+| 11 | Review use preserves solved/current puzzle progress | Passed (user confirmation) |
+| 12 | Manual Refresh, repeated sleep/wake, Close/relaunch and native recovery | Passed (user confirmation) |
+
+Post-test read-only SSH verification confirmed that all five puzzle collections,
+both review JSON files, and `progress.json` still match the deployment manifest.
+The installed binary still matches `a5c11aa336314286f8c1f562386586222b6423543dbad2bdfebff27a66b422ad`.
+Settings changes during board-size testing are intentional and are not treated
+as progress changes. Acceptance is based on the user report; no additional reboot
+or crash-recovery observation is inferred. Integration into `main` is explicitly
+authorized by the same user request. Existing X exit and SSH recovery remain
+available.

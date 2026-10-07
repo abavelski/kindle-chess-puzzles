@@ -1,9 +1,11 @@
 # Phase 3 — Game review mode
 
-**Status:** Planned  
-**Implementation branch:** `game-review`  
+**Status:** Implemented — checkpoint 49A passed 2026-10-07
+**Implementation branch:** `game-review`; integration into `main` authorized 2026-10-07
 **Baseline:** `main` at `fe61ebd`  
-**Planning rule:** this document and Tasks 41–49 define scope; no production code is part of the planning commit.
+**Scope:** this document and Tasks 41–49 define the completed review phase.
+**Acceptance:** host gates and the ARMv7/glibc-2.35 release build passed; the user
+confirmed the physical Scribe checkpoint. See [the device record](device/ks1-barolo.md#human-checkpoint-49a--passed-2026-10-07).
 
 ## Goal
 

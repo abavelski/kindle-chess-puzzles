@@ -1,6 +1,6 @@
 # Task 49 — Validate game review on the physical Scribe
 
-**Status:** Ready  
+**Status:** Implemented
 **Working branch:** `game-review`  
 **Depends on:** Task 48  
 **Primary area:** device acceptance + closure docs  
@@ -42,3 +42,22 @@ Only after 49A passes may Task 49 and Phase 3 be marked Implemented/closed. Inte
 ## Suggested commit
 
 `docs: validate game review milestone`
+
+## Prepared deployment — 2026-10-07
+
+Full host gates and pinned ARMv7/glibc-2.35 release build passed. Latest
+implementation `cd3fa5a` was staged and deployed from `game-review`; `main`
+was not moved. Three synthetic review games, including Unicode annotations
+and nested variations, are installed for 49A. Installed binary/game hashes
+match local output; puzzle/progress/settings hashes are unchanged.
+
+See [the device record](../../docs/device/ks1-barolo.md#task-49-prepared-deployment--2026-10-07)
+for build identity, preserved hashes, test-game lines and the accepted checklist.
+
+## Physical acceptance — 2026-10-07
+
+The user confirmed “it all works” after testing the deployed build and explicitly
+requested task closure, commit and push to `main`. Checkpoint 49A passes; Task 49
+and Phase 3 are closed. A post-test SSH comparison confirmed unchanged puzzle
+collections, review JSON and puzzle progress, with the same installed binary hash.
+Integration into `main` is authorized by that request.
