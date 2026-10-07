@@ -66,6 +66,9 @@ pub struct AnalysisTree {
     root: AnalysisNodeIndex,
     nodes: Vec<AnalysisNode>,
     index_by_id: HashMap<String, AnalysisNodeIndex>,
+    main_line: Vec<AnalysisNodeIndex>,
+    main_line_ply_by_node: Vec<Option<usize>>,
+    nearest_main_line_ancestor_by_node: Vec<AnalysisNodeIndex>,
 }
 
 impl AnalysisTree {
@@ -105,6 +108,34 @@ impl AnalysisTree {
 
     pub fn children(&self, index: AnalysisNodeIndex) -> Option<&[AnalysisNodeIndex]> {
         self.node(index).map(|node| node.children.as_slice())
+    }
+
+    /// Root-inclusive ordered main line. Ply 0 is always the analysis root.
+    pub fn main_line_nodes(&self) -> &[AnalysisNodeIndex] {
+        &self.main_line
+    }
+
+    /// Returns the root at ply 0, the first authored main move at ply 1, and so on.
+    pub fn main_line_node_at_ply(&self, ply: usize) -> Option<AnalysisNodeIndex> {
+        self.main_line.get(ply).copied()
+    }
+
+    /// Returns a root-inclusive ply for main-line nodes, or None for variations.
+    pub fn main_line_ply(&self, index: AnalysisNodeIndex) -> Option<usize> {
+        self.main_line_ply_by_node.get(index.0).copied().flatten()
+    }
+
+    pub fn is_main_line(&self, index: AnalysisNodeIndex) -> bool {
+        self.main_line_ply(index).is_some()
+    }
+
+    /// Returns the node itself when it is on the main line, otherwise the closest
+    /// ancestor on the main line (the variation's branch point).
+    pub fn nearest_main_line_ancestor(
+        &self,
+        index: AnalysisNodeIndex,
+    ) -> Option<AnalysisNodeIndex> {
+        self.nearest_main_line_ancestor_by_node.get(index.0).copied()
     }
 }
 
@@ -148,6 +179,27 @@ pub(crate) fn parse_analysis(
     value: &Value,
     puzzle_fen: &str,
     solution: &[String],
+    context: &str,
+) -> Result<AnalysisTree, String> {
+    let tree = parse_analysis_tree(value, puzzle_fen, "puzzle fen", context)?;
+    validate_puzzle_main_path(&tree, solution, context)?;
+    Ok(tree)
+}
+
+pub(crate) fn parse_review_analysis(
+    value: &Value,
+    game_fen: &str,
+    context: &str,
+) -> Result<AnalysisTree, String> {
+    let tree = parse_analysis_tree(value, game_fen, "game fen", context)?;
+    validate_review_main_path(&tree, context)?;
+    Ok(tree)
+}
+
+fn parse_analysis_tree(
+    value: &Value,
+    expected_root_fen: &str,
+    root_fen_label: &str,
     context: &str,
 ) -> Result<AnalysisTree, String> {
     let object = value
@@ -208,10 +260,10 @@ pub(crate) fn parse_analysis(
                 &format!("{node_context}: invalid FEN: {fen_error}."),
             )
         })?;
-        if is_root && fen != puzzle_fen {
+        if is_root && fen != expected_root_fen {
             return Err(error(
                 context,
-                &format!("{node_context}: root FEN must exactly match puzzle fen."),
+                &format!("{node_context}: root FEN must exactly match {root_fen_label}."),
             ));
         }
 
@@ -367,13 +419,18 @@ pub(crate) fn parse_analysis(
         });
     }
 
-    validate_main_path(&nodes, root, solution, context)?;
+    let main_line = project_main_line(&nodes, root, context)?;
+    let (main_line_ply_by_node, nearest_main_line_ancestor_by_node) =
+        build_main_line_lookups(&nodes, &main_line);
 
     Ok(AnalysisTree {
         version: 1,
         root,
         nodes,
         index_by_id,
+        main_line,
+        main_line_ply_by_node,
+        nearest_main_line_ancestor_by_node,
     })
 }
 
@@ -423,14 +480,12 @@ fn validate_connected_acyclic(
     Ok(())
 }
 
-fn validate_main_path(
+fn project_main_line(
     nodes: &[AnalysisNode],
     root: AnalysisNodeIndex,
-    solution: &[String],
     context: &str,
-) -> Result<(), String> {
-    let mut projected = Vec::new();
-    let mut main_nodes = HashSet::new();
+) -> Result<Vec<AnalysisNodeIndex>, String> {
+    let mut main_line = vec![root];
     let mut cursor = root;
 
     loop {
@@ -449,14 +504,31 @@ fn validate_main_path(
         let Some(next) = main_child else {
             break;
         };
-        main_nodes.insert(next);
-        let movement = nodes[next.0]
-            .movement
-            .as_ref()
-            .expect("non-root analysis node has a move");
-        projected.push(movement.uci.clone());
+        main_line.push(next);
         cursor = next;
     }
+
+    Ok(main_line)
+}
+
+fn validate_puzzle_main_path(
+    tree: &AnalysisTree,
+    solution: &[String],
+    context: &str,
+) -> Result<(), String> {
+    let projected = tree
+        .main_line
+        .iter()
+        .skip(1)
+        .map(|index| {
+            tree.nodes[index.0]
+                .movement
+                .as_ref()
+                .expect("non-root analysis node has a move")
+                .uci
+                .clone()
+        })
+        .collect::<Vec<_>>();
 
     if projected != solution {
         return Err(error(
@@ -465,9 +537,24 @@ fn validate_main_path(
         ));
     }
 
-    for (index, node) in nodes.iter().enumerate() {
+    validate_main_role_membership(tree, context)
+}
+
+fn validate_review_main_path(tree: &AnalysisTree, context: &str) -> Result<(), String> {
+    if tree.main_line.len() <= 1 {
+        return Err(error(
+            context,
+            "analysis main path must contain at least one main move.",
+        ));
+    }
+    validate_main_role_membership(tree, context)
+}
+
+fn validate_main_role_membership(tree: &AnalysisTree, context: &str) -> Result<(), String> {
+    let main_nodes = tree.main_line.iter().copied().collect::<HashSet<_>>();
+    for (index, node) in tree.nodes.iter().enumerate() {
         let node_index = AnalysisNodeIndex(index);
-        if node_index != root
+        if node_index != tree.root
             && node.role == Some(AnalysisRole::Main)
             && !main_nodes.contains(&node_index)
         {
@@ -480,8 +567,31 @@ fn validate_main_path(
             ));
         }
     }
-
     Ok(())
+}
+
+fn build_main_line_lookups(
+    nodes: &[AnalysisNode],
+    main_line: &[AnalysisNodeIndex],
+) -> (Vec<Option<usize>>, Vec<AnalysisNodeIndex>) {
+    let root = main_line[0];
+    let mut main_line_ply_by_node = vec![None; nodes.len()];
+    for (ply, index) in main_line.iter().copied().enumerate() {
+        main_line_ply_by_node[index.0] = Some(ply);
+    }
+
+    let mut nearest_main_line_ancestor_by_node = vec![root; nodes.len()];
+    for index in 0..nodes.len() {
+        let mut cursor = AnalysisNodeIndex(index);
+        while main_line_ply_by_node[cursor.0].is_none() {
+            cursor = nodes[cursor.0]
+                .parent
+                .expect("connected non-root analysis node has a parent");
+        }
+        nearest_main_line_ancestor_by_node[index] = cursor;
+    }
+
+    (main_line_ply_by_node, nearest_main_line_ancestor_by_node)
 }
 
 fn parse_move(value: &Value, context: &str, node_context: &str) -> Result<AnalysisMove, String> {

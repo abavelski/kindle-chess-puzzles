@@ -1,9 +1,8 @@
-//! Platform-neutral chess puzzle compatibility core.
+//! Platform-neutral chess puzzle and game-review core.
 //!
-//! This crate deliberately contains no Kindle, FBInk, Linux input, or storage
-//! path logic. It models only the reusable board, FEN/UCI, puzzle collection,
-//! application state, collection-name, and progress behavior shared with the
-//! reference app.
+//! This crate deliberately contains no Kindle, FBInk, Linux input, storage path,
+//! or PGN parsing logic. It models reusable board, FEN/UCI, puzzle/review data,
+//! application state, collection-name, settings, and progress behavior.
 
 #![forbid(unsafe_code)]
 
@@ -14,6 +13,7 @@ pub mod collection;
 pub mod fen;
 pub mod progress;
 pub mod puzzle;
+pub mod review;
 pub mod settings;
 pub mod uci;
 
@@ -31,6 +31,10 @@ pub use collection::{
 };
 pub use fen::{parse_fen, FenError, FenPosition};
 pub use progress::{FileProgress, Progress, PROGRESS_VERSION};
+pub use review::{
+    parse_review_file, ReviewCollection, ReviewGame, ReviewGameKey, ReviewMetadata, ReviewResult,
+    MAX_REVIEW_FILE_BYTES,
+};
 pub use puzzle::{
     parse_puzzle_file, Difficulty, Puzzle, PuzzleCollection, LEGACY_PUZZLE_FILE_WARNING_BYTES,
     MAX_PUZZLE_FILE_BYTES,
