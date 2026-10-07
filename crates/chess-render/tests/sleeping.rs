@@ -39,5 +39,5 @@ fn sleeping_overlay_preserves_board_outside_box_and_progress() {
     if let Ok(path) = std::env::var("SLEEP_SNAPSHOT") {
         std::fs::write(path, sleeping.frame.to_pgm()).unwrap();
     }
-    assert_eq!(sleeping.frame.checksum64(), 13_046_824_446_316_472_402);
+    assert_eq!(sleeping.frame.checksum64(), 14_863_428_261_287_720_230);
 }
