@@ -1,8 +1,8 @@
-//! Pure application state for solving and exploring puzzle collections.
+//! Pure application state for puzzle solving and game-review workspaces.
 
 use crate::{
     parse_uci_move, AnalysisNodeIndex, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle,
-    PuzzleCollection, Settings, TapResult, UciMove,
+    PuzzleCollection, ReviewGameEntry, ReviewState, Settings, TapResult, UciMove, Workspace,
 };
 
 pub const COLLECTIONS_PER_PAGE: usize = 6;
@@ -103,10 +103,10 @@ impl TryFrom<usize> for PromotionChoice {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingPromotion {
-    before: Board,
-    from: usize,
-    to: usize,
-    color: Color,
+    pub(crate) before: Board,
+    pub(crate) from: usize,
+    pub(crate) to: usize,
+    pub(crate) color: Color,
 }
 
 impl PendingPromotion {
@@ -126,6 +126,18 @@ impl PendingPromotion {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Action {
     Exit,
+    ToggleWorkspace,
+    ReviewPrevious,
+    ReviewNext,
+    ReviewReset,
+    ReviewFlip,
+    ReviewToggleFree,
+    ReviewToggleOrientationLock,
+    OpenReviewGamePicker,
+    CloseReviewGamePicker,
+    ReviewGamePickerPreviousPage,
+    ReviewGamePickerNextPage,
+    SelectReviewGame(usize),
     TapSquare(usize),
     ChoosePromotion(PromotionChoice),
     CancelPromotion,
@@ -191,6 +203,9 @@ pub struct AppState {
     puzzle_goto_input: Option<String>,
     analysis_browser: Option<AnalysisBrowserState>,
     analysis_preview_board: Option<Board>,
+    workspace: Workspace,
+    review_games: Vec<ReviewGameEntry>,
+    review_state: Option<ReviewState>,
 }
 
 impl AppState {
@@ -237,7 +252,54 @@ impl AppState {
             puzzle_goto_input: None,
             analysis_browser: None,
             analysis_preview_board: None,
+            workspace: Workspace::Puzzles,
+            review_games: Vec::new(),
+            review_state: None,
         }
+    }
+
+    pub const fn workspace(&self) -> Workspace {
+        self.workspace
+    }
+
+    pub fn set_review_games(&mut self, games: Vec<ReviewGameEntry>) {
+        let previous_key = self.active_review_game().map(|entry| entry.key().clone());
+        self.review_games = games;
+
+        if self.review_games.is_empty() {
+            self.review_state = None;
+            if self.workspace == Workspace::Review {
+                self.workspace = Workspace::Puzzles;
+                self.transient_message = Some("No review games are available.".to_owned());
+            }
+            return;
+        }
+
+        let active_game_index = previous_key
+            .as_ref()
+            .and_then(|key| {
+                self.review_games
+                    .iter()
+                    .position(|entry| entry.key() == key)
+            })
+            .unwrap_or(0);
+        self.review_state = Some(ReviewState::new(
+            active_game_index,
+            self.review_games[active_game_index].game(),
+        ));
+    }
+
+    pub fn review_games(&self) -> &[ReviewGameEntry] {
+        &self.review_games
+    }
+
+    pub fn review_state(&self) -> Option<&ReviewState> {
+        self.review_state.as_ref()
+    }
+
+    pub fn active_review_game(&self) -> Option<&ReviewGameEntry> {
+        let index = self.review_state.as_ref()?.active_game_index();
+        self.review_games.get(index)
     }
 
     pub fn active_collection(&self) -> &ActiveCollection {
@@ -277,6 +339,11 @@ impl AppState {
     }
 
     pub fn board(&self) -> &Board {
+        if self.workspace == Workspace::Review {
+            if let Some(review) = self.review_state.as_ref() {
+                return review.board();
+            }
+        }
         self.analysis_preview_board.as_ref().unwrap_or(&self.board)
     }
 
@@ -297,21 +364,39 @@ impl AppState {
     }
 
     pub fn selected_analysis_node(&self) -> Option<AnalysisNodeIndex> {
-        self.analysis_browser
-            .as_ref()
-            .and_then(|browser| browser.selected_node())
+        match self.workspace {
+            Workspace::Puzzles => self
+                .analysis_browser
+                .as_ref()
+                .and_then(|browser| browser.selected_node()),
+            Workspace::Review => self.review_state.as_ref().map(ReviewState::selected_node),
+        }
     }
 
     pub fn analysis_page(&self) -> usize {
-        self.analysis_browser
-            .as_ref()
-            .map_or(0, AnalysisBrowserState::page)
+        match self.workspace {
+            Workspace::Puzzles => self
+                .analysis_browser
+                .as_ref()
+                .map_or(0, AnalysisBrowserState::page),
+            Workspace::Review => self
+                .review_state
+                .as_ref()
+                .map_or(0, ReviewState::analysis_page),
+        }
     }
 
     pub fn analysis_can_previous_page(&self) -> bool {
-        self.analysis_browser
-            .as_ref()
-            .is_some_and(|browser| browser.page() > 0)
+        match self.workspace {
+            Workspace::Puzzles => self
+                .analysis_browser
+                .as_ref()
+                .is_some_and(|browser| browser.page() > 0),
+            Workspace::Review => self
+                .review_state
+                .as_ref()
+                .is_some_and(|review| review.analysis_page() > 0),
+        }
     }
 
     pub const fn mode(&self) -> BoardMode {
@@ -327,15 +412,30 @@ impl AppState {
     }
 
     pub fn pending_promotion(&self) -> Option<&PendingPromotion> {
-        self.pending_promotion.as_ref()
+        match self.workspace {
+            Workspace::Puzzles => self.pending_promotion.as_ref(),
+            Workspace::Review => self
+                .review_state
+                .as_ref()
+                .and_then(ReviewState::pending_promotion),
+        }
     }
 
-    pub const fn flipped(&self) -> bool {
-        self.flipped
+    pub fn flipped(&self) -> bool {
+        match self.workspace {
+            Workspace::Puzzles => self.flipped,
+            Workspace::Review => self.review_state.as_ref().is_some_and(ReviewState::flipped),
+        }
     }
 
-    pub const fn orientation_locked(&self) -> bool {
-        self.orientation_locked
+    pub fn orientation_locked(&self) -> bool {
+        match self.workspace {
+            Workspace::Puzzles => self.orientation_locked,
+            Workspace::Review => self
+                .review_state
+                .as_ref()
+                .is_some_and(ReviewState::orientation_locked),
+        }
     }
 
     pub const fn description_visible(&self) -> bool {
@@ -448,7 +548,25 @@ impl AppState {
             return Vec::new();
         }
 
-        if self.analysis_browser.is_some()
+        if self
+            .review_state
+            .as_ref()
+            .is_some_and(ReviewState::game_picker_open)
+            && !matches!(
+                &action,
+                Action::Exit
+                    | Action::CloseReviewGamePicker
+                    | Action::ReviewGamePickerPreviousPage
+                    | Action::ReviewGamePickerNextPage
+                    | Action::SelectReviewGame(_)
+                    | Action::SetTransientMessage(_)
+            )
+        {
+            return Vec::new();
+        }
+
+        if self.workspace == Workspace::Puzzles
+            && self.analysis_browser.is_some()
             && matches!(
                 &action,
                 Action::TapSquare(_) | Action::ChoosePromotion(_) | Action::CancelPromotion
@@ -457,8 +575,64 @@ impl AppState {
             return Vec::new();
         }
 
+        if self.workspace == Workspace::Puzzles
+            && matches!(
+                &action,
+                Action::ReviewPrevious
+                    | Action::ReviewNext
+                    | Action::ReviewReset
+                    | Action::ReviewFlip
+                    | Action::ReviewToggleFree
+                    | Action::ReviewToggleOrientationLock
+                    | Action::OpenReviewGamePicker
+                    | Action::CloseReviewGamePicker
+                    | Action::ReviewGamePickerPreviousPage
+                    | Action::ReviewGamePickerNextPage
+                    | Action::SelectReviewGame(_)
+            )
+        {
+            return Vec::new();
+        }
+
+        if self.workspace == Workspace::Review
+            && !matches!(
+                &action,
+                Action::Exit
+                    | Action::ToggleWorkspace
+                    | Action::TapSquare(_)
+                    | Action::ChoosePromotion(_)
+                    | Action::CancelPromotion
+                    | Action::SelectAnalysisNode(_)
+                    | Action::AnalysisPreviousPage
+                    | Action::AnalysisNextPage
+                    | Action::ReviewPrevious
+                    | Action::ReviewNext
+                    | Action::ReviewReset
+                    | Action::ReviewFlip
+                    | Action::ReviewToggleFree
+                    | Action::ReviewToggleOrientationLock
+                    | Action::OpenReviewGamePicker
+                    | Action::CloseReviewGamePicker
+                    | Action::ReviewGamePickerPreviousPage
+                    | Action::ReviewGamePickerNextPage
+                    | Action::SelectReviewGame(_)
+                    | Action::OpenSettings
+                    | Action::CloseSettings
+                    | Action::ToggleFreeModeSetting
+                    | Action::ToggleNotesSetting
+                    | Action::ToggleBoardSizeSetting
+                    | Action::SetTransientMessage(_)
+            )
+        {
+            return Vec::new();
+        }
+
         match action {
             Action::Exit => vec![Effect::ExitRequested],
+            Action::ToggleWorkspace => {
+                self.toggle_workspace();
+                Vec::new()
+            }
             Action::OpenSettings => {
                 self.open_settings();
                 Vec::new()
@@ -470,8 +644,13 @@ impl AppState {
             Action::ToggleFreeModeSetting => {
                 let enabled = !self.settings.show_free_mode_button();
                 self.settings.set_show_free_mode_button(enabled);
-                if !enabled && self.mode == BoardMode::FreeBoard {
-                    self.toggle_mode();
+                if !enabled {
+                    if self.mode == BoardMode::FreeBoard {
+                        self.toggle_mode();
+                    }
+                    if let Some(review) = self.review_state.as_mut() {
+                        review.set_free_enabled(false);
+                    }
                 }
                 vec![Effect::SettingsChanged]
             }
@@ -506,10 +685,33 @@ impl AppState {
                 Vec::new()
             }
             Action::SelectCollection(index) => self.request_collection(index),
-            Action::TapSquare(square) => Self::progress_effect(self.handle_square_tap(square)),
-            Action::ChoosePromotion(choice) => Self::progress_effect(self.finish_promotion(choice)),
+            Action::TapSquare(square) => match self.workspace {
+                Workspace::Puzzles => Self::progress_effect(self.handle_square_tap(square)),
+                Workspace::Review => {
+                    if let Some(review) = self.review_state.as_mut() {
+                        review.handle_square_tap(square);
+                    }
+                    Vec::new()
+                }
+            },
+            Action::ChoosePromotion(choice) => match self.workspace {
+                Workspace::Puzzles => Self::progress_effect(self.finish_promotion(choice)),
+                Workspace::Review => {
+                    if let Some(review) = self.review_state.as_mut() {
+                        review.finish_promotion(choice.piece_kind());
+                    }
+                    Vec::new()
+                }
+            },
             Action::CancelPromotion => {
-                self.cancel_promotion();
+                match self.workspace {
+                    Workspace::Puzzles => self.cancel_promotion(),
+                    Workspace::Review => {
+                        if let Some(review) = self.review_state.as_mut() {
+                            review.cancel_promotion();
+                        }
+                    }
+                }
                 Vec::new()
             }
             Action::ToggleAnalysis => {
@@ -529,15 +731,93 @@ impl AppState {
                 Vec::new()
             }
             Action::SelectAnalysisNode(index) => {
-                self.select_analysis_node(index);
+                match self.workspace {
+                    Workspace::Puzzles => self.select_analysis_node(index),
+                    Workspace::Review => self.select_review_node(index),
+                }
                 Vec::new()
             }
             Action::AnalysisPreviousPage => {
-                self.analysis_previous_page();
+                match self.workspace {
+                    Workspace::Puzzles => self.analysis_previous_page(),
+                    Workspace::Review => {
+                        if let Some(review) = self.review_state.as_mut() {
+                            review.analysis_previous_page();
+                        }
+                    }
+                }
                 Vec::new()
             }
             Action::AnalysisNextPage => {
-                self.analysis_next_page();
+                match self.workspace {
+                    Workspace::Puzzles => self.analysis_next_page(),
+                    Workspace::Review => {
+                        if let Some(review) = self.review_state.as_mut() {
+                            review.analysis_next_page();
+                        }
+                    }
+                }
+                Vec::new()
+            }
+            Action::ReviewPrevious => {
+                self.navigate_review(false);
+                Vec::new()
+            }
+            Action::ReviewNext => {
+                self.navigate_review(true);
+                Vec::new()
+            }
+            Action::ReviewReset => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.reset_scratch();
+                }
+                Vec::new()
+            }
+            Action::ReviewFlip => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.flip();
+                }
+                Vec::new()
+            }
+            Action::ReviewToggleFree => {
+                if self.settings.show_free_mode_button() {
+                    if let Some(review) = self.review_state.as_mut() {
+                        review.toggle_free();
+                    }
+                }
+                Vec::new()
+            }
+            Action::ReviewToggleOrientationLock => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.toggle_orientation_lock();
+                }
+                Vec::new()
+            }
+            Action::OpenReviewGamePicker => {
+                self.open_review_game_picker();
+                Vec::new()
+            }
+            Action::CloseReviewGamePicker => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.close_game_picker();
+                }
+                Vec::new()
+            }
+            Action::ReviewGamePickerPreviousPage => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.game_picker_previous_page();
+                }
+                Vec::new()
+            }
+            Action::ReviewGamePickerNextPage => {
+                let total = self.review_games.len();
+                if let Some(review) = self.review_state.as_mut() {
+                    review.game_picker_next_page(total);
+                }
+                Vec::new()
+            }
+            Action::SelectReviewGame(index) => {
+                self.activate_review_game(index);
                 Vec::new()
             }
             Action::OpenPuzzleGoto => {
@@ -597,6 +877,66 @@ impl AppState {
         }
     }
 
+    fn toggle_workspace(&mut self) {
+        match self.workspace {
+            Workspace::Puzzles => {
+                if self.review_state.is_some() {
+                    self.workspace = Workspace::Review;
+                    self.transient_message = None;
+                } else {
+                    self.transient_message = Some("No review games are available.".to_owned());
+                }
+            }
+            Workspace::Review => {
+                self.workspace = Workspace::Puzzles;
+            }
+        }
+    }
+
+    fn navigate_review(&mut self, forward: bool) {
+        let (games, review_state) = (&self.review_games, &mut self.review_state);
+        let Some(review) = review_state.as_mut() else {
+            return;
+        };
+        let Some(entry) = games.get(review.active_game_index()) else {
+            return;
+        };
+        review.navigate_main_line(entry.game(), forward);
+    }
+
+    fn select_review_node(&mut self, index: AnalysisNodeIndex) {
+        let (games, review_state) = (&self.review_games, &mut self.review_state);
+        let Some(review) = review_state.as_mut() else {
+            return;
+        };
+        let Some(entry) = games.get(review.active_game_index()) else {
+            return;
+        };
+        review.select_node(entry.game(), index);
+    }
+
+    fn open_review_game_picker(&mut self) {
+        let total = self.review_games.len();
+        if let Some(review) = self.review_state.as_mut() {
+            review.open_game_picker(total);
+        }
+    }
+
+    fn activate_review_game(&mut self, index: usize) {
+        let total = self.review_games.len();
+        let (games, review_state) = (&self.review_games, &mut self.review_state);
+        let Some(review) = review_state.as_mut() else {
+            return;
+        };
+        if !review.game_picker_open() || !review.game_picker_visible_range(total).contains(&index) {
+            return;
+        }
+        let Some(entry) = games.get(index) else {
+            return;
+        };
+        review.activate_game(index, entry.game());
+    }
+
     fn progress_effect(changed: bool) -> Vec<Effect> {
         if changed {
             vec![Effect::ProgressChanged]
@@ -607,9 +947,13 @@ impl AppState {
 
     fn open_settings(&mut self) {
         if self.settings_open
-            || self.pending_promotion.is_some()
+            || self.pending_promotion().is_some()
             || self.collection_picker_open
             || self.puzzle_goto_input.is_some()
+            || self
+                .review_state
+                .as_ref()
+                .is_some_and(ReviewState::game_picker_open)
         {
             return;
         }
