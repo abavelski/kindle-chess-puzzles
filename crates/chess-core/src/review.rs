@@ -4,7 +4,10 @@ use crate::analysis::parse_review_analysis;
 use crate::{parse_fen, AnalysisTree};
 use serde::{de::Error as _, Deserialize, Deserializer};
 use serde_json::Value;
-use std::{collections::{HashMap, HashSet}, fmt};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 
 pub const MAX_REVIEW_FILE_BYTES: usize = 8 * 1024 * 1024;
 

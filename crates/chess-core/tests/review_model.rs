@@ -161,7 +161,10 @@ fn every_task_41_invalid_fixture_is_rejected() {
 fn solution_field_is_rejected_explicitly() {
     let fixture = include_bytes!("../../../tests/fixtures/game-review/invalid-solution-field.json");
     let error = parse_review_file(fixture).expect_err("solution is puzzle-only");
-    assert!(error.contains("must not contain a solution field"), "{error}");
+    assert!(
+        error.contains("must not contain a solution field"),
+        "{error}"
+    );
 }
 
 #[test]

@@ -31,13 +31,13 @@ pub use collection::{
 };
 pub use fen::{parse_fen, FenError, FenPosition};
 pub use progress::{FileProgress, Progress, PROGRESS_VERSION};
-pub use review::{
-    parse_review_file, ReviewCollection, ReviewGame, ReviewGameKey, ReviewMetadata, ReviewResult,
-    MAX_REVIEW_FILE_BYTES,
-};
 pub use puzzle::{
     parse_puzzle_file, Difficulty, Puzzle, PuzzleCollection, LEGACY_PUZZLE_FILE_WARNING_BYTES,
     MAX_PUZZLE_FILE_BYTES,
+};
+pub use review::{
+    parse_review_file, ReviewCollection, ReviewGame, ReviewGameKey, ReviewMetadata, ReviewResult,
+    MAX_REVIEW_FILE_BYTES,
 };
 pub use settings::{Settings, SETTINGS_VERSION};
 pub use uci::{algebraic_to_square, parse_uci_move, square_to_algebraic, UciError, UciMove};

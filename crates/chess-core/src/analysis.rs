@@ -135,7 +135,9 @@ impl AnalysisTree {
         &self,
         index: AnalysisNodeIndex,
     ) -> Option<AnalysisNodeIndex> {
-        self.nearest_main_line_ancestor_by_node.get(index.0).copied()
+        self.nearest_main_line_ancestor_by_node
+            .get(index.0)
+            .copied()
     }
 }
 
