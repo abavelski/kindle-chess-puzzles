@@ -583,14 +583,14 @@ fn build_main_line_lookups(
     }
 
     let mut nearest_main_line_ancestor_by_node = vec![root; nodes.len()];
-    for index in 0..nodes.len() {
+    for (index, nearest) in nearest_main_line_ancestor_by_node.iter_mut().enumerate() {
         let mut cursor = AnalysisNodeIndex(index);
         while main_line_ply_by_node[cursor.0].is_none() {
             cursor = nodes[cursor.0]
                 .parent
                 .expect("connected non-root analysis node has a parent");
         }
-        nearest_main_line_ancestor_by_node[index] = cursor;
+        *nearest = cursor;
     }
 
     (main_line_ply_by_node, nearest_main_line_ancestor_by_node)
