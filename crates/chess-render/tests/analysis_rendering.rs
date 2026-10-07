@@ -437,7 +437,7 @@ fn no_analysis_toggle_is_inert_and_has_no_panel() {
     assert!(!app.analysis_browser_open());
     assert!(after.analysis.is_none());
     assert_eq!(after.frame.checksum64(), before.frame.checksum64());
-    assert_eq!(after.frame.checksum64(), 15_227_212_221_267_114_365);
+    assert_eq!(after.frame.checksum64(), 7_957_699_456_514_577_913);
 }
 
 #[test]
@@ -524,24 +524,24 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("main-only", 14_584_101_052_699_888_357),
-        ("annotation-1", 14_574_925_599_133_398_668),
-        ("annotation-2", 8_828_345_841_877_374_632),
-        ("annotation-3", 2_378_014_670_747_205_827),
-        ("annotation-4", 1_419_438_503_384_870_823),
-        ("annotation-5", 6_480_064_657_566_159_703),
-        ("annotation-6", 8_273_668_583_448_289_879),
-        ("annotation-unknown", 8_620_606_444_880_128_644),
-        ("selected-annotation", 4_322_834_218_513_346_893),
-        ("nested-sideline", 15_211_397_367_863_423_844),
-        ("black-promotion-rich", 2_203_646_688_175_444_528),
-        ("selected-move", 2_864_085_882_691_449_853),
-        ("long-comment-first", 8_404_088_575_209_473_983),
-        ("long-comment-middle", 3_278_058_227_153_714_392),
-        ("long-comment-last", 17_824_116_557_746_012_714),
-        ("book-nested-ravs", 3_739_349_855_359_946_537),
-        ("book-main-only", 12_473_456_774_472_289_805),
-        ("no-analysis", 15_227_212_221_267_114_365),
+        ("main-only", 10_453_798_500_573_947_297),
+        ("annotation-1", 17_169_646_374_267_873_448),
+        ("annotation-2", 7_715_059_563_060_928_188),
+        ("annotation-3", 12_751_415_289_601_965_655),
+        ("annotation-4", 2_937_054_133_803_074_491),
+        ("annotation-5", 2_232_051_681_667_538_531),
+        ("annotation-6", 16_854_441_082_818_783_683),
+        ("annotation-unknown", 14_298_097_923_005_581_312),
+        ("selected-annotation", 11_456_653_838_204_846_553),
+        ("nested-sideline", 6_368_007_822_447_601_592),
+        ("black-promotion-rich", 9_443_834_874_618_916_388),
+        ("selected-move", 3_349_422_850_790_425_721),
+        ("long-comment-first", 17_278_612_845_660_867_411),
+        ("long-comment-middle", 13_178_946_192_140_175_236),
+        ("long-comment-last", 743_963_333_734_405_854),
+        ("book-nested-ravs", 1_661_011_834_256_662_085),
+        ("book-main-only", 15_530_214_819_994_956_521),
+        ("no-analysis", 7_957_699_456_514_577_913),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
@@ -551,5 +551,5 @@ fn analysis_visual_states_match_reviewed_gray8_snapshots() {
 fn closed_rich_analysis_entry_matches_reviewed_snapshot() {
     let app = state(RICH);
     let output = render(&app, SCRIBE).unwrap();
-    assert_eq!(output.frame.checksum64(), 5_451_680_722_520_836_432);
+    assert_eq!(output.frame.checksum64(), 759_567_800_733_794_852);
 }

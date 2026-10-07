@@ -222,7 +222,8 @@ impl Layout {
             header.height,
         );
         let collection_button = Rect::new(
-            settings.x
+            settings
+                .x
                 .saturating_sub(small_gap)
                 .saturating_sub(collection_button_width),
             header.y,
@@ -497,19 +498,7 @@ impl Layout {
         let collection_close = collection_nav_targets[1].rect;
         let collection_page_next = collection_nav_targets[2].rect;
 
-        let settings_modal_width = collection_modal.width;
-        let settings_modal_height = minimum_touch_px
-            .saturating_mul(4)
-            .saturating_add(gap.saturating_mul(3));
-        if settings_modal_height > collection_modal.height {
-            return Err(LayoutError::TooSmall);
-        }
-        let settings_modal = Rect::new(
-            collection_modal.x,
-            collection_modal.y + (collection_modal.height - settings_modal_height) / 2,
-            settings_modal_width,
-            settings_modal_height,
-        );
+        let settings_modal = collection_modal;
         let settings_inner = settings_modal.inset(small_gap);
         let settings_free_mode = Rect::new(
             settings_inner.x,
@@ -528,7 +517,7 @@ impl Layout {
         );
         let settings_close = Rect::new(
             settings_inner.x,
-            settings_notes.bottom().saturating_add(gap),
+            settings_inner.bottom().saturating_sub(minimum_touch_px),
             settings_inner.width,
             minimum_touch_px,
         );

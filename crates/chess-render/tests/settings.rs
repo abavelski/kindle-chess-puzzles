@@ -57,6 +57,45 @@ fn settings_modal_exposes_free_mode_notes_and_close_targets() {
 }
 
 #[test]
+fn settings_panel_matches_files_size_and_anchors_close_at_bottom() {
+    let mut app = state();
+    app.dispatch(Action::OpenSettings);
+    for metrics in [
+        SCRIBE,
+        DisplayMetrics {
+            width: 2480,
+            height: 1860,
+            dpi: 300,
+        },
+    ] {
+        let output = render(&app, metrics).expect("render succeeds");
+        let layout = output.layout;
+        assert_eq!(layout.settings_modal, layout.collection_modal);
+        let bottom_padding = layout.settings_close.x - layout.settings_modal.x;
+        assert_eq!(
+            layout.settings_close.bottom() + bottom_padding,
+            layout.settings_modal.bottom()
+        );
+        assert!(layout.settings_notes.bottom() < layout.settings_close.y);
+        for rect in [
+            layout.settings_free_mode,
+            layout.settings_notes,
+            layout.settings_close,
+        ] {
+            assert!(layout.settings_modal.contains_rect(rect));
+            assert!(rect.height >= layout.minimum_touch_px());
+        }
+        let (x, y) = center(layout.settings_close);
+        assert_eq!(
+            output.hit_test_app(x, y, &app),
+            Some(HitTarget::CloseSettings)
+        );
+        let (x, y) = center(layout.settings_modal);
+        assert_eq!(output.hit_test_app(x, y, &app), None);
+    }
+}
+
+#[test]
 fn hidden_toolbar_controls_are_not_hit_targets() {
     let mut app = state();
     app.dispatch(Action::OpenSettings);

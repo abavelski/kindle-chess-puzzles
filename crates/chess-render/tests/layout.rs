@@ -241,10 +241,11 @@ fn header_edge_controls_are_touch_sized_and_accessible_during_modals() {
     ] {
         assert!(!layout.exit.intersects(rect));
     }
-    assert_eq!(layout.settings.x, layout.header.x);
+    assert_eq!(layout.refresh.x, layout.header.x);
     assert_eq!(layout.settings.y, layout.header.y);
     assert_eq!(layout.refresh.y, layout.header.y);
-    assert!(layout.settings.right() <= layout.refresh.x);
+    assert!(layout.collection_button.right() <= layout.settings.x);
+    assert!(layout.settings.right() <= layout.exit.x);
     assert!(!layout.settings.intersects(layout.refresh));
     assert_eq!(layout.exit.right(), layout.header.right());
     assert_eq!(layout.exit.y, layout.header.y);
