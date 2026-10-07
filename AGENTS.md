@@ -12,7 +12,8 @@ Read, in order:
 4. `docs/KINDLE_SCRIBE.md`
 5. `docs/PUZZLE_FORMAT.md`
 6. `docs/PHASE_2.md` when implementing a task under `tasks/implemented/phase-2/`
-7. the single task file you are implementing under `tasks/`
+7. `docs/GAME_REVIEW.md` when implementing a task under `tasks/phase-3/`
+8. the single task file you are implementing under `tasks/`
 
 The task file is the scope boundary. Do not opportunistically implement later tasks.
 
@@ -30,6 +31,20 @@ All work for Tasks 20-28 belongs on the dedicated `phase-2` branch.
 
 For local agents, `git branch --show-current` should print `phase-2` before implementation begins.
 For remote/connector-based agents, every write must explicitly target the `phase-2` ref.
+
+## Phase-three game-review branch policy
+
+All implementation work for Tasks 41-49 belongs on the dedicated `game-review` branch.
+
+- Read `docs/GAME_REVIEW.md` and exactly one Task 41-49 file before implementation.
+- Commit review-mode implementation, tests, fixtures, task status, and supporting docs to `game-review`.
+- Do **not** merge, fast-forward, rebase, or otherwise move `main` as part of completing a game-review task.
+- `main` remains the stable puzzle line until the user explicitly asks to integrate/release game review.
+- Review PGN parsing/legal validation remains host-side; Kindle runtime consumes deterministic precomputed JSON/FEN data.
+- Review browsing and Free Board scratch state must never mutate puzzle grading or `progress.json`.
+
+For local agents, `git branch --show-current` should print `game-review` before Task 41-49 implementation begins.
+For remote/connector-based agents, every write for Task 41-49 must explicitly target the `game-review` ref.
 
 ## Development rule: red -> green -> refactor
 
@@ -80,7 +95,7 @@ Required parity includes:
 
 Phase-one parity and phase-two rich solution browsing are closed. Their completed tasks are archived under `tasks/implemented/phase-1/` and `tasks/implemented/phase-2/`. Scope further behavior changes to explicit improvement tasks; do not mix them into unrelated maintenance work.
 
-This app is not a chess engine. Do not add general move legality, check/checkmate evaluation, or engine analysis unless explicitly tasked. Phase two may add an **offline PGN conversion tool**, but PGN parsing and legal move generation must not become Kindle runtime responsibilities.
+This app is not a chess engine. Do not add general move legality, check/checkmate evaluation, or engine analysis unless explicitly tasked. Phase two and planned game review may use **offline PGN conversion tools**, but PGN parsing and legal move generation must not become Kindle runtime responsibilities.
 
 ## Puzzle and progress compatibility
 
