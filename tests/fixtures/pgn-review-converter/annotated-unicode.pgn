@@ -1,0 +1,12 @@
+[Event "Mémorial José"]
+[Site "München GER"]
+[Date "2024.03.14"]
+[Round "7"]
+[White "José Raúl"]
+[Black "Александр"]
+[Result "1/2-1/2"]
+[Source "fixture:classics"]
+
+1. d4 $1 {Compare [%move_ref d2d4/d7d5/c2c4|2.c4] with plain Nc3.} d5
+(1... Nf6 {[%role alternative] Indian setup.} 2. c4 e6 (2... g6 {Nested sideline.}))
+2. c4 e6 3. Nc3 Nf6 1/2-1/2

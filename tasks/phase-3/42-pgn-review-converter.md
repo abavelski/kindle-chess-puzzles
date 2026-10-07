@@ -1,7 +1,7 @@
 # Task 42 — Build the deterministic PGN review converter
 
-**Status:** Ready  
-**Working branch:** `game-review`  
+**Status:** Implemented  
+**Working branch:** `main` (explicit user-requested exception)  
 **Depends on:** Task 41  
 **Primary area:** host tooling only  
 **Validation:** Automated only  
@@ -36,3 +36,13 @@ No Rust/runtime changes and no engine evaluation generation.
 ## Suggested commit
 
 `tools: add deterministic game review converter`
+
+
+## Implementation record
+
+- Added `tools/pgn_review_converter.py` for ordinary single- and multi-game PGN input with deterministic review JSON encoding and the frozen 8 MiB review limit.
+- Reused the existing `python-chess` analysis-tree walker for main lines, recursive variations, SAN/UCI, complete post-move FEN, NAGs, comments, roles, and explicit structured move references.
+- Generated stable default game IDs from canonical seven-tag identity metadata, starting FEN, and main-line UCI moves; comment, NAG, and variation-only edits therefore do not churn identity.
+- Added `GameId`/configurable tag overrides plus a single-game `--game-id` CLI override, duplicate-ID diagnostics, source metadata support, and atomic output writes.
+- Added Task-42 fixtures and automated tests, kept the existing puzzle converter fixture contract unchanged, and wired the new suite into `scripts/check.sh`.
+- Landed directly on `main` because the user explicitly requested a branch-policy exception.
