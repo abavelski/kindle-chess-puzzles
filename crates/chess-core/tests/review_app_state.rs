@@ -304,7 +304,7 @@ fn review_game_switch_resets_navigation_preserves_locked_orientation_and_source_
     assert!(app
         .dispatch(Action::ActivateReviewGame(
             custom_key,
-            custom_source.clone(),
+            Box::new(custom_source.clone()),
         ))
         .is_empty());
 

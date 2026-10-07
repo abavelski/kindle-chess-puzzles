@@ -139,7 +139,7 @@ pub enum Action {
     ReviewGamePickerPreviousPage,
     ReviewGamePickerNextPage,
     SelectReviewGame(usize),
-    ActivateReviewGame(ReviewGameKey, ReviewGame),
+    ActivateReviewGame(ReviewGameKey, Box<ReviewGame>),
     TapSquare(usize),
     ChoosePromotion(PromotionChoice),
     CancelPromotion,
@@ -848,7 +848,7 @@ impl AppState {
             }
             Action::SelectReviewGame(index) => self.request_review_game(index),
             Action::ActivateReviewGame(key, game) => {
-                self.activate_review_game(&key, game);
+                self.activate_review_game(&key, *game);
                 Vec::new()
             }
             Action::OpenPuzzleGoto => {

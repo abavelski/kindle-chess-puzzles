@@ -352,7 +352,7 @@ fn apply_effects(
             },
             Effect::ReviewGameRequested(key) => match storage.load_review_game(&key) {
                 Ok(game) => {
-                    queue.extend(app.dispatch(Action::ActivateReviewGame(key, game)));
+                    queue.extend(app.dispatch(Action::ActivateReviewGame(key, Box::new(game))));
                 }
                 Err(error) => {
                     app.dispatch(Action::CloseReviewGamePicker);
