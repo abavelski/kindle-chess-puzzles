@@ -2190,3 +2190,20 @@ as `5e9ed4c`. The merged build also includes the expanded Game Review picker.
 The app is installed for library launch and user testing. Physical acceptance of
 comment readability, move taps, pagination and the expanded game picker remains
 pending; no new visual/device-interaction pass is asserted.
+
+
+#### Task 51 dialog deployment — 2026-10-09
+
+Only GAMES dialog geometry changed: full display width, top at header bottom,
+CLOSE at bottom right and PAGE > in the middle. Existing bottom edge and
+pagination are preserved. Full host gates and pinned release build passed.
+Inspected Gray8 picker frame; other existing snapshots remain unchanged.
+Deployed using scripts/stage-kindle.sh and scripts/deploy-kindle.sh --host
+root@192.168.1.20 --port 2222 after user X exit; app/lock absent before install.
+
+- Binary SHA-256 (host and device): `2279d1b6bb438c6771217864b22752000c1c2a522a942d746d8c9482b43a4f09`.
+- Source SHA-256: `c8d5e6b9aa402ccc2714f0eb51ee70b31b57888fe0f9911aba929f611f117ca3`.
+- All 118 collection/state hashes unchanged; loader dependencies resolved.
+- Verification artifacts: ignored probe-output/dialog-20261009/.
+
+Physical review of bounds, game selection, PAGE > and CLOSE remains pending.

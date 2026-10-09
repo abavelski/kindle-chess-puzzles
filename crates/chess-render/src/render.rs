@@ -9,9 +9,7 @@ use crate::{
     pieces::draw_piece,
     AnalysisPanelOutput, DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
 };
-use chess_core::{
-    AppState, BoardMode, Color, PieceKind, SolutionFeedback, Workspace, COLLECTIONS_PER_PAGE,
-};
+use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback, Workspace};
 
 const WHITE: u8 = 255;
 const INK: u8 = 0;
@@ -875,14 +873,7 @@ fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, 
         return;
     };
     let total = state.review_picker_entry_count();
-    // Keep the compact appearance for small libraries; larger libraries
-    // expand into the empty space below the board.
-    let expanded = total > COLLECTIONS_PER_PAGE;
-    let modal = if expanded {
-        layout.review_game_modal
-    } else {
-        layout.collection_modal
-    };
+    let modal = layout.review_game_modal;
     frame.fill_rect(modal, WHITE);
     frame.stroke_rect(modal, 6, INK);
 
@@ -897,11 +888,7 @@ fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, 
     );
 
     for (slot, index) in review.game_picker_visible_range(total).enumerate() {
-        let rect = if expanded {
-            layout.review_game_rows[slot]
-        } else {
-            layout.collection_rows[slot]
-        };
+        let rect = layout.review_game_rows[slot];
         let (text, selected, invalid) = if let Some(entry) = state.review_picker_game(index) {
             (
                 entry.label().to_owned(),
@@ -929,19 +916,11 @@ fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, 
         draw_wrapped_text(frame, rect.inset(10), &text, scale.min(3), foreground);
     }
 
-    let (previous, close, next) = if expanded {
-        (
-            layout.review_game_page_previous,
-            layout.review_game_close,
-            layout.review_game_page_next,
-        )
-    } else {
-        (
-            layout.collection_page_previous,
-            layout.collection_close,
-            layout.collection_page_next,
-        )
-    };
+    let (previous, close, next) = (
+        layout.review_game_page_previous,
+        layout.review_game_close,
+        layout.review_game_page_next,
+    );
     draw_navigation_button(
         frame,
         previous,

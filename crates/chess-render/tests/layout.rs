@@ -102,6 +102,26 @@ fn landscape_metrics_still_produce_valid_layout_without_magic_scribe_coordinates
 }
 
 #[test]
+fn review_game_picker_spans_display_below_header_with_close_at_bottom_right() {
+    for metrics in [
+        SCRIBE,
+        DisplayMetrics {
+            width: 2480,
+            height: 1860,
+            dpi: 300,
+        },
+    ] {
+        let layout = Layout::new(metrics).expect("review picker layout fits");
+        assert_eq!(layout.review_game_modal.x, 0);
+        assert_eq!(layout.review_game_modal.width, metrics.width);
+        assert_eq!(layout.review_game_modal.y, layout.header.bottom());
+        assert!(layout.review_game_page_previous.right() < layout.review_game_page_next.x);
+        assert!(layout.review_game_page_next.right() < layout.review_game_close.x);
+        assert_eq!(layout.review_game_close.y, layout.review_game_page_next.y);
+    }
+}
+
+#[test]
 fn review_game_picker_fills_screen_with_touch_sized_non_overlapping_rows() {
     for metrics in [
         SCRIBE,

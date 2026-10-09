@@ -342,9 +342,11 @@ fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_pro
         HitTarget::ReviewGamePickerNextPage,
     );
     let board_point = center(page_one.layout.square_rect(0));
-    assert_eq!(
-        page_one.hit_test_app(board_point.0, board_point.1, &app),
-        None,
+    assert!(
+        !matches!(
+            page_one.hit_test_app(board_point.0, board_point.1, &app),
+            Some(HitTarget::Square(_))
+        ),
         "picker modal blocks board hits"
     );
     app.dispatch(Action::ReviewGamePickerNextPage);

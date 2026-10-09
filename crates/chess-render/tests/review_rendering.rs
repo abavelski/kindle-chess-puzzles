@@ -273,7 +273,28 @@ fn review_workspace_visual_states_match_reviewed_gray8_snapshots() {
 
     let mut picker = two_game_state();
     picker.dispatch(Action::OpenReviewGamePicker);
-    actual.push(("review-game-picker", hash(&picker)));
+    let picker_output = render(&picker, SCRIBE).expect("picker render");
+    let close = picker_output.layout.review_game_close;
+    assert_eq!(
+        picker_output.hit_test_app(
+            close.x + close.width / 2,
+            close.y + close.height / 2,
+            &picker
+        ),
+        Some(HitTarget::CloseReviewGamePicker)
+    );
+    let row = picker_output.layout.review_game_rows[0];
+    assert_eq!(
+        picker_output.hit_test_app(row.x + row.width / 2, row.y + row.height / 2, &picker),
+        Some(HitTarget::ReviewGame(0))
+    );
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    std::fs::write(
+        root.join("review-games-dialog.pgm"),
+        picker_output.frame.to_pgm(),
+    )
+    .unwrap();
+    actual.push(("review-game-picker", picker_output.frame.checksum64()));
 
     let mut no_games = puzzle_state();
     no_games.dispatch(Action::ToggleWorkspace);
@@ -294,7 +315,7 @@ fn review_workspace_visual_states_match_reviewed_gray8_snapshots() {
         ("review-free-scratch", 9_334_775_776_239_098_211),
         ("review-flipped", 15_807_205_748_985_471_160),
         ("review-small-board", 15_028_477_983_248_255_030),
-        ("review-game-picker", 16_616_243_982_579_432_586),
+        ("review-game-picker", 16_287_243_912_448_463_606),
         ("review-no-games", 11_567_526_096_340_990_005),
     ];
 

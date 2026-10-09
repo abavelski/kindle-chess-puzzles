@@ -667,13 +667,13 @@ impl Layout {
         // Unlike the collection picker, the game library uses the available height
         // below the header, not just the square board-sized content area.
         let review_game_modal = Rect::new(
-            collection_modal.x,
-            collection_modal.y,
-            collection_modal.width,
+            0,
+            header.bottom(),
+            metrics.width,
             metrics
                 .height
                 .saturating_sub(margin)
-                .saturating_sub(collection_modal.y),
+                .saturating_sub(header.bottom()),
         );
         let review_game_rows_y = review_game_modal
             .y
@@ -732,8 +732,8 @@ impl Layout {
             small_gap,
             [
                 HitTarget::ReviewGamePickerPreviousPage,
-                HitTarget::CloseReviewGamePicker,
                 HitTarget::ReviewGamePickerNextPage,
+                HitTarget::CloseReviewGamePicker,
             ],
         );
         if review_nav_targets
@@ -743,8 +743,8 @@ impl Layout {
             return Err(LayoutError::TooSmall);
         }
         let review_game_page_previous = review_nav_targets[0].rect;
-        let review_game_close = review_nav_targets[1].rect;
-        let review_game_page_next = review_nav_targets[2].rect;
+        let review_game_page_next = review_nav_targets[1].rect;
+        let review_game_close = review_nav_targets[2].rect;
 
         let settings_modal = collection_modal;
         let settings_inner = settings_modal.inset(small_gap);
@@ -941,32 +941,19 @@ impl Layout {
             .filter(|review| review.game_picker_open())
         {
             let total = state.review_picker_entry_count();
-            let expanded = total > COLLECTIONS_PER_PAGE;
             for (slot, index) in review.game_picker_visible_range(total).enumerate() {
-                let rect = if expanded {
-                    self.review_game_rows[slot]
-                } else {
-                    self.collection_rows[slot]
-                };
+                let rect = self.review_game_rows[slot];
                 if rect.contains(x, y) {
                     return state
                         .review_picker_game(index)
                         .map(|_| HitTarget::ReviewGame(index));
                 }
             }
-            let (previous, next, close) = if expanded {
-                (
-                    self.review_game_page_previous,
-                    self.review_game_page_next,
-                    self.review_game_close,
-                )
-            } else {
-                (
-                    self.collection_page_previous,
-                    self.collection_page_next,
-                    self.collection_close,
-                )
-            };
+            let (previous, next, close) = (
+                self.review_game_page_previous,
+                self.review_game_page_next,
+                self.review_game_close,
+            );
             if previous.contains(x, y) {
                 return Some(HitTarget::ReviewGamePickerPreviousPage);
             }
