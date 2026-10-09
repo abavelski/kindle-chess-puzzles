@@ -9,7 +9,9 @@ use crate::{
     pieces::draw_piece,
     AnalysisPanelOutput, DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
 };
-use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback, Workspace, COLLECTIONS_PER_PAGE};
+use chess_core::{
+    AppState, BoardMode, Color, PieceKind, SolutionFeedback, Workspace, COLLECTIONS_PER_PAGE,
+};
 
 const WHITE: u8 = 255;
 const INK: u8 = 0;
