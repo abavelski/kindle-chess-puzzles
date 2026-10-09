@@ -2,12 +2,14 @@
 
 use crate::{
     analysis_panel::{draw_analysis_panel, AnalysisView},
+    button::toolbar_button,
     font::{
         draw_text_bold, draw_text_bold_vertically_centered, draw_text_centered, draw_wrapped_text,
         draw_wrapped_text_with_line_spacing, measure_text_bold,
     },
     pieces::draw_piece,
-    AnalysisPanelOutput, DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
+    AnalysisPanelOutput, ButtonIcon, ButtonSpec, ButtonType, DisplayMetrics, Gray8, HitTarget,
+    Layout, LayoutError, Rect,
 };
 use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback, Workspace};
 
@@ -362,18 +364,15 @@ fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32)
             continue;
         }
 
-        if state.workspace() == Workspace::Puzzles && target.target == HitTarget::ToggleAnalysis {
-            draw_analysis_toggle(frame, layout.control_visual_rect(target.rect), state);
-            continue;
-        }
-
-        let (label, selected) = match state.workspace() {
+        let (selected, enabled) = match state.workspace() {
             Workspace::Puzzles => match target.target {
-                HitTarget::ToggleMode => ("FREE", state.mode() == BoardMode::FreeBoard),
-                HitTarget::ToggleDescription => ("NOTE", state.description_visible()),
-                HitTarget::ToggleOrientationLock => ("LOCK", state.orientation_locked()),
-                HitTarget::Reset => ("RESET", false),
-                HitTarget::Flip => ("FLIP", false),
+                HitTarget::ToggleAnalysis => {
+                    (state.analysis_browser_open(), state.analysis_available())
+                }
+                HitTarget::ToggleMode => (state.mode() == BoardMode::FreeBoard, true),
+                HitTarget::ToggleDescription => (state.description_visible(), true),
+                HitTarget::ToggleOrientationLock => (state.orientation_locked(), true),
+                HitTarget::Reset | HitTarget::Flip => (false, true),
                 _ => continue,
             },
             Workspace::Review => {
@@ -381,38 +380,27 @@ fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32)
                     continue;
                 };
                 match target.target {
-                    HitTarget::ToggleMode => ("FREE", review.free_board_enabled()),
-                    HitTarget::Reset => ("RESET", false),
-                    HitTarget::ToggleOrientationLock => ("LOCK", review.orientation_locked()),
-                    HitTarget::Flip => ("FLIP", false),
+                    HitTarget::ToggleMode => (review.free_board_enabled(), true),
+                    HitTarget::ToggleOrientationLock => (review.orientation_locked(), true),
+                    HitTarget::Reset | HitTarget::Flip => (false, true),
                     _ => continue,
                 }
             }
         };
-        draw_button(
+        draw_button_spec(
             frame,
             layout.control_visual_rect(target.rect),
-            label,
+            toolbar_button(target.target),
             selected,
+            enabled,
             scale,
         );
     }
 }
 
-fn draw_analysis_toggle(frame: &mut Gray8, rect: Rect, state: &AppState) {
-    let selected = state.analysis_browser_open();
-    let background = if selected { INK } else { WHITE };
-    let ink = if selected {
-        WHITE
-    } else if state.analysis_available() {
-        INK
-    } else {
-        DISABLED_INK
-    };
-    draw_button_chrome(frame, rect, background, ink, selected);
+fn draw_analysis_icon(frame: &mut Gray8, rect: Rect, thickness: u32, ink: u8) {
     // An open book: two pages and a central spine, drawn without font glyphs.
-    let icon = rect.inset(rect.width.min(rect.height) / 4);
-    let thickness = (rect.height / 24).clamp(3, 6);
+    let icon = rect;
     frame.stroke_rect(icon, thickness, ink);
     frame.fill_rect(
         Rect::new(icon.x + icon.width / 2, icon.y, thickness, icon.height),
@@ -1117,9 +1105,138 @@ fn draw_close_icon(frame: &mut Gray8, rect: Rect, thickness: u32, tone: u8) {
 }
 
 fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
-    let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
-    draw_button_chrome(frame, rect, background, INK, selected);
-    draw_text_centered(frame, rect.inset(6), label, scale, foreground);
+    draw_button_spec(
+        frame,
+        rect,
+        ButtonSpec {
+            icon: None,
+            text: Some(label),
+            button_type: ButtonType::Text,
+        },
+        selected,
+        true,
+        scale,
+    );
+}
+
+fn draw_button_spec(
+    frame: &mut Gray8,
+    rect: Rect,
+    button: ButtonSpec<'_>,
+    selected: bool,
+    enabled: bool,
+    scale: u32,
+) {
+    let background = if selected { INK } else { WHITE };
+    let foreground = if selected {
+        WHITE
+    } else if enabled {
+        INK
+    } else {
+        DISABLED_INK
+    };
+    let border = if button.button_type == ButtonType::Icon {
+        foreground
+    } else if selected || enabled {
+        INK
+    } else {
+        DISABLED_INK
+    };
+    draw_button_chrome(frame, rect, background, border, selected);
+    let icon = button.displayed_icon();
+    let text = button.displayed_text();
+    let combined = icon.is_some() && text.is_some();
+    let icon_rect = if combined {
+        Rect::new(rect.x, rect.y, rect.height.min(rect.width), rect.height)
+    } else {
+        rect
+    };
+    if let Some(icon) = icon {
+        draw_button_icon(frame, icon_rect, icon, foreground);
+    }
+    if let Some(text) = text {
+        let text_rect = if combined {
+            Rect::new(
+                icon_rect.right(),
+                rect.y,
+                rect.width.saturating_sub(icon_rect.width),
+                rect.height,
+            )
+        } else {
+            rect
+        };
+        draw_text_centered(frame, text_rect.inset(6), text, scale, foreground);
+    }
+}
+
+fn draw_button_icon(frame: &mut Gray8, rect: Rect, icon: ButtonIcon, tone: u8) {
+    let icon_rect = rect.inset(rect.width.min(rect.height) / 4);
+    let thickness = (rect.height / 24).clamp(3, 6);
+    match icon {
+        ButtonIcon::Analysis => draw_analysis_icon(frame, icon_rect, thickness, tone),
+        ButtonIcon::Reset => draw_refresh_icon(frame, icon_rect, thickness, tone),
+        ButtonIcon::FreeBoard => {
+            // A small checkerboard, independent of chess-piece assets.
+            for row in 0..3 {
+                for column in 0..3 {
+                    if (row + column) % 2 == 0 {
+                        frame.fill_rect(
+                            Rect::new(
+                                icon_rect.x + column * icon_rect.width / 3,
+                                icon_rect.y + row * icon_rect.height / 3,
+                                icon_rect.width / 3,
+                                icon_rect.height / 3,
+                            ),
+                            tone,
+                        );
+                    }
+                }
+            }
+            frame.stroke_rect(icon_rect, thickness, tone);
+        }
+        ButtonIcon::Lock => {
+            let shackle = Rect::new(
+                icon_rect.x + icon_rect.width / 4,
+                icon_rect.y,
+                icon_rect.width / 2,
+                icon_rect.height * 2 / 3,
+            );
+            frame.stroke_rect(shackle, thickness, tone);
+            frame.fill_rect(
+                Rect::new(
+                    icon_rect.x,
+                    icon_rect.y + icon_rect.height / 3,
+                    icon_rect.width,
+                    icon_rect.height * 2 / 3,
+                ),
+                tone,
+            );
+        }
+        ButtonIcon::Flip => {
+            // Opposing arrows communicate reversing orientation.
+            let left = icon_rect.x;
+            let right = icon_rect.right().saturating_sub(1);
+            let arrow = icon_rect.width / 4;
+            for (y, tip, tail) in [
+                (
+                    icon_rect.y + icon_rect.height / 3,
+                    right,
+                    right.saturating_sub(arrow),
+                ),
+                (icon_rect.y + icon_rect.height * 2 / 3, left, left + arrow),
+            ] {
+                for (x0, y0, x1, y1) in [
+                    (left, y, right, y),
+                    (tail, y.saturating_sub(arrow / 2), tip, y),
+                    (tail, y + arrow / 2, tip, y),
+                ] {
+                    draw_thick_line(
+                        frame, x0 as i32, y0 as i32, x1 as i32, y1 as i32, thickness, tone,
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn draw_button_chrome(frame: &mut Gray8, rect: Rect, background: u8, border: u8, selected: bool) {
@@ -1208,4 +1325,131 @@ pub fn draw_sleeping_overlay(frame: &mut Gray8, layout: Layout, metrics: Display
         INK,
     );
     rect
+}
+
+#[cfg(test)]
+mod button_tests {
+    use super::*;
+
+    fn button_frame(button: ButtonSpec<'_>, selected: bool, enabled: bool) -> Gray8 {
+        let mut frame = Gray8::new(240, 100, WHITE);
+        draw_button_spec(
+            &mut frame,
+            Rect::new(0, 0, 240, 100),
+            button,
+            selected,
+            enabled,
+            3,
+        );
+        frame
+    }
+
+    #[test]
+    fn text_type_ignores_icon_and_icon_type_ignores_text_in_all_states() {
+        let both = toolbar_button(HitTarget::Reset);
+        for selected in [false, true] {
+            for enabled in [false, true] {
+                assert_eq!(
+                    button_frame(both, selected, enabled),
+                    button_frame(ButtonSpec { icon: None, ..both }, selected, enabled)
+                );
+                let icon = ButtonSpec {
+                    button_type: ButtonType::Icon,
+                    ..both
+                };
+                assert_eq!(
+                    button_frame(icon, selected, enabled),
+                    button_frame(ButtonSpec { text: None, ..icon }, selected, enabled)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn combined_type_draws_both_and_centers_single_remaining_content() {
+        let both = ButtonSpec {
+            button_type: ButtonType::IconAndText,
+            ..toolbar_button(HitTarget::Reset)
+        };
+        for selected in [false, true] {
+            for enabled in [false, true] {
+                let combined = button_frame(both, selected, enabled);
+                assert_ne!(
+                    combined,
+                    button_frame(ButtonSpec { icon: None, ..both }, selected, enabled)
+                );
+                assert_ne!(
+                    combined,
+                    button_frame(ButtonSpec { text: None, ..both }, selected, enabled)
+                );
+                assert_eq!(
+                    button_frame(ButtonSpec { icon: None, ..both }, selected, enabled),
+                    button_frame(
+                        ButtonSpec {
+                            icon: None,
+                            button_type: ButtonType::Text,
+                            ..both
+                        },
+                        selected,
+                        enabled
+                    )
+                );
+                // Compare content away from chrome; icon-only retains its historic border policy.
+                let combined_icon =
+                    button_frame(ButtonSpec { text: None, ..both }, selected, enabled);
+                let icon = button_frame(
+                    ButtonSpec {
+                        text: None,
+                        button_type: ButtonType::Icon,
+                        ..both
+                    },
+                    selected,
+                    enabled,
+                );
+                for y in 25..75 {
+                    for x in 60..180 {
+                        assert_eq!(combined_icon.pixel(x, y), icon.pixel(x, y));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn new_toolbar_icons_render_distinct_deterministic_monochrome_content() {
+        let mut hashes = Vec::new();
+        for target in [
+            HitTarget::ToggleMode,
+            HitTarget::ToggleOrientationLock,
+            HitTarget::Reset,
+            HitTarget::Flip,
+        ] {
+            let button = toolbar_button(target);
+            assert!(button.icon.is_some());
+            assert!(button.text.is_some());
+            assert_eq!(button.button_type, ButtonType::Text);
+            let icon = ButtonSpec {
+                button_type: ButtonType::Icon,
+                ..button
+            };
+            let frame = button_frame(icon, false, true);
+            assert_eq!(frame, button_frame(icon, false, true));
+            assert!(frame
+                .pixels()
+                .iter()
+                .all(|pixel| *pixel == WHITE || *pixel == INK));
+            assert_ne!(
+                frame,
+                button_frame(ButtonSpec { icon: None, ..icon }, false, true)
+            );
+            let disabled = button_frame(icon, false, false);
+            assert!(disabled.pixels().contains(&DISABLED_INK));
+            let selected = button_frame(icon, true, true);
+            assert_ne!(frame, selected);
+            hashes.push(frame.checksum64());
+        }
+        hashes.sort_unstable();
+        hashes.dedup();
+        assert_eq!(hashes.len(), 4);
+    }
 }

@@ -1,6 +1,6 @@
 //! DPI-aware deterministic layout and hit testing.
 
-use crate::Rect;
+use crate::{button::toolbar_button, ButtonSpec, ButtonType, Rect};
 use chess_core::{
     Action, AnalysisNodeIndex, AppState, PromotionChoice, Workspace, COLLECTIONS_PER_PAGE,
     REVIEW_GAMES_PER_PAGE,
@@ -19,16 +19,10 @@ pub enum ToolbarAlignment {
 pub const APP_TOOLBAR_ALIGNMENT: ToolbarAlignment = ToolbarAlignment::FullWidth;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ToolbarButtonKind {
-    Icon,
-    Text,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct ToolbarButtonSpec {
     target: HitTarget,
     visible: bool,
-    kind: ToolbarButtonKind,
+    button: ButtonSpec<'static>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -359,32 +353,32 @@ impl Layout {
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleMode,
                     visible: show_free,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::ToggleMode),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::Reset,
                     visible: true,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::Reset),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleOrientationLock,
                     visible: true,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::ToggleOrientationLock),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::Flip,
                     visible: true,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::Flip),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleAnalysis,
                     visible: false,
-                    kind: ToolbarButtonKind::Icon,
+                    button: toolbar_button(HitTarget::ToggleAnalysis),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleDescription,
                     visible: false,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::ToggleDescription),
                 },
             ]
         } else {
@@ -392,32 +386,32 @@ impl Layout {
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleAnalysis,
                     visible: true,
-                    kind: ToolbarButtonKind::Icon,
+                    button: toolbar_button(HitTarget::ToggleAnalysis),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleMode,
                     visible: show_free,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::ToggleMode),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleDescription,
                     visible: show_notes,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::ToggleDescription),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleOrientationLock,
                     visible: true,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::ToggleOrientationLock),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::Reset,
                     visible: true,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::Reset),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::Flip,
                     visible: true,
-                    kind: ToolbarButtonKind::Text,
+                    button: toolbar_button(HitTarget::Flip),
                 },
             ]
         };
@@ -1113,15 +1107,18 @@ fn place_toolbar<const N: usize>(
     let visible_count = specs.iter().filter(|spec| spec.visible).count() as u32;
     let text_count = specs
         .iter()
-        .filter(|spec| spec.visible && spec.kind == ToolbarButtonKind::Text)
+        .filter(|spec| spec.visible && spec.button.button_type != ButtonType::Icon)
         .count() as u32;
     let gap_count = visible_count.saturating_sub(1);
     let required = specs.iter().filter(|spec| spec.visible).fold(
         gap.saturating_mul(gap_count),
         |sum, spec| {
-            sum.saturating_add(match spec.kind {
-                ToolbarButtonKind::Icon => icon_width,
-                ToolbarButtonKind::Text => text_width,
+            sum.saturating_add(match spec.button.button_type {
+                ButtonType::Icon => icon_width,
+                ButtonType::Text => text_width,
+                ButtonType::IconAndText => {
+                    icon_width.saturating_add(gap).saturating_add(text_width)
+                }
             })
         },
     );
@@ -1147,11 +1144,12 @@ fn place_toolbar<const N: usize>(
         if !spec.visible {
             continue;
         }
-        let mut width = match spec.kind {
-            ToolbarButtonKind::Icon => icon_width,
-            ToolbarButtonKind::Text => text_width,
+        let mut width = match spec.button.button_type {
+            ButtonType::Icon => icon_width,
+            ButtonType::Text => text_width,
+            ButtonType::IconAndText => icon_width.saturating_add(gap).saturating_add(text_width),
         };
-        if stretch_text && spec.kind == ToolbarButtonKind::Text {
+        if stretch_text && spec.button.button_type != ButtonType::Icon {
             width += extra / text_count;
             width += u32::from(text_seen < extra % text_count);
             text_seen += 1;
@@ -1213,17 +1211,26 @@ mod toolbar_tests {
             ToolbarButtonSpec {
                 target: HitTarget::ToggleAnalysis,
                 visible: true,
-                kind: ToolbarButtonKind::Icon,
+                button: ButtonSpec {
+                    button_type: ButtonType::Icon,
+                    ..toolbar_button(HitTarget::ToggleAnalysis)
+                },
             },
             ToolbarButtonSpec {
                 target: HitTarget::Reset,
                 visible: true,
-                kind: ToolbarButtonKind::Icon,
+                button: ButtonSpec {
+                    button_type: ButtonType::Icon,
+                    ..toolbar_button(HitTarget::Reset)
+                },
             },
             ToolbarButtonSpec {
                 target: HitTarget::Flip,
                 visible: true,
-                kind: ToolbarButtonKind::Icon,
+                button: ButtonSpec {
+                    button_type: ButtonType::Icon,
+                    ..toolbar_button(HitTarget::Flip)
+                },
             },
         ];
         let controls =
@@ -1234,9 +1241,30 @@ mod toolbar_tests {
     }
 
     #[test]
+    fn display_type_controls_width_even_when_both_properties_exist() {
+        let rect = Rect::new(12, 20, 400, 80);
+        for (button_type, width) in [
+            (ButtonType::Icon, 80),
+            (ButtonType::Text, 120),
+            (ButtonType::IconAndText, 210),
+        ] {
+            let specs = [ToolbarButtonSpec {
+                target: HitTarget::Reset,
+                visible: true,
+                button: ButtonSpec {
+                    button_type,
+                    ..toolbar_button(HitTarget::Reset)
+                },
+            }];
+            let targets = place_toolbar(rect, 10, 80, 120, specs, ToolbarAlignment::Left).unwrap();
+            assert_eq!(targets[0].rect.width, width);
+        }
+    }
+
+    #[test]
     fn one_button_stays_at_left_at_its_compact_width() {
         let rect = Rect::new(12, 20, 400, 80);
-        for kind in [ToolbarButtonKind::Icon, ToolbarButtonKind::Text] {
+        for kind in [ButtonType::Icon, ButtonType::Text] {
             let controls = place_toolbar(
                 rect,
                 10,
@@ -1245,7 +1273,10 @@ mod toolbar_tests {
                 [ToolbarButtonSpec {
                     target: HitTarget::Reset,
                     visible: true,
-                    kind,
+                    button: ButtonSpec {
+                        button_type: kind,
+                        ..toolbar_button(HitTarget::Reset)
+                    },
                 }],
                 ToolbarAlignment::FullWidth,
             )
@@ -1253,11 +1284,7 @@ mod toolbar_tests {
             assert_eq!(controls[0].rect.x, rect.x);
             assert_eq!(
                 controls[0].rect.width,
-                if kind == ToolbarButtonKind::Icon {
-                    80
-                } else {
-                    120
-                }
+                if kind == ButtonType::Icon { 80 } else { 120 }
             );
         }
     }

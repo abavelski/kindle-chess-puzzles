@@ -105,3 +105,6 @@ existing global settings. Host implementation passed; device validation is pendi
 
 [Task 53 — Persist Game Review position](improvements/53-review-resume.md)
 restores the last review file/game and authored move independently of puzzle progress.
+
+[Task 54 — Generic button properties](improvements/54-generic-buttons.md)
+shares optional icon/text and explicit display types while preserving the UI.

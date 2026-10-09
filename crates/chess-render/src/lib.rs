@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod analysis_panel;
+mod button;
 mod canvas;
 mod damage;
 mod font;
@@ -12,6 +13,7 @@ mod pieces;
 mod render;
 
 pub use analysis_panel::{AnalysisMoveChip, AnalysisMoveChipSource, AnalysisPanelOutput};
+pub use button::{ButtonIcon, ButtonSpec, ButtonType};
 pub use canvas::{CanvasError, Gray8};
 pub use damage::{calculate_damage, compact_damage, merge_clipped};
 pub use geometry::Rect;
