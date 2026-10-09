@@ -3,6 +3,7 @@
 use crate::Rect;
 use chess_core::{
     Action, AnalysisNodeIndex, AppState, PromotionChoice, Workspace, COLLECTIONS_PER_PAGE,
+    REVIEW_GAMES_PER_PAGE,
 };
 
 pub const MIN_TOUCH_MM: u32 = 10;
@@ -189,6 +190,11 @@ pub struct Layout {
     pub collection_page_previous: Rect,
     pub collection_page_next: Rect,
     pub collection_close: Rect,
+    pub review_game_modal: Rect,
+    pub review_game_rows: [Rect; REVIEW_GAMES_PER_PAGE],
+    pub review_game_page_previous: Rect,
+    pub review_game_page_next: Rect,
+    pub review_game_close: Rect,
     pub settings_modal: Rect,
     pub settings_free_mode: Rect,
     pub settings_notes: Rect,
@@ -658,6 +664,89 @@ impl Layout {
         let collection_close = collection_nav_targets[1].rect;
         let collection_page_next = collection_nav_targets[2].rect;
 
+        // Unlike the collection picker, the game library uses the available height
+        // below the header, not just the square board-sized content area.
+        let review_game_modal = Rect::new(
+            collection_modal.x,
+            collection_modal.y,
+            collection_modal.width,
+            metrics
+                .height
+                .saturating_sub(margin)
+                .saturating_sub(collection_modal.y),
+        );
+        let review_game_rows_y = review_game_modal
+            .y
+            .saturating_add(minimum_touch_px)
+            .saturating_add(gap);
+        let review_game_nav_y = review_game_modal
+            .bottom()
+            .saturating_sub(small_gap)
+            .saturating_sub(minimum_touch_px);
+        let available_rows_height = review_game_nav_y
+            .saturating_sub(gap)
+            .saturating_sub(review_game_rows_y);
+        let row_step = minimum_touch_px.saturating_add(small_gap);
+        let rows_per_column_limit =
+            available_rows_height.saturating_add(small_gap) / row_step;
+        if rows_per_column_limit == 0 {
+            return Err(LayoutError::TooSmall);
+        }
+        // A second column keeps all entries touch-sized when the display is
+        // shorter (for example, in landscape) without changing pagination.
+        let columns = u32::try_from(REVIEW_GAMES_PER_PAGE)
+            .expect("review page size fits")
+            .div_ceil(rows_per_column_limit);
+        let rows_per_column = u32::try_from(REVIEW_GAMES_PER_PAGE)
+            .expect("review page size fits")
+            .div_ceil(columns);
+        let review_row_width = review_game_modal
+            .width
+            .saturating_sub(small_gap.saturating_mul(columns.saturating_add(1)))
+            / columns;
+        if review_row_width < minimum_touch_px {
+            return Err(LayoutError::TooSmall);
+        }
+        let review_game_rows = std::array::from_fn(|index| {
+            let index = u32::try_from(index).expect("review row index fits");
+            let (column, row) = (index / rows_per_column, index % rows_per_column);
+            Rect::new(
+                review_game_modal
+                    .x
+                    .saturating_add(small_gap)
+                    .saturating_add(column.saturating_mul(review_row_width + small_gap)),
+                review_game_rows_y.saturating_add(row.saturating_mul(row_step)),
+                review_row_width,
+                minimum_touch_px,
+            )
+        });
+        let review_game_nav = Rect::new(
+            review_game_modal.x.saturating_add(small_gap),
+            review_game_nav_y,
+            review_game_modal
+                .width
+                .saturating_sub(small_gap.saturating_mul(2)),
+            minimum_touch_px,
+        );
+        let review_nav_targets = split_targets(
+            review_game_nav,
+            small_gap,
+            [
+                HitTarget::ReviewGamePickerPreviousPage,
+                HitTarget::CloseReviewGamePicker,
+                HitTarget::ReviewGamePickerNextPage,
+            ],
+        );
+        if review_nav_targets
+            .iter()
+            .any(|target| target.rect.width < minimum_touch_px)
+        {
+            return Err(LayoutError::TooSmall);
+        }
+        let review_game_page_previous = review_nav_targets[0].rect;
+        let review_game_close = review_nav_targets[1].rect;
+        let review_game_page_next = review_nav_targets[2].rect;
+
         let settings_modal = collection_modal;
         let settings_inner = settings_modal.inset(small_gap);
         let settings_free_mode = Rect::new(
@@ -725,6 +814,11 @@ impl Layout {
             collection_page_previous,
             collection_page_next,
             collection_close,
+            review_game_modal,
+            review_game_rows,
+            review_game_page_previous,
+            review_game_page_next,
+            review_game_close,
             settings_modal,
             settings_free_mode,
             settings_notes,
@@ -751,6 +845,7 @@ impl Layout {
             || !layout.viewport.contains_rect(layout.promotion_modal)
             || !layout.viewport.contains_rect(layout.goto_modal)
             || !layout.viewport.contains_rect(layout.collection_modal)
+            || !layout.viewport.contains_rect(layout.review_game_modal)
             || !layout.viewport.contains_rect(layout.settings_modal)
             || !layout
                 .settings_modal
@@ -847,20 +942,39 @@ impl Layout {
             .filter(|review| review.game_picker_open())
         {
             let total = state.review_picker_entry_count();
+            let expanded = total > COLLECTIONS_PER_PAGE;
             for (slot, index) in review.game_picker_visible_range(total).enumerate() {
-                if self.collection_rows[slot].contains(x, y) {
+                let rect = if expanded {
+                    self.review_game_rows[slot]
+                } else {
+                    self.collection_rows[slot]
+                };
+                if rect.contains(x, y) {
                     return state
                         .review_picker_game(index)
                         .map(|_| HitTarget::ReviewGame(index));
                 }
             }
-            if self.collection_page_previous.contains(x, y) {
+            let (previous, next, close) = if expanded {
+                (
+                    self.review_game_page_previous,
+                    self.review_game_page_next,
+                    self.review_game_close,
+                )
+            } else {
+                (
+                    self.collection_page_previous,
+                    self.collection_page_next,
+                    self.collection_close,
+                )
+            };
+            if previous.contains(x, y) {
                 return Some(HitTarget::ReviewGamePickerPreviousPage);
             }
-            if self.collection_page_next.contains(x, y) {
+            if next.contains(x, y) {
                 return Some(HitTarget::ReviewGamePickerNextPage);
             }
-            if self.collection_close.contains(x, y) {
+            if close.contains(x, y) {
                 return Some(HitTarget::CloseReviewGamePicker);
             }
             return None;
