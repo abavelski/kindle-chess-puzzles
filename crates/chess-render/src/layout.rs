@@ -687,8 +687,7 @@ impl Layout {
             .saturating_sub(gap)
             .saturating_sub(review_game_rows_y);
         let row_step = minimum_touch_px.saturating_add(small_gap);
-        let rows_per_column_limit =
-            available_rows_height.saturating_add(small_gap) / row_step;
+        let rows_per_column_limit = available_rows_height.saturating_add(small_gap) / row_step;
         if rows_per_column_limit == 0 {
             return Err(LayoutError::TooSmall);
         }
