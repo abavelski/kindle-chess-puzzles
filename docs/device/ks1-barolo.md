@@ -2258,3 +2258,26 @@ snapshot checksums remain unchanged. Physical layout/tap validation is pending;
 open the library scriptlet, select SMALL in each workspace and check controls,
 analysis taps, optional-button visibility, flip and normal X exit. No app launch
 or physical visual acceptance is asserted. No commit was made.
+
+
+## Tasks 55–56 — Committed layout/settings deployment (2026-10-09)
+
+On explicit user request, committed and pushed the completed improvements to
+`main` as `1a6fca3`, rebuilt that revision with `scripts/build-kindle.sh`, staged
+with `scripts/stage-kindle.sh`, and installed with
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+Full host gates and pinned ARMv7/glibc-2.35 release validation passed.
+Read-only preflight reconfirmed ARMv7, firmware 5.19.6 and absent app/locks.
+
+- Installed binary SHA-256: `c564374cddbd9474cc6f30fbef971efe059f5e3fee0af6f490673356da966468`, matching the host build.
+- Build source SHA-256: `9cd06c12919b35a097fd739c6b8ce39d2b10e06bbf46c0df54ef810733006d13`.
+- Device loader resolved all dependencies; app and installation locks absent afterward.
+- All 119 puzzle/game/state file hashes remained identical across deployment.
+- Evidence: ignored `probe-output/layout-settings-release-20261009/`.
+
+This build includes bottom-anchored SMALL sidebar controls and independent
+LOCK BUTTON/FLIP BUTTON visibility settings in each workspace. Existing files
+without the new fields default both controls to ON. No app launch or new
+physical acceptance is asserted. For user testing, select SMALL in each
+workspace, check bottom placement and control taps, toggle Lock/Flip visibility,
+switch workspaces and exit/relaunch to check independently restored settings.

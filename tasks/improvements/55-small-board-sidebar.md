@@ -84,3 +84,12 @@ including formatting, Clippy, workspace/snapshot tests, Python/platform/package
 contracts and ARMv7/glibc-2.35 release validation. `git diff --check` passed.
 Refreshed screenshot examples are under the existing `target/small-sidebar-*`
 paths. This follow-up has not been committed or redeployed.
+
+### Committed deployment — 2026-10-09
+
+The user explicitly authorized commit, push, build and deployment. Implementation
+was committed to `main` as `1a6fca3` and pushed. The committed build passed all
+quality gates and was installed on the recorded Scribe. Installed binary
+matches the build; the loader resolves dependencies and all 119 collection/state
+hashes are unchanged. Physical acceptance remains pending; deployment evidence
+is recorded in `docs/device/ks1-barolo.md`.
