@@ -43,5 +43,5 @@ pub use review::{
 pub use review_state::{
     ReviewFileError, ReviewGameEntry, ReviewState, Workspace, REVIEW_GAMES_PER_PAGE,
 };
-pub use settings::{Settings, SETTINGS_VERSION};
+pub use settings::{Settings, WorkspaceSettings, SETTINGS_VERSION};
 pub use uci::{algebraic_to_square, parse_uci_move, square_to_algebraic, UciError, UciMove};

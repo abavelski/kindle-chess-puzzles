@@ -3,7 +3,7 @@
 use crate::{
     parse_uci_move, AnalysisNodeIndex, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle,
     PuzzleCollection, ReviewFileError, ReviewGame, ReviewGameEntry, ReviewGameKey, ReviewState,
-    Settings, TapResult, UciMove, Workspace,
+    Settings, TapResult, UciMove, Workspace, WorkspaceSettings,
 };
 
 pub const COLLECTIONS_PER_PAGE: usize = 6;
@@ -469,8 +469,17 @@ impl AppState {
         self.description_visible
     }
 
-    pub const fn settings(&self) -> &Settings {
+    pub const fn settings(&self) -> &WorkspaceSettings {
+        self.settings.for_workspace(self.workspace)
+    }
+
+    /// Both workspace profiles for durable storage, regardless of the active view.
+    pub const fn persisted_settings(&self) -> &Settings {
         &self.settings
+    }
+
+    fn settings_mut(&mut self) -> &mut WorkspaceSettings {
+        self.settings.for_workspace_mut(self.workspace)
     }
 
     pub const fn settings_open(&self) -> bool {
@@ -672,28 +681,31 @@ impl AppState {
                 Vec::new()
             }
             Action::ToggleFreeModeSetting => {
-                let enabled = !self.settings.show_free_mode_button();
-                self.settings.set_show_free_mode_button(enabled);
+                let enabled = !self.settings().show_free_mode_button();
+                self.settings_mut().set_show_free_mode_button(enabled);
                 if !enabled {
-                    if self.mode == BoardMode::FreeBoard {
+                    if self.workspace == Workspace::Puzzles && self.mode == BoardMode::FreeBoard {
                         self.toggle_mode();
                     }
-                    if let Some(review) = self.review_state.as_mut() {
-                        review.set_free_enabled(false);
+                    if self.workspace == Workspace::Review {
+                        if let Some(review) = self.review_state.as_mut() {
+                            review.set_free_enabled(false);
+                        }
                     }
                 }
                 vec![Effect::SettingsChanged]
             }
             Action::ToggleNotesSetting => {
-                let enabled = !self.settings.show_notes_button();
-                self.settings.set_show_notes_button(enabled);
-                if !enabled {
+                let enabled = !self.settings().show_notes_button();
+                self.settings_mut().set_show_notes_button(enabled);
+                if !enabled && self.workspace == Workspace::Puzzles {
                     self.description_visible = false;
                 }
                 vec![Effect::SettingsChanged]
             }
             Action::ToggleBoardSizeSetting => {
-                self.settings.set_small_board(!self.settings.small_board());
+                let small = !self.settings().small_board();
+                self.settings_mut().set_small_board(small);
                 vec![Effect::SettingsChanged]
             }
             Action::OpenCollectionPicker => {
@@ -810,7 +822,7 @@ impl AppState {
                 Vec::new()
             }
             Action::ReviewToggleFree => {
-                if self.settings.show_free_mode_button() {
+                if self.settings().show_free_mode_button() {
                     if let Some(review) = self.review_state.as_mut() {
                         review.toggle_free();
                     }
@@ -881,7 +893,7 @@ impl AppState {
                 Vec::new()
             }
             Action::ToggleMode => {
-                if self.settings.show_free_mode_button() {
+                if self.settings().show_free_mode_button() {
                     self.toggle_mode();
                 }
                 Vec::new()

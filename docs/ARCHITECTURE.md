@@ -146,7 +146,7 @@ CloseModal
 Exit
 ```
 
-`dispatch(Action)` should be deterministic and host-testable. It may return small effects for the outer runtime, such as "persist progress", "persist settings", or "exit", but it must not call FBInk or read `/dev/input`. Settings are application preferences: they belong in core state, while the platform layer owns their filesystem persistence.
+`dispatch(Action)` should be deterministic and host-testable. It may return small effects for the outer runtime, such as "persist progress", "persist settings", or "exit", but it must not call FBInk or read `/dev/input`. Settings hold independent preferences for Puzzle and Game Review. The active workspace selects the profile used by controls and rendering; persistence always saves both profiles. Settings belong in core state, while the platform layer owns their filesystem persistence.
 
 ### View state
 
@@ -263,3 +263,14 @@ A later Kobo port is successful if it can reuse without modification:
 Only platform display/input/storage/lifecycle/build/deploy code should differ.
 
 No Kobo backend is part of the first Kindle milestone.
+
+### Workspace settings compatibility
+
+`settings.json` remains version 1: existing flat `show_free_mode_button`,
+`show_notes_button` and `small_board` fields now represent Puzzle preferences.
+An additive `game_review` object stores the same three preferences for review.
+Loading an old file without that object copies its global values into both
+profiles; subsequent edits affect only the active workspace. Migration stays
+in memory until a settings edit is saved. Missing preference fields retain their
+existing defaults; malformed/future files remain protected from overwrite.
+Settings edits never persist puzzle progress or modify uploaded collections.

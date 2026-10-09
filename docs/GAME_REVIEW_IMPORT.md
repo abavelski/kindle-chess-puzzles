@@ -87,7 +87,9 @@ required in source PGN comments and are consumed during offline conversion.
 that position; choosing another move or PREV/NEXT resets scratch to the newly
 selected position while FREE stays enabled. Turning FREE off restores the
 selected authored position. **LOCK/FLIP** control review orientation. Settings
-are shared, including STANDARD/SMALL board size. Switching back to Puzzles
+are saved independently for Game Review and Puzzles, including STANDARD/SMALL
+board size and optional toolbar buttons. Existing global preferences initially
+carry over to both modes. Switching back to Puzzles
 restores the in-progress puzzle session and leaves its progress untouched.
 With no installed valid games, the toggle leaves Puzzles active and reports
 “No review games installed”. Review game/ply selection is in-memory only.

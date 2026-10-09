@@ -131,3 +131,110 @@ fn board_size_toggle_preserves_puzzle_and_preview_and_defaults_for_old_settings(
         assert!(app.settings_open());
     }
 }
+
+fn add_review(app: &mut AppState) {
+    let collection = chess_core::parse_review_file(include_bytes!(
+        "../../../tests/fixtures/game-review/valid-standard.json"
+    ))
+    .unwrap();
+    app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+        "games-standard.json",
+        collection.games[0].clone(),
+    )]);
+}
+
+#[test]
+fn workspace_settings_are_independent_in_both_directions() {
+    let mut app = state(Settings::default());
+    add_review(&mut app);
+    let original = app.settings().clone();
+    app.dispatch(Action::ToggleWorkspace);
+    for action in [
+        Action::ToggleFreeModeSetting,
+        Action::ToggleNotesSetting,
+        Action::ToggleBoardSizeSetting,
+    ] {
+        assert_eq!(app.dispatch(action), vec![Effect::SettingsChanged]);
+    }
+    let review = app.settings().clone();
+    app.dispatch(Action::ToggleWorkspace);
+    assert_eq!(
+        app.settings(),
+        &original,
+        "review edits must not affect puzzle settings"
+    );
+    app.dispatch(Action::ToggleBoardSizeSetting);
+    app.dispatch(Action::ToggleWorkspace);
+    assert_eq!(
+        app.settings(),
+        &review,
+        "puzzle edits must not affect review settings"
+    );
+}
+
+#[test]
+fn disabling_review_controls_preserves_inactive_puzzle_free_board_and_notes() {
+    let mut app = state(Settings::default());
+    add_review(&mut app);
+    app.dispatch(Action::ToggleMode);
+    app.dispatch(Action::ToggleDescription);
+    let board = app.board().clone();
+    let progress = app.progress().clone();
+    app.dispatch(Action::ToggleWorkspace);
+    app.dispatch(Action::ReviewToggleFree);
+    app.dispatch(Action::ToggleFreeModeSetting);
+    app.dispatch(Action::ToggleNotesSetting);
+    assert!(!app.review_state().unwrap().free_board_enabled());
+    app.dispatch(Action::ToggleWorkspace);
+    assert_eq!(app.mode(), BoardMode::FreeBoard);
+    assert!(app.description_visible());
+    assert_eq!(app.board(), &board);
+    assert_eq!(app.progress(), &progress);
+}
+
+#[test]
+fn legacy_preferences_initialize_both_workspaces_and_distinct_profiles_survive_restart() {
+    let settings = Settings::parse(br#"{"version":1,"small_board":true,"show_free_mode_button":false,"show_notes_button":false}"#).unwrap();
+    let mut app = state(settings);
+    add_review(&mut app);
+    let legacy = app.settings().clone();
+    app.dispatch(Action::ToggleWorkspace);
+    assert_eq!(app.settings(), &legacy);
+    app.dispatch(Action::ToggleBoardSizeSetting);
+    app.dispatch(Action::ToggleFreeModeSetting);
+    app.dispatch(Action::ToggleNotesSetting);
+    let review = app.settings().clone();
+    let mut restored =
+        state(Settings::parse(&app.persisted_settings().to_bytes().unwrap()).unwrap());
+    assert_eq!(restored.settings(), &legacy);
+    add_review(&mut restored);
+    restored.dispatch(Action::ToggleWorkspace);
+    assert_eq!(restored.settings(), &review);
+    restored.dispatch(Action::ToggleWorkspace);
+    restored.dispatch(Action::ToggleNotesSetting);
+    let puzzle = restored.settings().clone();
+    let mut again =
+        state(Settings::parse(&restored.persisted_settings().to_bytes().unwrap()).unwrap());
+    assert_eq!(again.settings(), &puzzle);
+    add_review(&mut again);
+    again.dispatch(Action::ToggleWorkspace);
+    assert_eq!(again.settings(), &review);
+}
+
+#[test]
+fn hiding_puzzle_free_control_preserves_paused_review_scratch_session() {
+    let mut app = state(Settings::default());
+    add_review(&mut app);
+    app.dispatch(Action::ToggleWorkspace);
+    app.dispatch(Action::ReviewToggleFree);
+    app.dispatch(Action::ToggleWorkspace);
+    app.dispatch(Action::ToggleFreeModeSetting);
+    app.dispatch(Action::ToggleWorkspace);
+    assert!(app.settings().show_free_mode_button());
+    assert!(app.review_state().unwrap().free_board_enabled());
+}
+
+#[test]
+fn malformed_review_preferences_are_rejected() {
+    assert!(Settings::parse(br#"{"version":1,"game_review":{"small_board":"small"}}"#).is_err());
+}

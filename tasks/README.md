@@ -97,3 +97,8 @@ adds STANDARD/SMALL board sizes and a larger text panel in the smaller layout.
 [Task 50 — Book-style comment prose](improvements/50-book-style-comment-prose.md)
 removes display-only comment braces in puzzle analysis and game review;
 physical validation is pending.
+
+
+[Task 52 — Separate workspace settings](improvements/52-workspace-settings.md)
+keeps Puzzle and Game Review preferences independent, with migration from
+existing global settings. Host implementation passed; device validation is pending.

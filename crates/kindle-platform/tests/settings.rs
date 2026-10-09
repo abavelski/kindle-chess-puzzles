@@ -82,3 +82,21 @@ fn malformed_settings_are_protected_from_overwrite() {
     assert!(store.save_latest(&Settings::default()).is_err());
     assert_eq!(fs::read(&paths.settings_file).unwrap(), original);
 }
+
+#[test]
+fn invalid_review_profile_and_future_settings_remain_protected() {
+    for contents in [
+        br#"{"version":1,"game_review":{"show_notes_button":"off"}}"#.as_slice(),
+        br#"{"version":2,"game_review":{"small_board":true}}"#.as_slice(),
+    ] {
+        let root = TempRoot::new("review-protected");
+        let path = root.paths().settings_file;
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, contents).unwrap();
+        let (mut store, load) = SettingsStore::open(path.clone());
+        assert!(store.protected());
+        assert!(load.warning.is_some());
+        assert!(store.save_latest(&load.settings).is_err());
+        assert_eq!(fs::read(path).unwrap(), contents);
+    }
+}

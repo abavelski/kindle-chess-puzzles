@@ -337,3 +337,57 @@ fn board_size_row_toggles_and_small_square_targets_follow_both_orientations() {
         app.dispatch(Action::CloseSettings);
     }
 }
+
+#[test]
+fn workspace_switch_restores_board_geometry_controls_and_settings_pixels() {
+    let mut app = state();
+    let games = chess_core::parse_review_file(include_bytes!(
+        "../../../tests/fixtures/game-review/valid-standard.json"
+    ))
+    .unwrap();
+    app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+        "games.json",
+        games.games[0].clone(),
+    )]);
+    let puzzle = render(&app, SCRIBE).unwrap();
+    app.dispatch(Action::ToggleWorkspace);
+    app.dispatch(Action::OpenSettings);
+    let review_settings = render(&app, SCRIBE).unwrap();
+    app.dispatch(Action::ToggleBoardSizeSetting);
+    app.dispatch(Action::ToggleFreeModeSetting);
+    app.dispatch(Action::ToggleNotesSetting);
+    let edited = render(&app, SCRIBE).unwrap();
+    assert_ne!(
+        edited.frame.checksum64(),
+        review_settings.frame.checksum64()
+    );
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    std::fs::write(
+        root.join("review-workspace-settings.pgm"),
+        edited.frame.to_pgm(),
+    )
+    .unwrap();
+    assert_eq!(
+        edited.frame.checksum64(),
+        11_588_785_029_928_855_628,
+        "review settings snapshot"
+    );
+    assert!(edited.layout.board.width < puzzle.layout.board.width);
+    app.dispatch(Action::CloseSettings);
+    let review = render(&app, SCRIBE).unwrap();
+    assert!(!review
+        .layout
+        .toolbar_targets
+        .iter()
+        .any(|control| control.target == HitTarget::ReviewToggleFree));
+    app.dispatch(Action::ToggleWorkspace);
+    let restored = render(&app, SCRIBE).unwrap();
+    assert_eq!(restored.frame.checksum64(), puzzle.frame.checksum64());
+    assert_eq!(restored.layout.board, puzzle.layout.board);
+    app.dispatch(Action::ToggleWorkspace);
+    app.dispatch(Action::OpenSettings);
+    assert_eq!(
+        render(&app, SCRIBE).unwrap().frame.checksum64(),
+        edited.frame.checksum64()
+    );
+}

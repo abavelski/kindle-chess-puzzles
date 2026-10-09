@@ -383,7 +383,7 @@ fn retry_dirty_state(
     }
 
     if settings_store.dirty() {
-        if let Err(error) = settings_store.retry_if_dirty(app.settings()) {
+        if let Err(error) = settings_store.retry_if_dirty(app.persisted_settings()) {
             append_message(&mut warning, format!("Settings warning: {error}"));
         }
     }
@@ -486,6 +486,79 @@ mod tests {
 
         assert!(!progress_store.dirty());
         assert_eq!(std::fs::read(progress_store.path()).unwrap(), original);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn runtime_saves_both_profiles_when_settings_change_in_review() {
+        let root =
+            std::env::temp_dir().join(format!("kcp-workspace-settings-{}", std::process::id()));
+        let storage = KindleStorage::new(StoragePaths::new(
+            root.join("puzzles"),
+            root.join("state/progress.json"),
+        ));
+        let (mut progress_store, _) = ProgressStore::open(storage.paths().progress_file.clone());
+        let (mut settings_store, _) = SettingsStore::open(storage.paths().settings_file.clone());
+        let mut app = AppState::new(
+            ActiveCollection::from_collection(
+                "puzzles.json",
+                parse_puzzle_file(BUNDLED_PUZZLES).unwrap(),
+            ),
+            Progress::new(),
+        );
+        let games = chess_core::parse_review_file(include_bytes!(
+            "../../../tests/fixtures/game-review/valid-standard.json"
+        ))
+        .unwrap();
+        app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+            "games.json",
+            games.games[0].clone(),
+        )]);
+        app.dispatch(Action::ToggleWorkspace);
+        let effects = app.dispatch(Action::ToggleBoardSizeSetting);
+        apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            true,
+            effects,
+        );
+        let (_, load) = SettingsStore::open(storage.paths().settings_file.clone());
+        assert!(load.warning.is_none());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .small_board());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .small_board());
+        app.dispatch(Action::ToggleWorkspace);
+        let effects = app.dispatch(Action::ToggleNotesSetting);
+        apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            true,
+            effects,
+        );
+        let (_, load) = SettingsStore::open(storage.paths().settings_file.clone());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_notes_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_notes_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .small_board());
+        assert!(!progress_store.dirty());
+        assert!(!storage.paths().progress_file.exists());
         std::fs::remove_dir_all(root).unwrap();
     }
 

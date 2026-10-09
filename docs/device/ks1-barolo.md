@@ -2207,3 +2207,21 @@ root@192.168.1.20 --port 2222 after user X exit; app/lock absent before install.
 - Verification artifacts: ignored probe-output/dialog-20261009/.
 
 Physical review of bounds, game selection, PAGE > and CLOSE remains pending.
+
+
+#### Task 52 settings deployment — 2026-10-09
+
+Deployed independent Puzzle/Game Review preferences using the existing staged
+package and scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222.
+The user restored SSH availability; app process and supervisor lock were absent
+before install. Full host gates and pinned ARMv7/glibc-2.35 build passed earlier.
+
+- Host/installed binary SHA-256: `d9b0487730ee66f2f88778077bbb7f7c31a75032708d04f6623d4664a16b6027`.
+- Source SHA-256: `6d183e785bfe40782778fe33ef5b4b7e23668da254bda8b8014f7da992301836`.
+- All 118 collection/state hashes unchanged; device loader resolved dependencies.
+- Verification artifacts: ignored probe-output/workspace-settings-20261009/.
+
+Physical validation pending: edit board size/optional controls in Game Review,
+switch to Puzzles and confirm its preferences/session are preserved, edit Puzzle
+preferences and check review is unchanged, then exit/relaunch and confirm both
+profiles survive. Existing global preferences initially populate both profiles.
