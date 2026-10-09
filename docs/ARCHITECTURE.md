@@ -138,6 +138,8 @@ ToggleDescription
 OpenSettings
 ToggleFreeModeSetting
 ToggleNotesSetting
+ToggleLockSetting
+ToggleFlipSetting
 ToggleBoardSizeSetting
 CloseSettings
 OpenCollectionPicker
@@ -179,16 +181,15 @@ The renderer owns:
 
 The renderer does **not** own interaction state.
 
-Toolbar placement is derived in `chess-render::Layout` from display metrics, the core settings visibility flags, and a renderer alignment policy. The renderer uses those same rectangles for pixels and hit testing. Icon and text controls have different minimum widths. Left and right policies pack controls at their chosen edge; the current full-width policy stretches text controls evenly, spreads icon-only rows across their gaps, and keeps a single control at the left. No device coordinates or placement policy enter core state. The saved board-size preference selects the standard board or a centered board at 60% of its width and height (rounded down to whole squares). Both control rows retain their standard widths and follow the board upward; the text panel grows and uses larger text. Dialog bounds retain their standard dimensions. A future user-selectable alignment would add a versioned core preference while leaving geometry in the renderer.
+Toolbar placement is derived in `chess-render::Layout` from display metrics, the core settings visibility flags, and a renderer alignment policy. The renderer uses those same rectangles for pixels and hit testing. Icon and text controls have different minimum widths. Left and right policies pack controls at their chosen edge; the current full-width policy stretches text controls evenly, spreads icon-only rows across their gaps, and keeps a single control at the left. No device coordinates or placement policy enter core state. The saved board-size preference selects the standard board or a board at 60% of its width and height (rounded down to whole squares). SMALL aligns the board at the left content edge and places toolbar and navigation controls at the bottom of the space to its right. Available toolbar icons replace their text labels; NOTE retains text. The SMALL toolbar uses compact left alignment and wraps into balanced rows when needed to preserve minimum touch sizes, while text navigation narrows to the sidebar width. The full-width text panel starts directly below the board and uses larger text. STANDARD geometry and presentation are unchanged. Dialog bounds retain their standard dimensions. A future user-selectable alignment would add a versioned core preference while leaving geometry in the renderer.
 
 Renderer button definitions carry an optional icon, optional text, and an explicit
 `ButtonType` (`Icon`, `Text`, or `IconAndText`). Toolbar layout and rendering use
 the same definitions; display type controls sizing and visible content even when
 both properties exist. Combined content places the icon left of the text; a
-single remaining property is centered. FREE, LOCK, RESET and FLIP have vector
-icons available but retain their text-only policy in both board sizes and
-workspaces. This preparation does not change the current toolbar pixels or hit
-rectangles.
+single remaining property is centered. FREE, LOCK, RESET and FLIP use vector icons in SMALL and retain their
+text-only policy in STANDARD in both workspaces. Toolbar layout and drawing
+share the same board-size presentation policy.
 
 ## Sashité pieces
 
@@ -278,7 +279,9 @@ No Kobo backend is part of the first Kindle milestone.
 
 `settings.json` remains version 1: existing flat `show_free_mode_button`,
 `show_notes_button` and `small_board` fields now represent Puzzle preferences.
-An additive `game_review` object stores the same three preferences for review.
+An additive `game_review` object stores the workspace preferences for review.
+The additive `show_lock_button` and `show_flip_button` fields default to true
+in both profiles; they control visibility without changing orientation/lock.
 Loading an old file without that object copies its global values into both
 profiles; subsequent edits affect only the active workspace. Migration stays
 in memory until a settings edit is saved. Missing preference fields retain their

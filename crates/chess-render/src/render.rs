@@ -2,7 +2,7 @@
 
 use crate::{
     analysis_panel::{draw_analysis_panel, AnalysisView},
-    button::toolbar_button,
+    button::toolbar_button_for_size,
     font::{
         draw_text_bold, draw_text_bold_vertically_centered, draw_text_centered, draw_wrapped_text,
         draw_wrapped_text_with_line_spacing, measure_text_bold,
@@ -12,6 +12,9 @@ use crate::{
     Layout, LayoutError, Rect,
 };
 use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback, Workspace};
+
+#[cfg(test)]
+use crate::button::toolbar_button;
 
 const WHITE: u8 = 255;
 const INK: u8 = 0;
@@ -390,7 +393,7 @@ fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32)
         draw_button_spec(
             frame,
             layout.control_visual_rect(target.rect),
-            toolbar_button(target.target),
+            toolbar_button_for_size(target.target, state.settings().small_board()),
             selected,
             enabled,
             scale,
@@ -758,6 +761,20 @@ fn draw_settings_panel(frame: &mut Gray8, state: &AppState, layout: Layout, scal
         layout.settings_notes,
         "NOTES BUTTON",
         state.settings().show_notes_button(),
+        scale.min(3),
+    );
+    draw_setting_row(
+        frame,
+        layout.settings_lock,
+        "LOCK BUTTON",
+        state.settings().show_lock_button(),
+        scale.min(3),
+    );
+    draw_setting_row(
+        frame,
+        layout.settings_flip,
+        "FLIP BUTTON",
+        state.settings().show_flip_button(),
         scale.min(3),
     );
     draw_setting_value_row(

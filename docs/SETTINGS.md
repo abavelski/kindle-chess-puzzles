@@ -8,18 +8,21 @@ Version 1 starts deliberately small:
 
 - **Free mode button** — show or hide the `FREE` toolbar control.
 - **Notes button** — show or hide the `NOTE` toolbar control.
+- **Lock button** — show or hide the `LOCK` toolbar control.
+- **Flip button** — show or hide the `FLIP` toolbar control.
+- **Board size** — choose STANDARD or SMALL.
 
-Both default to **ON** so existing behavior is unchanged after upgrading.
+All button visibility preferences default to **ON** so existing behavior is unchanged after upgrading.
 
-Turning off Free mode while Free Board is active returns the app to Solution mode before hiding the control. Turning off Notes immediately hides an open note. Disabled controls are neither rendered nor hit-testable.
+Turning off Free mode while Free Board is active returns the app to Solution mode before hiding the control. Turning off Notes immediately hides an open note. Hidden controls are neither rendered nor hit-testable. Hiding Lock or Flip preserves the current orientation and lock state; their direct actions are inert while hidden. Each workspace saves its own button visibility and board-size choices.
 
-The toolbar below the board currently fills its width. Its icon control uses a square touch target; visible text controls stretch evenly to consume the remaining space. Hiding FREE or NOTE removes that control's space and reallocates it among the visible text controls. The renderer also supports compact left and right alignment through the developer-facing `ToolbarAlignment` choice. Alignment is not a persisted preference or a Settings panel control.
+In STANDARD mode, the toolbar below the board fills its width. Its icon control uses a square touch target; visible text controls stretch evenly to consume the remaining space. Hiding any optional control removes that control's space and reallocates it among the visible text controls. The renderer also supports compact left and right alignment through the developer-facing `ToolbarAlignment` choice. Alignment is not a persisted preference or a Settings panel control. SMALL moves the board to the left and places the toolbar and narrower text navigation at the bottom of the space beside it. Available toolbar icons replace text labels; NOTE stays text. The SMALL toolbar uses compact left alignment. Controls wrap as needed to preserve minimum touch sizes, and analysis starts directly below the board.
 
 ## UI flow
 
 A settings icon lives immediately to the left of the close button in the header. The `FILES` control, when present, sits to its left. Tapping it opens a modal panel using the same deterministic layout/hit-testing approach as the collection picker.
 
-While the panel is open, ordinary board and toolbar actions are blocked. The panel matches the Files dialog size, with an X icon in the upper-right corner, two full-width ON/OFF rows, and a full-width Close button anchored at the bottom. Both panel close controls dismiss Settings. The app's global Exit and manual Refresh controls remain available through their existing header behavior.
+While the panel is open, ordinary board and toolbar actions are blocked. The panel matches the Files dialog size, with an X icon in the upper-right corner, four full-width ON/OFF rows plus the board-size row, and a full-width Close button anchored at the bottom. Both panel close controls dismiss Settings. The app's global Exit and manual Refresh controls remain available through their existing header behavior.
 
 ## Ownership
 
@@ -50,8 +53,20 @@ Version 1 currently serializes as:
 {
   "version": 1,
   "show_free_mode_button": true,
-  "show_notes_button": true
+  "show_notes_button": true,
+  "show_lock_button": true,
+  "show_flip_button": true,
+  "small_board": false,
+  "game_review": {
+    "show_free_mode_button": true,
+    "show_notes_button": true,
+    "show_lock_button": true,
+    "show_flip_button": true,
+    "small_board": false
+  }
 }
 ```
+
+Missing Lock/Flip fields default to ON. Files without `game_review` initialize both profiles from the flat values; subsequent edits affect only the active workspace.
 
 New preferences should be added to this model with explicit defaults and host tests so older files remain predictable.

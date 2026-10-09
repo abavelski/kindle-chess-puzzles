@@ -259,6 +259,6 @@ fn imported_standard_and_small_snapshots() {
     // reference beside plain Nc3, disabled PREV, and larger SMALL movetext.
     assert_eq!(
         hashes,
-        vec![8_885_290_902_222_412_905, 6_162_448_131_668_284_226]
+        vec![8_885_290_902_222_412_905, 7_163_832_930_951_253_929]
     );
 }

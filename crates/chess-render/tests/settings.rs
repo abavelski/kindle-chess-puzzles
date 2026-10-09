@@ -141,6 +141,9 @@ fn settings_panel_matches_files_size_and_anchors_close_at_bottom() {
         for rect in [
             layout.settings_free_mode,
             layout.settings_notes,
+            layout.settings_lock,
+            layout.settings_flip,
+            layout.settings_board_size,
             layout.settings_close_icon,
             layout.settings_close,
         ] {
@@ -157,7 +160,8 @@ fn settings_panel_matches_files_size_and_anchors_close_at_bottom() {
             output.hit_test_app(x, y, &app),
             Some(HitTarget::CloseSettings)
         );
-        let (x, y) = center(layout.settings_modal);
+        let x = layout.settings_modal.x + layout.settings_modal.width / 2;
+        let y = (layout.settings_board_size.bottom() + layout.settings_close.y) / 2;
         assert_eq!(output.hit_test_app(x, y, &app), None);
     }
 }
@@ -262,7 +266,7 @@ fn each_optional_button_compacts_the_full_width_toolbar() {
 }
 
 #[test]
-fn smaller_board_is_centered_and_reclaims_space_for_full_width_text() {
+fn smaller_board_is_left_aligned_with_sidebar_and_text_directly_below() {
     let app = state();
     let standard = Layout::for_app(SCRIBE, &app).unwrap();
     let small = AppState::new_with_settings(
@@ -273,12 +277,22 @@ fn smaller_board_is_centered_and_reclaims_space_for_full_width_text() {
     let layout = Layout::for_app(SCRIBE, &small).unwrap();
     assert_eq!(layout.board.width, standard.board.width * 3 / 5 / 8 * 8);
     assert_eq!(layout.board.y, standard.board.y);
-    assert_eq!(layout.board.x, (SCRIBE.width - layout.board.width) / 2);
-    assert_eq!(layout.toolbar.width, standard.toolbar.width);
-    assert_eq!(
-        layout.toolbar.y - layout.board_outer.bottom(),
-        standard.toolbar.y - standard.board_outer.bottom()
-    );
+    assert_eq!(layout.board_outer.x, standard.status.x);
+    assert!(layout.toolbar.x > layout.board_outer.right());
+    assert!(layout.toolbar.width < standard.toolbar.width);
+    assert!(layout.toolbar.y < layout.board_outer.bottom());
+    assert!(layout.previous.x >= layout.toolbar.x);
+    assert!(layout.next.right() <= layout.toolbar.right());
+    assert!(layout.next.width < standard.next.width);
+    assert!(layout.status.y > layout.board_outer.bottom());
+    assert!(layout.status.y - layout.board_outer.bottom() < 20);
+    for control in layout.toolbar_targets {
+        assert!(!control.rect.intersects(layout.board_outer));
+        assert!(!control.rect.intersects(layout.status));
+        assert!(!control.rect.intersects(layout.previous));
+        assert!(!control.rect.intersects(layout.goto));
+        assert!(!control.rect.intersects(layout.next));
+    }
     assert_eq!(layout.status.width, standard.status.width);
     assert!(layout.status.height > standard.status.height + 600);
 }
@@ -369,7 +383,7 @@ fn workspace_switch_restores_board_geometry_controls_and_settings_pixels() {
     .unwrap();
     assert_eq!(
         edited.frame.checksum64(),
-        11_588_785_029_928_855_628,
+        11_608_239_637_912_497_743,
         "review settings snapshot"
     );
     assert!(edited.layout.board.width < puzzle.layout.board.width);
@@ -390,4 +404,235 @@ fn workspace_switch_restores_board_geometry_controls_and_settings_pixels() {
         render(&app, SCRIBE).unwrap().frame.checksum64(),
         edited.frame.checksum64()
     );
+}
+
+#[test]
+fn small_sidebar_controls_fit_and_hit_in_both_workspaces_with_optional_buttons() {
+    for metrics in [
+        SCRIBE,
+        DisplayMetrics {
+            width: 2480,
+            height: 1860,
+            dpi: 300,
+        },
+    ] {
+        for review in [false, true] {
+            for show_free in [false, true] {
+                for show_notes in [false, true] {
+                    let mut app = state();
+                    if review {
+                        let games = chess_core::parse_review_file(include_bytes!(
+                            "../../../tests/fixtures/game-review/valid-standard.json"
+                        ))
+                        .unwrap();
+                        app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+                            "games.json",
+                            games.games[0].clone(),
+                        )]);
+                        app.dispatch(Action::ToggleWorkspace);
+                    }
+                    app.dispatch(Action::ToggleBoardSizeSetting);
+                    if !show_free {
+                        app.dispatch(Action::ToggleFreeModeSetting);
+                    }
+                    if !show_notes {
+                        app.dispatch(Action::ToggleNotesSetting);
+                    }
+                    let output = render(&app, metrics).unwrap();
+                    let layout = output.layout;
+                    let mut controls: Vec<_> = layout
+                        .toolbar_targets
+                        .iter()
+                        .filter(|control| control.rect.width > 0)
+                        .map(|control| (control.rect, control.target))
+                        .collect();
+                    controls.extend([
+                        (
+                            layout.previous,
+                            if review {
+                                HitTarget::ReviewPrevious
+                            } else {
+                                HitTarget::Previous
+                            },
+                        ),
+                        (
+                            layout.next,
+                            if review {
+                                HitTarget::ReviewNext
+                            } else {
+                                HitTarget::Next
+                            },
+                        ),
+                    ]);
+                    if !review {
+                        controls.push((layout.goto, HitTarget::OpenPuzzleGoto));
+                    }
+                    for (index, (rect, target)) in controls.iter().enumerate() {
+                        assert!(rect.width >= layout.minimum_touch_px());
+                        assert!(rect.height >= layout.minimum_touch_px());
+                        assert!(layout.viewport.contains_rect(*rect));
+                        assert!(rect.x > layout.board_outer.right());
+                        assert!(rect.bottom() <= layout.board_outer.bottom());
+                        assert_eq!(layout.next.bottom(), layout.board_outer.bottom());
+                        assert_eq!(layout.previous.y, layout.next.y);
+                        assert!(!rect.intersects(layout.status));
+                        for (other, _) in &controls[index + 1..] {
+                            assert!(!rect.intersects(*other));
+                        }
+                        if !matches!(
+                            target,
+                            HitTarget::ToggleAnalysis
+                                | HitTarget::ReviewPrevious
+                                | HitTarget::Previous
+                        ) {
+                            let (x, y) = center(*rect);
+                            let expected = if review {
+                                match target {
+                                    HitTarget::ToggleMode => HitTarget::ReviewToggleFree,
+                                    HitTarget::Reset => HitTarget::ReviewReset,
+                                    HitTarget::ToggleOrientationLock => {
+                                        HitTarget::ReviewToggleOrientationLock
+                                    }
+                                    HitTarget::Flip => HitTarget::ReviewFlip,
+                                    other => *other,
+                                }
+                            } else {
+                                *target
+                            };
+                            assert_eq!(output.hit_test_app(x, y, &app), Some(expected));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn small_toolbar_defaults_to_compact_left_alignment_in_both_workspaces() {
+    for review in [false, true] {
+        let mut app = state();
+        if review {
+            let games = chess_core::parse_review_file(include_bytes!(
+                "../../../tests/fixtures/game-review/valid-standard.json"
+            ))
+            .unwrap();
+            app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+                "games.json",
+                games.games[0].clone(),
+            )]);
+            app.dispatch(Action::ToggleWorkspace);
+        }
+        app.dispatch(Action::ToggleBoardSizeSetting);
+        let actual = Layout::for_app(SCRIBE, &app).unwrap();
+        let left = Layout::for_app_with_alignment(SCRIBE, &app, ToolbarAlignment::Left).unwrap();
+        assert_eq!(actual.toolbar_targets, left.toolbar_targets);
+        assert_eq!(actual.previous, left.previous);
+        assert_eq!(actual.next, left.next);
+    }
+}
+
+#[test]
+fn lock_flip_rows_toggle_active_profile_and_hidden_controls_compact_in_both_sizes() {
+    for review in [false, true] {
+        for small in [false, true] {
+            for metrics in [
+                SCRIBE,
+                DisplayMetrics {
+                    width: 2480,
+                    height: 1860,
+                    dpi: 300,
+                },
+            ] {
+                for hide_lock in [false, true] {
+                    for hide_flip in [false, true] {
+                        let mut app = state();
+                        if review {
+                            let games = chess_core::parse_review_file(include_bytes!(
+                                "../../../tests/fixtures/game-review/valid-standard.json"
+                            ))
+                            .unwrap();
+                            app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+                                "games.json",
+                                games.games[0].clone(),
+                            )]);
+                            app.dispatch(Action::ToggleWorkspace);
+                        }
+                        if small {
+                            app.dispatch(Action::ToggleBoardSizeSetting);
+                        }
+                        app.dispatch(Action::OpenSettings);
+                        let settings = render(&app, metrics).unwrap();
+                        for (rect, target, hide) in [
+                            (
+                                settings.layout.settings_lock,
+                                HitTarget::ToggleLockSetting,
+                                hide_lock,
+                            ),
+                            (
+                                settings.layout.settings_flip,
+                                HitTarget::ToggleFlipSetting,
+                                hide_flip,
+                            ),
+                        ] {
+                            assert!(settings.layout.settings_modal.contains_rect(rect));
+                            assert!(rect.bottom() < settings.layout.settings_board_size.y);
+                            assert!(rect.height >= settings.layout.minimum_touch_px());
+                            let (x, y) = center(rect);
+                            assert_eq!(settings.hit_test_app(x, y, &app), Some(target));
+                            if hide {
+                                app.dispatch(target.into_action().unwrap());
+                            }
+                        }
+                        app.dispatch(Action::CloseSettings);
+                        let output = render(&app, metrics).unwrap();
+                        for (target, hidden) in [
+                            (HitTarget::ToggleOrientationLock, hide_lock),
+                            (HitTarget::Flip, hide_flip),
+                        ] {
+                            let control = output
+                                .layout
+                                .toolbar_targets
+                                .iter()
+                                .find(|control| control.target == target)
+                                .unwrap();
+                            assert_eq!(control.rect.width == 0, hidden);
+                            if !hidden {
+                                let (x, y) = center(control.rect);
+                                let expected = if review {
+                                    if target == HitTarget::Flip {
+                                        HitTarget::ReviewFlip
+                                    } else {
+                                        HitTarget::ReviewToggleOrientationLock
+                                    }
+                                } else {
+                                    target
+                                };
+                                assert_eq!(output.hit_test_app(x, y, &app), Some(expected));
+                            }
+                        }
+                        assert!(
+                            output.layout.settings_board_size.bottom()
+                                < output.layout.settings_close.y
+                        );
+                        for control in output
+                            .layout
+                            .toolbar_targets
+                            .iter()
+                            .filter(|control| control.rect.width > 0)
+                        {
+                            assert!(control.rect.width >= output.layout.minimum_touch_px());
+                            assert!(control.rect.height >= output.layout.minimum_touch_px());
+                        }
+                        if small {
+                            assert_eq!(
+                                output.layout.next.bottom(),
+                                output.layout.board_outer.bottom()
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

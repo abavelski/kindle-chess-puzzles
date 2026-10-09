@@ -64,10 +64,16 @@ fn node(app: &AppState, id: &str) -> chess_core::AnalysisNodeIndex {
 }
 
 fn hash(app: &AppState) -> u64 {
-    render(app, SCRIBE)
-        .expect("review render")
-        .frame
-        .checksum64()
+    let output = render(app, SCRIBE).expect("review render");
+    if let Ok(directory) = std::env::var("UI_SNAPSHOT_DIR") {
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(
+            format!("{directory}/{}.pgm", output.frame.checksum64()),
+            output.frame.to_pgm(),
+        )
+        .unwrap();
+    }
+    output.frame.checksum64()
 }
 
 fn long_review() -> AppState {
@@ -314,7 +320,7 @@ fn review_workspace_visual_states_match_reviewed_gray8_snapshots() {
         ("review-unicode-header", 997_277_629_216_496_538),
         ("review-free-scratch", 9_334_775_776_239_098_211),
         ("review-flipped", 15_807_205_748_985_471_160),
-        ("review-small-board", 15_028_477_983_248_255_030),
+        ("review-small-board", 16_894_878_170_182_868_405),
         ("review-game-picker", 16_287_243_912_448_463_606),
         ("review-no-games", 11_567_526_096_340_990_005),
     ];

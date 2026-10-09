@@ -16,6 +16,10 @@ pub struct WorkspaceSettings {
     show_free_mode_button: bool,
     #[serde(default = "enabled_by_default")]
     show_notes_button: bool,
+    #[serde(default = "enabled_by_default")]
+    show_lock_button: bool,
+    #[serde(default = "enabled_by_default")]
+    show_flip_button: bool,
     #[serde(default)]
     small_board: bool,
 }
@@ -25,6 +29,8 @@ impl Default for WorkspaceSettings {
         Self {
             show_free_mode_button: true,
             show_notes_button: true,
+            show_lock_button: true,
+            show_flip_button: true,
             small_board: false,
         }
     }
@@ -45,6 +51,22 @@ impl WorkspaceSettings {
 
     pub fn set_show_notes_button(&mut self, value: bool) {
         self.show_notes_button = value;
+    }
+
+    pub const fn show_lock_button(&self) -> bool {
+        self.show_lock_button
+    }
+
+    pub fn set_show_lock_button(&mut self, value: bool) {
+        self.show_lock_button = value;
+    }
+
+    pub const fn show_flip_button(&self) -> bool {
+        self.show_flip_button
+    }
+
+    pub fn set_show_flip_button(&mut self, value: bool) {
+        self.show_flip_button = value;
     }
 
     pub const fn small_board(&self) -> bool {
@@ -112,6 +134,22 @@ impl Settings {
 
     pub fn set_show_notes_button(&mut self, value: bool) {
         self.puzzles.set_show_notes_button(value);
+    }
+
+    pub const fn show_lock_button(&self) -> bool {
+        self.puzzles.show_lock_button()
+    }
+
+    pub fn set_show_lock_button(&mut self, value: bool) {
+        self.puzzles.set_show_lock_button(value);
+    }
+
+    pub const fn show_flip_button(&self) -> bool {
+        self.puzzles.show_flip_button()
+    }
+
+    pub fn set_show_flip_button(&mut self, value: bool) {
+        self.puzzles.set_show_flip_button(value);
     }
 
     pub const fn small_board(&self) -> bool {

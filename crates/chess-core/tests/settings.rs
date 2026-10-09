@@ -238,3 +238,96 @@ fn hiding_puzzle_free_control_preserves_paused_review_scratch_session() {
 fn malformed_review_preferences_are_rejected() {
     assert!(Settings::parse(br#"{"version":1,"game_review":{"small_board":"small"}}"#).is_err());
 }
+
+#[test]
+fn lock_flip_visibility_defaults_migrate_and_validate_like_existing_settings() {
+    use chess_core::Workspace;
+    for settings in [
+        Settings::default(),
+        Settings::parse(br#"{"version":1}"#).unwrap(),
+        Settings::parse(br#"{"version":1,"game_review":{}}"#).unwrap(),
+    ] {
+        for workspace in [Workspace::Puzzles, Workspace::Review] {
+            assert!(settings.for_workspace(workspace).show_lock_button());
+            assert!(settings.for_workspace(workspace).show_flip_button());
+        }
+    }
+    let legacy =
+        Settings::parse(br#"{"version":1,"show_lock_button":false,"show_flip_button":false}"#)
+            .unwrap();
+    assert_eq!(
+        legacy.for_workspace(Workspace::Puzzles),
+        legacy.for_workspace(Workspace::Review)
+    );
+    assert!(!legacy.for_workspace(Workspace::Review).show_lock_button());
+    assert!(!legacy.for_workspace(Workspace::Review).show_flip_button());
+    assert!(Settings::parse(br#"{"version":1,"show_lock_button":"off"}"#).is_err());
+    assert!(Settings::parse(br#"{"version":1,"game_review":{"show_flip_button":null}}"#).is_err());
+}
+
+#[test]
+fn lock_flip_settings_are_independent_persistent_and_preserve_session_state() {
+    use chess_core::Workspace;
+    let mut app = state(Settings::default());
+    add_review(&mut app);
+    app.dispatch(Action::ToggleOrientationLock);
+    app.dispatch(Action::Flip);
+    let puzzle_orientation = (app.flipped(), app.orientation_locked());
+    let board = app.board().clone();
+    let progress = app.progress().clone();
+    app.dispatch(Action::ToggleWorkspace);
+    app.dispatch(Action::ReviewToggleOrientationLock);
+    app.dispatch(Action::ReviewFlip);
+    let review_orientation = (app.flipped(), app.orientation_locked());
+    app.dispatch(Action::OpenSettings);
+    for action in [Action::ToggleLockSetting, Action::ToggleFlipSetting] {
+        assert_eq!(app.dispatch(action), vec![Effect::SettingsChanged]);
+    }
+    assert!(app.settings_open());
+    app.dispatch(Action::CloseSettings);
+    assert_eq!(
+        (app.flipped(), app.orientation_locked()),
+        review_orientation
+    );
+    app.dispatch(Action::ReviewToggleOrientationLock);
+    app.dispatch(Action::ReviewFlip);
+    assert_eq!(
+        (app.flipped(), app.orientation_locked()),
+        review_orientation
+    );
+    assert!(!app.settings().show_lock_button());
+    assert!(!app.settings().show_flip_button());
+    app.dispatch(Action::ToggleWorkspace);
+    assert_eq!(
+        (app.flipped(), app.orientation_locked()),
+        puzzle_orientation
+    );
+    assert!(app.settings().show_lock_button());
+    assert!(app.settings().show_flip_button());
+    app.dispatch(Action::OpenSettings);
+    app.dispatch(Action::ToggleLockSetting);
+    app.dispatch(Action::CloseSettings);
+    app.dispatch(Action::ToggleOrientationLock);
+    assert_eq!(
+        (app.flipped(), app.orientation_locked()),
+        puzzle_orientation
+    );
+    assert_eq!(app.board(), &board);
+    assert_eq!(app.progress(), &progress);
+    let saved = Settings::parse(&app.persisted_settings().to_bytes().unwrap()).unwrap();
+    assert!(!saved.for_workspace(Workspace::Puzzles).show_lock_button());
+    assert!(saved.for_workspace(Workspace::Puzzles).show_flip_button());
+    assert!(!saved.for_workspace(Workspace::Review).show_lock_button());
+    assert!(!saved.for_workspace(Workspace::Review).show_flip_button());
+    app.dispatch(Action::ToggleFlipSetting);
+    app.dispatch(Action::Flip);
+    assert_eq!(
+        (app.flipped(), app.orientation_locked()),
+        puzzle_orientation
+    );
+    app.dispatch(Action::ToggleWorkspace);
+    assert_eq!(
+        (app.flipped(), app.orientation_locked()),
+        review_orientation
+    );
+}

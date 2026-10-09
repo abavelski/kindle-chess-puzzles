@@ -2235,3 +2235,26 @@ binary SHA-256 is `23027062186b46891e10844ac183197933cedb36ee46f2f62c863e5cb9181
 matching the successful build receipt; the device loader resolved dependencies.
 All 118 puzzle/game/state file hashes remained unchanged. No app launch or
 physical review-position/restart validation was performed; no commit was made.
+
+
+## Task 55 — Small-board sidebar test deployment (2026-10-09)
+
+On explicit user request, rebuilt the uncommitted working tree, staged through
+`scripts/stage-kindle.sh`, and deployed through
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+Full host gates, snapshots and the pinned ARMv7/glibc-2.35 release validation
+passed. Read-only preflight reconfirmed ARMv7 and firmware 5.19.6; the app,
+supervisor lock and installation lock were absent.
+
+- Host/installed binary SHA-256: `531fffc9d016812d360832b07890f1519ea6f175d9707212621136c6718e9cba`.
+- Build source SHA-256: `10e9580e0e98846c273a5301ed6a8e0cf2ba8063497e83ca345239632e407d09`.
+- Device loader resolved all dependencies; app/installation locks absent afterward.
+- All 119 puzzle/game/state file SHA-256 hashes remained identical.
+- Verification artifacts: ignored `probe-output/small-sidebar-20261009/`.
+
+SMALL uses a left-aligned board, compact left-aligned toolbar icons to its right,
+narrower text navigation and analysis directly below the board. STANDARD
+snapshot checksums remain unchanged. Physical layout/tap validation is pending;
+open the library scriptlet, select SMALL in each workspace and check controls,
+analysis taps, optional-button visibility, flip and normal X exit. No app launch
+or physical visual acceptance is asserted. No commit was made.

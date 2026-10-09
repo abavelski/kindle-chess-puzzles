@@ -569,6 +569,18 @@ mod tests {
             .settings
             .for_workspace(chess_core::Workspace::Review)
             .small_board());
+        for action in [Action::ToggleLockSetting, Action::ToggleFlipSetting] {
+            let effects = app.dispatch(action);
+            apply_effects(
+                &mut app,
+                &storage,
+                &mut progress_store,
+                &mut settings_store,
+                &mut review_store,
+                true,
+                effects,
+            );
+        }
         app.dispatch(Action::ToggleWorkspace);
         let effects = app.dispatch(Action::ToggleNotesSetting);
         apply_effects(
@@ -593,6 +605,49 @@ mod tests {
             .settings
             .for_workspace(chess_core::Workspace::Review)
             .small_board());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_lock_button());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_flip_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_lock_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_flip_button());
+        let effects = app.dispatch(Action::ToggleFlipSetting);
+        apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects,
+        );
+        let (_, load) = SettingsStore::open(storage.paths().settings_file.clone());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_flip_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_lock_button());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_lock_button());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_flip_button());
         assert!(!progress_store.dirty());
         assert!(!storage.paths().progress_file.exists());
         std::fs::remove_dir_all(root).unwrap();

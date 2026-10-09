@@ -108,3 +108,9 @@ restores the last review file/game and authored move independently of puzzle pro
 
 [Task 54 — Generic button properties](improvements/54-generic-buttons.md)
 shares optional icon/text and explicit display types while preserving the UI.
+
+[Task 55 — Small-board sidebar controls](improvements/55-small-board-sidebar.md)
+places SMALL controls beside a left-aligned board and analysis directly below it.
+
+[Task 56 — Lock and Flip button settings](improvements/56-lock-flip-button-settings.md)
+adds independently saved visibility controls to both workspace profiles.

@@ -485,7 +485,7 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
         ("promotion", 8_157_208_443_279_174_683),
         ("long-description", 115_374_366_990_050_245),
         ("number-difficulty", 8_302_406_461_767_038_921),
-        ("settings-panel", 17_946_876_314_245_552_229),
+        ("settings-panel", 15_015_938_234_012_989_282),
         ("toolbar-both-hidden", 4_733_193_552_348_731_552),
         ("collection-picker", 863_362_585_217_474_590),
         ("puzzle-goto", 7_868_128_827_776_782_836),
@@ -539,16 +539,117 @@ fn smaller_board_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("small-topic", hash(&topic)));
     topic.dispatch(Action::Flip);
     actual.push(("small-flipped", hash(&topic)));
+    let mut free = small(PUZZLES);
+    free.dispatch(Action::ToggleMode);
+    actual.push(("small-free", hash(&free)));
+    free.dispatch(Action::ToggleOrientationLock);
+    actual.push(("small-locked", hash(&free)));
+    free.dispatch(Action::ToggleFreeModeSetting);
+    free.dispatch(Action::ToggleNotesSetting);
+    actual.push(("small-hidden-controls", hash(&free)));
     const EXPECTED: &[(&str, u64)] = &[
-        ("small-board", 12216317633435593312),
-        ("small-description", 14174555601529285828),
-        ("small-settings", 5119080613175059402),
-        ("small-goto", 3715164015399037530),
-        ("small-collections", 3548917890722051489),
-        ("small-promotion", 11237617027457056230),
-        ("small-analysis", 12158900443104725135),
-        ("small-topic", 15133286308944685997),
-        ("small-flipped", 5361144475030293539),
+        ("small-board", 12993960575876375483),
+        ("small-description", 14227947985857266275),
+        ("small-settings", 1061144063131778047),
+        ("small-goto", 12019553447108263684),
+        ("small-collections", 2167974840530297815),
+        ("small-promotion", 7602527400203273217),
+        ("small-analysis", 7743292542008109140),
+        ("small-topic", 14699384574776479462),
+        ("small-flipped", 7664561400626763616),
+        ("small-free", 17613509344666808717),
+        ("small-locked", 4512497070776115097),
+        ("small-hidden-controls", 5675597048798315616),
     ];
     assert_eq!(actual.as_slice(), EXPECTED);
+}
+
+#[test]
+fn lock_flip_visibility_states_match_reviewed_snapshots() {
+    let directory = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/lock-flip-snapshots");
+    std::fs::create_dir_all(&directory).unwrap();
+    let mut actual = Vec::new();
+    for review in [false, true] {
+        for small in [false, true] {
+            for mask in 0..4 {
+                let mut app = state(PUZZLES);
+                if review {
+                    let games = chess_core::parse_review_file(include_bytes!(
+                        "../../../tests/fixtures/game-review/valid-standard.json"
+                    ))
+                    .unwrap();
+                    app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+                        "games.json",
+                        games.games[0].clone(),
+                    )]);
+                    app.dispatch(Action::ToggleWorkspace);
+                }
+                if small {
+                    app.dispatch(Action::ToggleBoardSizeSetting);
+                }
+                app.dispatch(Action::OpenSettings);
+                if mask & 1 != 0 {
+                    app.dispatch(Action::ToggleLockSetting);
+                }
+                if mask & 2 != 0 {
+                    app.dispatch(Action::ToggleFlipSetting);
+                }
+                for panel in [true, false] {
+                    if !panel {
+                        app.dispatch(Action::CloseSettings);
+                    }
+                    let name = format!(
+                        "{}-{}-{}-{mask}",
+                        if review { "review" } else { "puzzles" },
+                        if small { "small" } else { "standard" },
+                        if panel { "settings" } else { "toolbar" }
+                    );
+                    let output = render(&app, SCRIBE).unwrap();
+                    std::fs::write(directory.join(format!("{name}.pgm")), output.frame.to_pgm())
+                        .unwrap();
+                    actual.push((name, output.frame.checksum64()));
+                }
+            }
+        }
+    }
+    let expected: &[(&str, u64)] = &[
+        ("puzzles-standard-settings-0", 15015938234012989282),
+        ("puzzles-standard-toolbar-0", 9760894365916440813),
+        ("puzzles-standard-settings-1", 15136196115950374479),
+        ("puzzles-standard-toolbar-1", 5368491620130335297),
+        ("puzzles-standard-settings-2", 8815529355947867728),
+        ("puzzles-standard-toolbar-2", 14164218220769922806),
+        ("puzzles-standard-settings-3", 2333362797031225879),
+        ("puzzles-standard-toolbar-3", 16380937667021888876),
+        ("puzzles-small-settings-0", 1934371648860011403),
+        ("puzzles-small-toolbar-0", 12993960575876375483),
+        ("puzzles-small-settings-1", 12865716518698441506),
+        ("puzzles-small-toolbar-1", 3898325412899183329),
+        ("puzzles-small-settings-2", 9461441995957935514),
+        ("puzzles-small-toolbar-2", 8356509320562856687),
+        ("puzzles-small-settings-3", 17844612672892500155),
+        ("puzzles-small-toolbar-3", 2324479933444545465),
+        ("review-standard-settings-0", 1254089386655541435),
+        ("review-standard-toolbar-0", 11072394659977528714),
+        ("review-standard-settings-1", 14688834136394427084),
+        ("review-standard-toolbar-1", 11225645094069730444),
+        ("review-standard-settings-2", 5941027920095007879),
+        ("review-standard-toolbar-2", 1906972547681482743),
+        ("review-standard-settings-3", 15809082168483943088),
+        ("review-standard-toolbar-3", 12086145632678130161),
+        ("review-small-settings-0", 146955315280021403),
+        ("review-small-toolbar-0", 16894878170182868405),
+        ("review-small-settings-1", 17645953705525726290),
+        ("review-small-toolbar-1", 2460953561994008959),
+        ("review-small-settings-2", 16773773237708738530),
+        ("review-small-toolbar-2", 5058954955722275157),
+        ("review-small-settings-3", 4726954423383144179),
+        ("review-small-toolbar-3", 16514494898803383399),
+    ];
+    let actual: Vec<_> = actual
+        .iter()
+        .map(|(name, checksum)| (name.as_str(), *checksum))
+        .collect();
+    assert_eq!(actual.as_slice(), expected);
 }

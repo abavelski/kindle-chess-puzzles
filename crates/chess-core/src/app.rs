@@ -165,6 +165,8 @@ pub enum Action {
     CloseSettings,
     ToggleFreeModeSetting,
     ToggleNotesSetting,
+    ToggleLockSetting,
+    ToggleFlipSetting,
     ToggleBoardSizeSetting,
     OpenCollectionPicker,
     CloseCollectionPicker,
@@ -581,6 +583,8 @@ impl AppState {
                     | Action::CloseSettings
                     | Action::ToggleFreeModeSetting
                     | Action::ToggleNotesSetting
+                    | Action::ToggleLockSetting
+                    | Action::ToggleFlipSetting
                     | Action::ToggleBoardSizeSetting
                     | Action::SetTransientMessage(_)
             )
@@ -692,6 +696,8 @@ impl AppState {
                     | Action::CloseSettings
                     | Action::ToggleFreeModeSetting
                     | Action::ToggleNotesSetting
+                    | Action::ToggleLockSetting
+                    | Action::ToggleFlipSetting
                     | Action::ToggleBoardSizeSetting
                     | Action::SetTransientMessage(_)
             )
@@ -734,6 +740,16 @@ impl AppState {
                 if !enabled && self.workspace == Workspace::Puzzles {
                     self.description_visible = false;
                 }
+                vec![Effect::SettingsChanged]
+            }
+            Action::ToggleLockSetting => {
+                let enabled = !self.settings().show_lock_button();
+                self.settings_mut().set_show_lock_button(enabled);
+                vec![Effect::SettingsChanged]
+            }
+            Action::ToggleFlipSetting => {
+                let enabled = !self.settings().show_flip_button();
+                self.settings_mut().set_show_flip_button(enabled);
                 vec![Effect::SettingsChanged]
             }
             Action::ToggleBoardSizeSetting => {
@@ -849,8 +865,10 @@ impl AppState {
                 Vec::new()
             }
             Action::ReviewFlip => {
-                if let Some(review) = self.review_state.as_mut() {
-                    review.flip();
+                if self.settings().show_flip_button() {
+                    if let Some(review) = self.review_state.as_mut() {
+                        review.flip();
+                    }
                 }
                 Vec::new()
             }
@@ -863,8 +881,10 @@ impl AppState {
                 Vec::new()
             }
             Action::ReviewToggleOrientationLock => {
-                if let Some(review) = self.review_state.as_mut() {
-                    review.toggle_orientation_lock();
+                if self.settings().show_lock_button() {
+                    if let Some(review) = self.review_state.as_mut() {
+                        review.toggle_orientation_lock();
+                    }
                 }
                 Vec::new()
             }
@@ -922,7 +942,9 @@ impl AppState {
                 Vec::new()
             }
             Action::Flip => {
-                self.flipped = !self.flipped;
+                if self.settings().show_flip_button() {
+                    self.flipped = !self.flipped;
+                }
                 Vec::new()
             }
             Action::ToggleMode => {
@@ -932,7 +954,9 @@ impl AppState {
                 Vec::new()
             }
             Action::ToggleOrientationLock => {
-                self.orientation_locked = !self.orientation_locked;
+                if self.settings().show_lock_button() {
+                    self.orientation_locked = !self.orientation_locked;
+                }
                 Vec::new()
             }
             Action::ToggleDescription => {

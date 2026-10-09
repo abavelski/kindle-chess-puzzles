@@ -1,9 +1,12 @@
 //! DPI-aware deterministic layout and hit testing.
 
-use crate::{button::toolbar_button, ButtonSpec, ButtonType, Rect};
+use crate::{
+    button::{toolbar_button, toolbar_button_for_size},
+    ButtonSpec, ButtonType, Rect,
+};
 use chess_core::{
-    Action, AnalysisNodeIndex, AppState, PromotionChoice, Workspace, COLLECTIONS_PER_PAGE,
-    REVIEW_GAMES_PER_PAGE,
+    Action, AnalysisNodeIndex, AppState, PromotionChoice, Workspace, WorkspaceSettings,
+    COLLECTIONS_PER_PAGE, REVIEW_GAMES_PER_PAGE,
 };
 
 pub const MIN_TOUCH_MM: u32 = 10;
@@ -17,6 +20,7 @@ pub enum ToolbarAlignment {
 
 /// Developer-facing layout policy. This is deliberately not a saved setting.
 pub const APP_TOOLBAR_ALIGNMENT: ToolbarAlignment = ToolbarAlignment::FullWidth;
+const SMALL_TOOLBAR_ALIGNMENT: ToolbarAlignment = ToolbarAlignment::Left;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct ToolbarButtonSpec {
@@ -87,6 +91,8 @@ pub enum HitTarget {
     OpenSettings,
     ToggleFreeModeSetting,
     ToggleNotesSetting,
+    ToggleLockSetting,
+    ToggleFlipSetting,
     ToggleBoardSizeSetting,
     CloseSettings,
     OpenCollections,
@@ -135,6 +141,8 @@ impl HitTarget {
             Self::OpenSettings => Some(Action::OpenSettings),
             Self::ToggleFreeModeSetting => Some(Action::ToggleFreeModeSetting),
             Self::ToggleNotesSetting => Some(Action::ToggleNotesSetting),
+            Self::ToggleLockSetting => Some(Action::ToggleLockSetting),
+            Self::ToggleFlipSetting => Some(Action::ToggleFlipSetting),
             Self::ToggleBoardSizeSetting => Some(Action::ToggleBoardSizeSetting),
             Self::CloseSettings => Some(Action::CloseSettings),
             Self::OpenCollections => Some(Action::OpenCollectionPicker),
@@ -192,6 +200,8 @@ pub struct Layout {
     pub settings_modal: Rect,
     pub settings_free_mode: Rect,
     pub settings_notes: Rect,
+    pub settings_lock: Rect,
+    pub settings_flip: Rect,
     pub settings_board_size: Rect,
     pub settings_close_icon: Rect,
     pub settings_close: Rect,
@@ -203,11 +213,21 @@ pub struct Layout {
 
 impl Layout {
     pub fn new(metrics: DisplayMetrics) -> Result<Self, LayoutError> {
-        Self::with_toolbar_visibility(metrics, true, true, false, false, APP_TOOLBAR_ALIGNMENT)
+        Self::with_toolbar_visibility(
+            metrics,
+            &WorkspaceSettings::default(),
+            false,
+            APP_TOOLBAR_ALIGNMENT,
+        )
     }
 
     pub fn for_app(metrics: DisplayMetrics, state: &AppState) -> Result<Self, LayoutError> {
-        Self::for_app_with_alignment(metrics, state, APP_TOOLBAR_ALIGNMENT)
+        let alignment = if state.settings().small_board() {
+            SMALL_TOOLBAR_ALIGNMENT
+        } else {
+            APP_TOOLBAR_ALIGNMENT
+        };
+        Self::for_app_with_alignment(metrics, state, alignment)
     }
 
     pub fn for_app_with_alignment(
@@ -217,9 +237,7 @@ impl Layout {
     ) -> Result<Self, LayoutError> {
         Self::with_toolbar_visibility(
             metrics,
-            state.settings().show_free_mode_button(),
-            state.settings().show_notes_button(),
-            state.settings().small_board(),
+            state.settings(),
             state.workspace() == Workspace::Review,
             alignment,
         )
@@ -227,12 +245,15 @@ impl Layout {
 
     fn with_toolbar_visibility(
         metrics: DisplayMetrics,
-        show_free: bool,
-        show_notes: bool,
-        small_board: bool,
+        settings: &WorkspaceSettings,
         review: bool,
         alignment: ToolbarAlignment,
     ) -> Result<Self, LayoutError> {
+        let show_free = settings.show_free_mode_button();
+        let show_notes = settings.show_notes_button();
+        let show_lock = settings.show_lock_button();
+        let show_flip = settings.show_flip_button();
+        let small_board = settings.small_board();
         if metrics.width == 0 || metrics.height == 0 || metrics.dpi == 0 {
             return Err(LayoutError::InvalidMetrics);
         }
@@ -273,7 +294,7 @@ impl Layout {
         if board_size < 8 * 24 {
             return Err(LayoutError::TooSmall);
         }
-        // Controls and dialogs keep their standard width and touch dimensions.
+        // Preserve standard content bounds for full-width text and unchanged dialogs.
         let content_bounds = Rect::new(
             (metrics.width - board_size) / 2 - coordinate_gutter,
             header_height + small_gap,
@@ -290,7 +311,11 @@ impl Layout {
         }
         let square_size = board_size / 8;
 
-        let board_x = (metrics.width - board_size) / 2;
+        let board_x = if small_board {
+            content_bounds.x + coordinate_gutter
+        } else {
+            (metrics.width - board_size) / 2
+        };
         let board_y = header_height
             .saturating_add(small_gap)
             .saturating_add(coordinate_gutter);
@@ -335,10 +360,20 @@ impl Layout {
             .bottom()
             .saturating_add(coordinate_gutter)
             .saturating_add(small_gap);
-        let toolbar = Rect::new(
-            content_bounds.x,
-            toolbar_y,
-            content_bounds.width,
+        let controls_x = if small_board {
+            board_outer.right() + gap
+        } else {
+            content_bounds.x
+        };
+        let controls_width = content_bounds.right().saturating_sub(controls_x);
+        let mut toolbar = Rect::new(
+            controls_x,
+            if small_board {
+                board_outer.y + control_visual_inset
+            } else {
+                toolbar_y
+            },
+            controls_width,
             compact_control_height,
         );
         let toolbar_touch = Rect::new(
@@ -348,7 +383,7 @@ impl Layout {
             minimum_touch_px,
         );
 
-        let toolbar_specs = if review {
+        let mut toolbar_specs = if review {
             [
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleMode,
@@ -362,12 +397,12 @@ impl Layout {
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleOrientationLock,
-                    visible: true,
+                    visible: show_lock,
                     button: toolbar_button(HitTarget::ToggleOrientationLock),
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::Flip,
-                    visible: true,
+                    visible: show_flip,
                     button: toolbar_button(HitTarget::Flip),
                 },
                 ToolbarButtonSpec {
@@ -400,7 +435,7 @@ impl Layout {
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::ToggleOrientationLock,
-                    visible: true,
+                    visible: show_lock,
                     button: toolbar_button(HitTarget::ToggleOrientationLock),
                 },
                 ToolbarButtonSpec {
@@ -410,30 +445,55 @@ impl Layout {
                 },
                 ToolbarButtonSpec {
                     target: HitTarget::Flip,
-                    visible: true,
+                    visible: show_flip,
                     button: toolbar_button(HitTarget::Flip),
                 },
             ]
         };
-        let toolbar_targets = place_toolbar(
-            toolbar_touch,
-            small_gap,
-            minimum_touch_px,
-            px_for_mm(metrics.dpi, 16).max(minimum_touch_px),
-            toolbar_specs,
-            alignment,
-        )?;
+        for spec in &mut toolbar_specs {
+            spec.button = toolbar_button_for_size(spec.target, small_board);
+        }
+        let mut toolbar_targets = if small_board {
+            let (targets, rows) = place_sidebar_toolbar(
+                toolbar_touch,
+                small_gap,
+                minimum_touch_px,
+                toolbar_specs,
+                alignment,
+            )?;
+            toolbar.height += (rows - 1) * (minimum_touch_px + small_gap);
+            targets
+        } else {
+            place_toolbar(
+                toolbar_touch,
+                small_gap,
+                minimum_touch_px,
+                px_for_mm(metrics.dpi, 16).max(minimum_touch_px),
+                toolbar_specs,
+                alignment,
+            )?
+        };
 
+        if small_board {
+            // Anchor the complete control group by its bottom touch edge.
+            let navigation_bottom =
+                toolbar.bottom() + gap + minimum_touch_px - control_visual_inset;
+            let offset = board_outer
+                .bottom()
+                .checked_sub(navigation_bottom)
+                .ok_or(LayoutError::TooSmall)?;
+            toolbar.y += offset;
+            for control in &mut toolbar_targets {
+                if control.rect.width > 0 {
+                    control.rect.y += offset;
+                }
+            }
+        }
         let nav_y = toolbar.bottom().saturating_add(gap);
         let nav_touch_y = nav_y.saturating_sub(control_visual_inset);
         let (previous, goto, next) = if review {
-            let side_nav_width = content_bounds.width.saturating_sub(small_gap) / 2;
-            let previous = Rect::new(
-                content_bounds.x,
-                nav_touch_y,
-                side_nav_width,
-                minimum_touch_px,
-            );
+            let side_nav_width = controls_width.saturating_sub(small_gap) / 2;
+            let previous = Rect::new(controls_x, nav_touch_y, side_nav_width, minimum_touch_px);
             let next_x = previous.right().saturating_add(small_gap);
             (
                 previous,
@@ -441,23 +501,18 @@ impl Layout {
                 Rect::new(
                     next_x,
                     nav_touch_y,
-                    content_bounds.right().saturating_sub(next_x),
+                    toolbar.right().saturating_sub(next_x),
                     minimum_touch_px,
                 ),
             )
         } else {
             let goto_width = minimum_touch_px;
-            let side_nav_width = content_bounds
+            let side_nav_width = toolbar
                 .width
                 .saturating_sub(goto_width)
                 .saturating_sub(small_gap.saturating_mul(2))
                 / 2;
-            let previous = Rect::new(
-                content_bounds.x,
-                nav_touch_y,
-                side_nav_width,
-                minimum_touch_px,
-            );
+            let previous = Rect::new(controls_x, nav_touch_y, side_nav_width, minimum_touch_px);
             let goto = Rect::new(
                 previous.right().saturating_add(small_gap),
                 nav_touch_y,
@@ -467,7 +522,7 @@ impl Layout {
             let next = Rect::new(
                 goto.right().saturating_add(small_gap),
                 nav_touch_y,
-                content_bounds
+                toolbar
                     .right()
                     .saturating_sub(goto.right().saturating_add(small_gap)),
                 minimum_touch_px,
@@ -481,9 +536,16 @@ impl Layout {
             return Err(LayoutError::TooSmall);
         }
 
-        let status_y = nav_y
-            .saturating_add(compact_control_height)
-            .saturating_add(small_gap);
+        let status_y = if small_board {
+            board_outer.bottom().saturating_add(small_gap)
+        } else {
+            nav_y
+                .saturating_add(compact_control_height)
+                .saturating_add(small_gap)
+        };
+        if small_board && next.bottom() > board_outer.bottom() {
+            return Err(LayoutError::TooSmall);
+        }
         let status_bottom = metrics.height.saturating_sub(margin);
         if status_bottom <= status_y {
             return Err(LayoutError::TooSmall);
@@ -757,9 +819,21 @@ impl Layout {
             settings_inner.width,
             minimum_touch_px,
         );
-        let settings_board_size = Rect::new(
+        let settings_lock = Rect::new(
             settings_inner.x,
             settings_notes.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_flip = Rect::new(
+            settings_inner.x,
+            settings_lock.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_board_size = Rect::new(
+            settings_inner.x,
+            settings_flip.bottom().saturating_add(gap),
             settings_inner.width,
             minimum_touch_px,
         );
@@ -815,6 +889,8 @@ impl Layout {
             settings_modal,
             settings_free_mode,
             settings_notes,
+            settings_lock,
+            settings_flip,
             settings_board_size,
             settings_close_icon,
             settings_close,
@@ -899,6 +975,12 @@ impl Layout {
             }
             if self.settings_notes.contains(x, y) {
                 return Some(HitTarget::ToggleNotesSetting);
+            }
+            if self.settings_lock.contains(x, y) {
+                return Some(HitTarget::ToggleLockSetting);
+            }
+            if self.settings_flip.contains(x, y) {
+                return Some(HitTarget::ToggleFlipSetting);
             }
             if self.settings_board_size.contains(x, y) {
                 return Some(HitTarget::ToggleBoardSizeSetting);
@@ -1094,6 +1176,59 @@ impl Layout {
         }
         None
     }
+}
+
+/// Balance wrapped toolbar rows without reducing physical touch targets.
+fn place_sidebar_toolbar<const N: usize>(
+    rect: Rect,
+    gap: u32,
+    minimum: u32,
+    specs: [ToolbarButtonSpec; N],
+    alignment: ToolbarAlignment,
+) -> Result<([ControlTarget; N], u32), LayoutError> {
+    let count = specs.iter().filter(|spec| spec.visible).count() as u32;
+    let capacity = (rect.width + gap) / (minimum + gap);
+    if capacity == 0 || count == 0 {
+        return Err(LayoutError::TooSmall);
+    }
+    let rows = count.div_ceil(capacity);
+    let columns = count.div_ceil(rows);
+    let mut targets = specs.map(|spec| ControlTarget {
+        target: spec.target,
+        rect: Rect::new(0, 0, 0, 0),
+    });
+    let mut seen = 0;
+    for row in 0..rows {
+        let row_count = columns.min(count - seen);
+        let mut row_specs = specs;
+        let mut visible_index = 0;
+        for spec in &mut row_specs {
+            if spec.visible {
+                spec.visible = visible_index >= seen && visible_index < seen + row_count;
+                visible_index += 1;
+            }
+        }
+        let placed = place_toolbar(
+            Rect::new(
+                rect.x,
+                rect.y + row * (minimum + gap),
+                rect.width,
+                rect.height,
+            ),
+            gap,
+            minimum,
+            minimum,
+            row_specs,
+            alignment,
+        )?;
+        for (target, placed) in targets.iter_mut().zip(placed) {
+            if placed.rect.width > 0 {
+                *target = placed;
+            }
+        }
+        seen += row_count;
+    }
+    Ok((targets, rows))
 }
 
 fn place_toolbar<const N: usize>(
