@@ -44,3 +44,13 @@ ARMv7/glibc-2.35 release build. Staged and deployed with the existing scripts
 for physical validation on 2026-10-07. Installed binary hash matches host output;
 all ten puzzle/game/state file hashes are unchanged. No commit or push was made.
 See the device record for build identity and validation checklist.
+
+
+## Committed merged rebuild — 2026-10-09
+
+User requested committing all changes and merging latest main. Implementation
+committed as `78c2361`; remote main `09697fe` merged as `5e9ed4c`. Full host
+gates and pinned release build passed again. Staged/deployed while closed;
+installed binary matches host and all 118 collection/state file hashes are
+unchanged. Device loader dependencies resolve. Physical acceptance remains
+pending; see the device record for artifact identity and testing scope.

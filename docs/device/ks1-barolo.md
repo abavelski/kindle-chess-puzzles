@@ -2167,3 +2167,26 @@ game, main-line and variation move taps, PREV/NEXT and pagination, then puzzle
 analysis comments/references and a normal graded attempt. Confirm readability
 in STANDARD/SMALL, return to puzzle mode, and normal X exit. Changes remain
 uncommitted until the user accepts and explicitly requests committing.
+
+
+#### Task 50 merged rebuild and deployment — 2026-10-09
+
+At the user's request, committed the prepared book-style prose changes as
+`78c2361`, fetched `origin/main` at `09697fe`, and merged it without conflicts
+as `5e9ed4c`. The merged build also includes the expanded Game Review picker.
+
+- Full host gates passed through `scripts/build-kindle.sh`: formatting, clippy,
+  workspace tests/snapshots, generated assets, Python and platform/package contracts.
+- Pinned ARMv7/glibc-2.35 release build and ELF validation passed.
+- Staged with `scripts/stage-kindle.sh` and deployed with
+  `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+- App process and `/tmp/kindle-chess.lock` were absent before installation.
+- Build source SHA-256: `16d19052f3cf57c182f8487759637c248d2cad0e7051adbfe017ac39bcd038c2`.
+- Host/installed binary SHA-256: `96bf9e24f65c18c593e2f7c9567dda4f07a6c3db652b4490aa65410e53e3e782`.
+- Device loader resolved all dependencies. Supervisor lock absent afterward.
+- All 118 puzzle/game/progress/settings files retained identical SHA-256 hashes.
+  Local manifests and loader output are in ignored `probe-output/deploy-20261009/`.
+
+The app is installed for library launch and user testing. Physical acceptance of
+comment readability, move taps, pagination and the expanded game picker remains
+pending; no new visual/device-interaction pass is asserted.
