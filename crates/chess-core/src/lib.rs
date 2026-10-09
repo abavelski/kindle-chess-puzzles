@@ -14,6 +14,7 @@ pub mod fen;
 pub mod progress;
 pub mod puzzle;
 pub mod review;
+pub mod review_resume;
 pub mod review_state;
 pub mod settings;
 pub mod uci;
@@ -45,3 +46,5 @@ pub use review_state::{
 };
 pub use settings::{Settings, WorkspaceSettings, SETTINGS_VERSION};
 pub use uci::{algebraic_to_square, parse_uci_move, square_to_algebraic, UciError, UciMove};
+
+pub use review_resume::ReviewResume;

@@ -3,7 +3,8 @@
 use chess_core::{
     is_puzzle_collection_filename, parse_puzzle_file, parse_review_file,
     sorted_puzzle_collection_filenames, CollectionEntry, Progress, PuzzleCollection,
-    ReviewCollection, ReviewFileError, ReviewGame, ReviewGameEntry, ReviewGameKey, Settings,
+    ReviewCollection, ReviewFileError, ReviewGame, ReviewGameEntry, ReviewGameKey, ReviewResume,
+    Settings,
 };
 use std::{
     env, fmt,
@@ -21,6 +22,7 @@ pub const DEFAULT_SETTINGS_FILE: &str = "/mnt/us/kindle-chess/state/settings.jso
 pub const PUZZLE_DIR_ENV: &str = "KINDLE_CHESS_PUZZLE_DIR";
 pub const REVIEW_DIR_ENV: &str = "KINDLE_CHESS_REVIEW_DIR";
 pub const PROGRESS_FILE_ENV: &str = "KINDLE_CHESS_PROGRESS_FILE";
+pub const REVIEW_RESUME_FILE_ENV: &str = "KINDLE_CHESS_REVIEW_RESUME_FILE";
 pub const SETTINGS_FILE_ENV: &str = "KINDLE_CHESS_SETTINGS_FILE";
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -31,6 +33,7 @@ pub struct StoragePaths {
     pub review_dir: PathBuf,
     pub progress_file: PathBuf,
     pub settings_file: PathBuf,
+    pub review_resume_file: PathBuf,
 }
 
 impl StoragePaths {
@@ -46,7 +49,12 @@ impl StoragePaths {
             .parent()
             .unwrap_or_else(|| Path::new("."))
             .join("settings.json");
+        let review_resume_file = progress_file
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("review-resume.json");
         Self {
+            review_resume_file,
             puzzle_dir,
             review_dir,
             progress_file,
@@ -75,6 +83,9 @@ impl StoragePaths {
         paths.review_dir = review_dir;
         if let Some(settings_file) = env::var_os(SETTINGS_FILE_ENV) {
             paths.settings_file = PathBuf::from(settings_file);
+        }
+        if let Some(path) = env::var_os(REVIEW_RESUME_FILE_ENV) {
+            paths.review_resume_file = PathBuf::from(path);
         }
         paths
     }
@@ -642,6 +653,76 @@ impl SettingsStore {
 
         let bytes = settings.to_bytes().map_err(StorageError::Settings)?;
         atomic_replace(&self.path, &bytes)?;
+        self.dirty = false;
+        Ok(true)
+    }
+}
+
+/// Loaded review state and any warning protecting an existing document.
+#[derive(Debug)]
+pub struct ReviewResumeLoad {
+    pub resume: Option<ReviewResume>,
+    pub warning: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct ReviewResumeStore {
+    path: PathBuf,
+    latest: Option<ReviewResume>,
+    dirty: bool,
+    protected_reason: Option<String>,
+}
+
+impl ReviewResumeStore {
+    pub fn open(path: impl Into<PathBuf>) -> (Self, ReviewResumeLoad) {
+        let path = path.into();
+        let result = match fs::read(&path) {
+            Ok(bytes) => ReviewResume::parse(&bytes).map(Some),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(format!("could not read existing review resume: {error}")),
+        };
+        let (resume, protected_reason) = match result {
+            Ok(resume) => (resume, None),
+            Err(reason) => (None, Some(reason)),
+        };
+        let warning = protected_reason.as_ref().map(|reason| {
+            format!("Review resume warning: existing file will not be overwritten: {reason}")
+        });
+        let store = Self {
+            path,
+            latest: resume.clone(),
+            dirty: false,
+            protected_reason,
+        };
+        (store, ReviewResumeLoad { resume, warning })
+    }
+
+    pub fn dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// Keep the newest state in memory even if storage is unavailable.
+    pub fn observe(&mut self, resume: ReviewResume) {
+        if self.latest.as_ref() != Some(&resume) {
+            self.latest = Some(resume);
+            self.dirty = true;
+        }
+    }
+
+    pub fn retry_if_dirty(&mut self) -> Result<bool, StorageError> {
+        if !self.dirty {
+            return Ok(false);
+        }
+        if let Some(reason) = &self.protected_reason {
+            return Err(StorageError::Io(format!(
+                "refusing to overwrite protected review resume {}: {reason}",
+                self.path.display()
+            )));
+        }
+        if let Some(resume) = &self.latest {
+            let bytes = resume.to_bytes().map_err(StorageError::Io)?;
+            atomic_replace(&self.path, &bytes)?;
+        }
         self.dirty = false;
         Ok(true)
     }

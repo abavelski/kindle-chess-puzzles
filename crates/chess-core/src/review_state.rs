@@ -107,6 +107,13 @@ impl ReviewState {
         }
     }
 
+    pub(crate) fn restore_preferences(&mut self, resume: &crate::ReviewResume) {
+        self.flipped = resume.flipped;
+        self.orientation_locked = resume.orientation_locked;
+        self.analysis_page = resume.analysis_page;
+        self.analysis_focus = resume.focus_selected.then_some(self.selected_node);
+    }
+
     pub const fn active_game_index(&self) -> usize {
         self.active_game_index
     }

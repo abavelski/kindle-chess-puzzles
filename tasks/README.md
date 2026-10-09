@@ -102,3 +102,6 @@ physical validation is pending.
 [Task 52 — Separate workspace settings](improvements/52-workspace-settings.md)
 keeps Puzzle and Game Review preferences independent, with migration from
 existing global settings. Host implementation passed; device validation is pending.
+
+[Task 53 — Persist Game Review position](improvements/53-review-resume.md)
+restores the last review file/game and authored move independently of puzzle progress.

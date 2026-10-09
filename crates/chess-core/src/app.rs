@@ -294,6 +294,39 @@ impl AppState {
         ));
     }
 
+    pub fn review_resume(&self) -> Option<crate::ReviewResume> {
+        let entry = self.active_review_game()?;
+        Some(crate::ReviewResume::capture(
+            entry.key().collection_id(),
+            entry.game(),
+            self.review_state.as_ref()?,
+        ))
+    }
+
+    /// Restore only review state. Missing content never changes puzzle state or progress.
+    pub fn restore_review_resume(&mut self, resume: &crate::ReviewResume) -> Option<String> {
+        let Some(index) = self.review_games.iter().position(|entry| {
+            entry.key().collection_id() == resume.collection_id
+                && entry.key().game_id() == resume.game_id
+        }) else {
+            return Some(
+                "Remembered review game is missing or invalid; using the first available game."
+                    .into(),
+            );
+        };
+        let game = self.review_games[index].game();
+        let mut state = ReviewState::new(index, game);
+        let warning = if let Some(node) = resume.selected_node(game) {
+            state.select_node(game, node);
+            state.restore_preferences(resume);
+            None
+        } else {
+            Some("Remembered review move has changed or is missing; using the game starting position.".into())
+        };
+        self.review_state = Some(state);
+        warning
+    }
+
     pub fn review_games(&self) -> &[ReviewGameEntry] {
         &self.review_games
     }

@@ -247,16 +247,16 @@ Do not introduce a general-purpose widget framework.
 
 ## Storage and persistence
 
-Phase 3 should add review-library discovery/loading but **not** durable review progress yet.
+The initial Phase 3 implementation added review-library discovery/loading without durable review progress. Task 53 now adds a separate versioned `review-resume.json` for the active collection/game and authored move path/FEN, orientation and analysis page. Puzzle `progress.json` remains unchanged; Free Board experiments stay transient.
 
-For the first implementation:
+For the original first implementation:
 
 - puzzle progress remains exactly as-is;
 - settings remain shared;
 - the active review game and ply are in-memory only;
 - review source files are immutable from the app's point of view.
 
-A later task can add a separate versioned review-resume document if real use shows it is valuable. Do not overload `progress.json`.
+Task 53 implements the separate review-resume document. Do not overload `progress.json`.
 
 ## Refresh and damage behavior
 

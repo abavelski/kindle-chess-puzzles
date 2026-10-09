@@ -92,7 +92,13 @@ board size and optional toolbar buttons. Existing global preferences initially
 carry over to both modes. Switching back to Puzzles
 restores the in-progress puzzle session and leaves its progress untouched.
 With no installed valid games, the toggle leaves Puzzles active and reports
-“No review games installed”. Review game/ply selection is in-memory only.
+“No review games installed”. Review remembers the last collection, game and authored move (including variations)
+in `/mnt/us/kindle-chess/state/review-resume.json`, independently of puzzle
+`progress.json`. Relaunch starts in Puzzles; switching to Game Review restores
+that position, orientation and analysis page. FREE scratch edits remain transient.
+Missing/invalid games fall back to the first available game; a removed or changed
+move falls back to that game's starting position with a warning. Malformed/future
+resume files are preserved. `KINDLE_CHESS_REVIEW_RESUME_FILE` overrides the path.
 
 ## Update and recover
 
@@ -127,7 +133,7 @@ position, or main line changes it. To keep an explicitly managed identity, add
 for a single-game input. Two games with the same resulting ID fail clearly,
 including identical games imported twice; give distinct games distinct explicit
 IDs or remove duplicate records. Runtime keys combine the collection filename
-and game ID, so keep filenames stable too. No durable review resume exists yet.
+and game ID, so keep filenames stable too. Review resume uses these same stable identities and authored move paths.
 
 The converter never reads or writes `progress.json`, and runtime review actions
 never modify game sources or puzzle grading/progress. Backups ending in `.bak`

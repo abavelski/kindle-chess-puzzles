@@ -229,6 +229,7 @@ The Kindle adapter chooses:
 - review-game directory;
 - progress path;
 - settings path;
+- separate review-resume path;
 - logs/debug path.
 
 Keep paths configurable for tests.
@@ -274,3 +275,15 @@ profiles; subsequent edits affect only the active workspace. Migration stays
 in memory until a settings edit is saved. Missing preference fields retain their
 existing defaults; malformed/future files remain protected from overwrite.
 Settings edits never persist puzzle progress or modify uploaded collections.
+
+### Review resume
+
+`review-resume.json` version 1 stores the last review collection filename, stable
+game ID, authored UCI move path and selected FEN, orientation/lock and analysis
+page/focus. Core captures/restores these values without touching puzzles; paths
+and atomic writes stay in the platform adapter. Runtime saves on review actions,
+retries failures (including exit), and restores the review session at startup
+without switching away from Puzzles. Source updates with missing/ambiguous paths
+or changed FEN fall back to the selected game's root; missing games use the first
+available game. Malformed/future/unreadable documents are protected. Scratch
+boards, piece selection, promotion dialogs and game pickers remain transient.

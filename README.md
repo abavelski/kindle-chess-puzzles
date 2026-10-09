@@ -20,6 +20,7 @@ It is intentionally **not a chess engine**. Puzzle grading follows authored solu
 - **Persistent settings panel** from the settings control beside Close, with simple ON/OFF choices for showing the Free Board and Notes toolbar buttons, plus STANDARD/SMALL board sizes. Puzzle and Game Review save these preferences independently. The smaller centered board leaves a larger panel for bigger notes and analysis text.
 - **Fast navigation** with previous/next controls plus a direct **GOTO** dialog for large collections.
 - **Multiple puzzle collections** with durable current-puzzle and solved progress stored separately from puzzle files.
+- **Game Review resume** remembers the selected file, game and authored move across relaunch, with its own state file independent of puzzle progress.
 - **Board orientation tools** including automatic side-to-move orientation, manual flip, and orientation lock.
 - **Puzzle metadata** including difficulty, topics, notes/descriptions, and Cyrillic text support.
 - **Rich book-style analysis** with inline PGN-style movetext, recursive variations, comments, conventional annotations (`!`, `?`, `!!`, `??`, `!?`, `?!`), and tappable move references that preview the exact position.

@@ -2225,3 +2225,13 @@ Physical validation pending: edit board size/optional controls in Game Review,
 switch to Puzzles and confirm its preferences/session are preserved, edit Puzzle
 preferences and check review is unchanged, then exit/relaunch and confirm both
 profiles survive. Existing global preferences initially populate both profiles.
+
+## Task 53 — Review resume deployment (2026-10-09)
+
+On explicit user request, staged the host-tested ARMv7/glibc-2.35 release and
+installed through `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+The app process and supervisor lock were absent before installation. Installed
+binary SHA-256 is `23027062186b46891e10844ac183197933cedb36ee46f2f62c863e5cb9181ba4`,
+matching the successful build receipt; the device loader resolved dependencies.
+All 118 puzzle/game/state file hashes remained unchanged. No app launch or
+physical review-position/restart validation was performed; no commit was made.

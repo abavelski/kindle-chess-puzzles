@@ -218,7 +218,8 @@ there using USB or your established SSH transport. Only `games.json` and
 directory. Relaunch and tap the workspace icon beside Refresh, then GAMES.
 PREV/NEXT traverse the main line; bold moves preview stored positions. FREE
 provides reversible scratch exploration. Switching back preserves puzzle state
-and progress. Review selection has no durable resume yet.
+and progress. Review selection and the authored move are restored from the separate
+`state/review-resume.json` after relaunch; Free Board scratch edits are transient.
 
 For updates, back up the JSON and rerun the converter with `-o` targeting the
 same filename. Validation precedes atomic host replacement; annotation-only
