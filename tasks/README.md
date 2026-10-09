@@ -93,3 +93,7 @@ adds developer-selectable left, right, and full-width placement; full width is a
 
 [Task 40 — Board size setting](improvements/40-board-size-setting.md)
 adds STANDARD/SMALL board sizes and a larger text panel in the smaller layout.
+
+[Task 50 — Book-style comment prose](improvements/50-book-style-comment-prose.md)
+removes display-only comment braces in puzzle analysis and game review;
+physical validation is pending.

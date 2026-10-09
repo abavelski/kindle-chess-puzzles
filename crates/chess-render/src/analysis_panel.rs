@@ -516,10 +516,8 @@ fn build_document(
                     }
                 }
                 if !node.content.is_empty() {
-                    builder.push_text(0, " {", false);
+                    builder.pending_space = true;
                     push_spans(&mut builder, 0, &node.content, analysis, selected);
-                    builder.pending_space = false;
-                    builder.push_text(0, "}", false);
                 }
                 builder.pending_space = true;
             }
@@ -726,7 +724,32 @@ mod tests {
     fn multiple_move_annotations_and_unknown_codes_preserve_their_information() {
         let tree = tree_with_nags(&[3, 5, 99]);
         let document = build_document(&[], &tree, None, 1800, 3);
-        assert!(notation(&document).starts_with("1. e4!!!? $99 { Central move."));
+        assert!(notation(&document).starts_with("1. e4!!!? $99 Central move."));
+    }
+
+    #[test]
+    fn review_comments_use_plain_prose_and_preserve_authored_braces() {
+        let mut value: serde_json::Value = serde_json::from_slice(include_bytes!(
+            "../../../tests/fixtures/game-review/valid-standard.json"
+        ))
+        .unwrap();
+        let nodes = value["games"][0]["analysis"]["nodes"]
+            .as_array_mut()
+            .unwrap();
+        let node = nodes.iter_mut().find(|node| node["id"] == "n1").unwrap();
+        node["comment"] = "Keep {authored braces} in prose.".into();
+        node["content"] = serde_json::json!([
+            {"type": "text", "text": "Keep {authored braces} in prose."}
+        ]);
+        let collection =
+            chess_core::parse_review_file(&serde_json::to_vec(&value).unwrap()).unwrap();
+        let tree = &collection.games[0].analysis;
+        let document = build_document(&[], tree, None, 1800, 3);
+        let text = notation(&document);
+        assert!(text.contains("Keep {authored braces} in prose."));
+        assert_eq!(text.matches('{').count(), 1);
+        assert_eq!(text.matches('}').count(), 1);
+        assert!(text.contains('(') && text.contains(')'));
     }
 
     #[test]
@@ -739,9 +762,9 @@ mod tests {
             notation(&document),
             concat!(
                 "Compare the main knight with c5 and plain Nd5/e2e4. ",
-                "1. e4! { Central move. Compare 1...e5 with e2e4 in plain text. } ",
-                "1... e5 ( 1... c5 { Sicilian alternative. } 2. Nf3 Nc6 ",
-                "( 2... d6 { Nested sideline. } ) ) 2. Nf3 Nc6"
+                "1. e4! Central move. Compare 1...e5 with e2e4 in plain text. ",
+                "1... e5 ( 1... c5 Sicilian alternative. 2. Nf3 Nc6 ",
+                "( 2... d6 Nested sideline. ) ) 2. Nf3 Nc6"
             )
         );
         assert!(document.lines.len() <= 6, "compact wrapped flow");
@@ -772,7 +795,7 @@ mod tests {
         let book = parse_puzzle_file(BOOK).unwrap();
         let mut tree = book.puzzles[1].analysis.as_ref().unwrap().clone();
         let document = build_document(&[], &tree, None, 1800, 3);
-        assert_eq!(notation(&document), "1... h1=Q+ { Promotion comment with plain h1=Q+. } ( 1... h1=N { Underpromotion sideline. } ) 2. Ka2");
+        assert_eq!(notation(&document), "1... h1=Q+ Promotion comment with plain h1=Q+. ( 1... h1=N Underpromotion sideline. ) 2. Ka2");
         // Clone the parsed tree through JSON to change all starting counters coherently.
         let mut value: serde_json::Value = serde_json::from_slice(BOOK).unwrap();
         let puzzle = &mut value["puzzles"][1];
@@ -815,7 +838,7 @@ mod tests {
         let book = parse_puzzle_file(&serde_json::to_vec(&value).unwrap()).unwrap();
         let tree = book.puzzles[0].analysis.as_ref().unwrap();
         let text = notation(&build_document(&[], tree, None, 1800, 3));
-        assert!(text.contains("2. Nf3 Nc6 ( 2... e6 ) ( 2... d6 { Nested sideline. } ) )"));
+        assert!(text.contains("2. Nf3 Nc6 ( 2... e6 ) ( 2... d6 Nested sideline. ) )"));
     }
     #[test]
     fn overflow_wraps_all_punctuation_moves_and_long_comment_words_without_clipping() {
@@ -831,7 +854,7 @@ mod tests {
         let text = notation(&narrow);
         assert_eq!(text.matches('(').count(), 2);
         assert_eq!(text.matches(')').count(), 2);
-        assert_eq!(text.matches('{').count(), text.matches('}').count());
+        assert!(!text.contains(['{', '}']));
         let mut builder = FlowBuilder::new(180, 3);
         let long_word = "explanation".repeat(20);
         builder.push_text(0, &long_word, false);

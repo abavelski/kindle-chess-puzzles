@@ -2145,3 +2145,25 @@ this transfer verification does not assert a new physical visual checkpoint.
 
 Future board marks are described in the
 [deferred PGN annotation proposal](../PGN_BOARD_ANNOTATIONS.md).
+
+#### Task 50 prepared deployment — 2026-10-07
+
+Removed renderer-added comment braces in the shared puzzle/review analysis flow.
+Variation parentheses, authored prose punctuation, bold move references, NAGs
+and selected-move inversion remain. Inspected updated STANDARD/SMALL frames;
+full host gates and the pinned ARMv7/glibc-2.35 build passed. Deployed the
+uncommitted `main` working tree based on `7ab213f` with
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222` after the user
+closed the app and restored SSH availability.
+
+- Build source SHA-256: `3e1904f18213cdc4f83d9dd0fe7b22ee9d4d7a84eb8359de8124c5ec00607e5a`.
+- Local/installed binary SHA-256: `72268220b88d97a75ae0b87e1782a875dd1dabedcba2279b1883335bf557fe5a`.
+- Device loader resolved all dependencies; supervisor lock absent afterward.
+- All ten puzzle collections, review collections, progress and settings files
+  retained their pre-deployment SHA-256 hashes.
+
+Physical validation is pending. Check brace-free prose in the real Fischer–Sherwin
+game, main-line and variation move taps, PREV/NEXT and pagination, then puzzle
+analysis comments/references and a normal graded attempt. Confirm readability
+in STANDARD/SMALL, return to puzzle mode, and normal X exit. Changes remain
+uncommitted until the user accepts and explicitly requests committing.

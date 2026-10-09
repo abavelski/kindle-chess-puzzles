@@ -282,19 +282,19 @@ fn review_workspace_visual_states_match_reviewed_gray8_snapshots() {
     actual.push(("review-no-games", hash(&no_games)));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("review-root-standard", 11_765_130_088_749_038_892),
-        ("review-middle-main", 1_483_975_510_969_405_458),
-        ("review-final-main", 9_462_369_133_115_775_466),
-        ("review-selected-variation", 3_878_135_319_240_275_682),
+        ("review-root-standard", 11_072_394_659_977_528_714),
+        ("review-middle-main", 2_014_352_177_180_291_752),
+        ("review-final-main", 13_880_241_759_628_312_160),
+        ("review-selected-variation", 17_973_672_245_252_132_704),
         ("review-long-first", 16_395_587_122_926_988_907),
         ("review-long-middle", 13_505_780_319_366_563_043),
-        ("review-long-last", 120_065_743_217_836_767),
-        ("review-black-to-move", 16_717_819_373_179_671_942),
-        ("review-unicode-header", 13_579_626_513_863_133_788),
-        ("review-free-scratch", 3_083_208_783_060_766_309),
-        ("review-flipped", 15_636_352_702_640_996_138),
-        ("review-small-board", 16_859_584_786_504_984_638),
-        ("review-game-picker", 17_308_979_411_350_942_764),
+        ("review-long-last", 3_779_354_846_187_004_797),
+        ("review-black-to-move", 395_374_924_477_436_930),
+        ("review-unicode-header", 997_277_629_216_496_538),
+        ("review-free-scratch", 9_334_775_776_239_098_211),
+        ("review-flipped", 15_807_205_748_985_471_160),
+        ("review-small-board", 15_028_477_983_248_255_030),
+        ("review-game-picker", 16_616_243_982_579_432_586),
         ("review-no-games", 11_567_526_096_340_990_005),
     ];
 

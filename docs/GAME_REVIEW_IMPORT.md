@@ -79,6 +79,10 @@ its stored position. A variation anchors navigation at its nearest main-line
 ancestor: NEXT selects the following main-line ply, PREV the preceding one.
 At the root PREV is disabled, and at the final main-line move NEXT is disabled.
 
+Comments display as plain prose alongside bold move links; the renderer omits
+PGN comment braces while retaining parentheses around variations. Braces remain
+required in source PGN comments and are consumed during offline conversion.
+
 **FREE** creates a scratch board from the selected position. **RESET** restores
 that position; choosing another move or PREV/NEXT resets scratch to the newly
 selected position while FREE stays enabled. Turning FREE off restores the

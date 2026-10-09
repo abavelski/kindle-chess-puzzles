@@ -546,7 +546,7 @@ fn smaller_board_visual_states_match_reviewed_gray8_snapshots() {
         ("small-goto", 3715164015399037530),
         ("small-collections", 3548917890722051489),
         ("small-promotion", 11237617027457056230),
-        ("small-analysis", 14269002885475619637),
+        ("small-analysis", 12158900443104725135),
         ("small-topic", 15133286308944685997),
         ("small-flipped", 5361144475030293539),
     ];
