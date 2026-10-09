@@ -315,8 +315,18 @@ fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_pro
     app.dispatch(open.into_action().expect("GAMES action"));
 
     let page_one = render(&app, SCRIBE).expect("picker page one");
-    assert_eq!(app.review_state().expect("review").game_picker_page_count(17), 2);
-    assert_eq!(app.review_state().expect("review").game_picker_visible_range(17), 0..REVIEW_GAMES_PER_PAGE);
+    assert_eq!(
+        app.review_state()
+            .expect("review")
+            .game_picker_page_count(17),
+        2
+    );
+    assert_eq!(
+        app.review_state()
+            .expect("review")
+            .game_picker_visible_range(17),
+        0..REVIEW_GAMES_PER_PAGE
+    );
     for index in 0..REVIEW_GAMES_PER_PAGE {
         assert_rect_target(
             &page_one,
