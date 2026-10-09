@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use chess_core::{
     parse_puzzle_file, parse_review_file, Action, ActiveCollection, AnalysisNodeIndex, AppState,
-    Board, Effect, Progress, ReviewFileError, ReviewGameEntry, Workspace,
+    Board, Effect, Progress, ReviewFileError, ReviewGameEntry, Workspace, REVIEW_GAMES_PER_PAGE,
 };
 use chess_render::{render, AnalysisMoveChipSource, DisplayMetrics, HitTarget, Rect, RenderOutput};
 
@@ -285,7 +285,7 @@ fn review_movetext_reuses_move_and_page_hit_targets_without_linking_plain_prose(
 #[test]
 fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_progress() {
     let game = review_game();
-    let games = (0..7)
+    let games = (0..16)
         .map(|index| ReviewGameEntry::new(format!("games-{index}.json"), game.clone()))
         .collect::<Vec<_>>();
     let mut app = puzzle_state();
@@ -303,7 +303,7 @@ fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_pro
         first.label(),
         "José Raúl Capablanca - Александр Алехин\nТестовый турнир — København / 1927.09.16  1/2-1/2"
     );
-    assert_eq!(app.review_picker_entry_count(), 8);
+    assert_eq!(app.review_picker_entry_count(), 17);
     let progress_before = app.progress().to_bytes().expect("progress bytes");
 
     let output = render(&app, SCRIBE).expect("review render");
@@ -315,18 +315,20 @@ fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_pro
     app.dispatch(open.into_action().expect("GAMES action"));
 
     let page_one = render(&app, SCRIBE).expect("picker page one");
-    for index in 0..6 {
+    assert_eq!(app.review_state().expect("review").game_picker_page_count(17), 2);
+    assert_eq!(app.review_state().expect("review").game_picker_visible_range(17), 0..REVIEW_GAMES_PER_PAGE);
+    for index in 0..REVIEW_GAMES_PER_PAGE {
         assert_rect_target(
             &page_one,
             &app,
-            page_one.layout.collection_rows[index],
+            page_one.layout.review_game_rows[index],
             HitTarget::ReviewGame(index),
         );
     }
     assert_rect_target(
         &page_one,
         &app,
-        page_one.layout.collection_page_next,
+        page_one.layout.review_game_page_next,
         HitTarget::ReviewGamePickerNextPage,
     );
     let board_point = center(page_one.layout.square_rect(0));
@@ -341,10 +343,10 @@ fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_pro
     assert_rect_target(
         &page_two,
         &app,
-        page_two.layout.collection_rows[0],
-        HitTarget::ReviewGame(6),
+        page_two.layout.review_game_rows[0],
+        HitTarget::ReviewGame(15),
     );
-    let invalid = center(page_two.layout.collection_rows[1]);
+    let invalid = center(page_two.layout.review_game_rows[1]);
     assert_eq!(
         page_two.hit_test_app(invalid.0, invalid.1, &app),
         None,
@@ -353,22 +355,22 @@ fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_pro
     assert_rect_target(
         &page_two,
         &app,
-        page_two.layout.collection_page_previous,
+        page_two.layout.review_game_page_previous,
         HitTarget::ReviewGamePickerPreviousPage,
     );
     assert_rect_target(
         &page_two,
         &app,
-        page_two.layout.collection_close,
+        page_two.layout.review_game_close,
         HitTarget::CloseReviewGamePicker,
     );
 
     let invalid_before = app.clone();
-    app.dispatch(Action::SelectReviewGame(7));
+    app.dispatch(Action::SelectReviewGame(16));
     assert_eq!(app, invalid_before, "invalid picker index must be inert");
 
-    let requested = app.review_games()[6].clone();
-    let select = HitTarget::ReviewGame(6)
+    let requested = app.review_games()[15].clone();
+    let select = HitTarget::ReviewGame(15)
         .into_action()
         .expect("review-game action");
     assert_eq!(
@@ -396,7 +398,7 @@ fn games_picker_paginates_stable_game_keys_blocks_invalid_rows_and_preserves_pro
             .expect("active review game")
             .key()
             .collection_id(),
-        "games-6.json"
+        "games-15.json"
     );
     assert_eq!(
         app.progress().to_bytes().expect("progress bytes"),
