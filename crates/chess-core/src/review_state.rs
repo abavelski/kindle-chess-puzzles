@@ -5,7 +5,7 @@ use crate::{
     TapResult,
 };
 
-pub const REVIEW_GAMES_PER_PAGE: usize = 6;
+pub const REVIEW_GAMES_PER_PAGE: usize = 15;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum Workspace {
