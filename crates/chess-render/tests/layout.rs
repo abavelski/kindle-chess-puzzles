@@ -1,5 +1,6 @@
 use chess_core::{
     parse_puzzle_file, Action, ActiveCollection, AppState, CollectionEntry, Progress,
+    REVIEW_GAMES_PER_PAGE,
 };
 use chess_render::{DisplayMetrics, HitTarget, Layout, Rect, MIN_TOUCH_MM};
 
@@ -98,6 +99,51 @@ fn landscape_metrics_still_produce_valid_layout_without_magic_scribe_coordinates
     assert_eq!(layout.board.width, layout.board.height);
     assert!(layout.viewport.contains_rect(layout.board));
     assert!(layout.status.bottom() <= landscape.height);
+}
+
+#[test]
+fn review_game_picker_fills_screen_with_touch_sized_non_overlapping_rows() {
+    for metrics in [
+        SCRIBE,
+        DisplayMetrics {
+            width: 2480,
+            height: 1860,
+            dpi: 300,
+        },
+    ] {
+        let layout = Layout::new(metrics).expect("review picker layout fits");
+        let minimum = layout.minimum_touch_px();
+        assert!(layout.viewport.contains_rect(layout.review_game_modal));
+        assert!(
+            layout.review_game_modal.bottom() > layout.collection_modal.bottom(),
+            "game picker extends beyond the board-sized collection dialog"
+        );
+        assert_eq!(layout.review_game_rows.len(), REVIEW_GAMES_PER_PAGE);
+
+        for (index, rect) in layout.review_game_rows.iter().enumerate() {
+            assert!(rect.width >= minimum && rect.height >= minimum);
+            assert!(layout.review_game_modal.contains_rect(*rect));
+            assert!(rect.bottom() < layout.review_game_close.y);
+            for previous in &layout.review_game_rows[..index] {
+                assert!(!rect.intersects(*previous), "game rows must not overlap");
+            }
+        }
+        for rect in [
+            layout.review_game_page_previous,
+            layout.review_game_close,
+            layout.review_game_page_next,
+        ] {
+            assert!(rect.width >= minimum && rect.height >= minimum);
+            assert!(layout.review_game_modal.contains_rect(rect));
+        }
+    }
+
+    let portrait = Layout::new(SCRIBE).expect("Scribe layout");
+    assert!(
+        portrait.review_game_rows[REVIEW_GAMES_PER_PAGE - 1].bottom()
+            > portrait.collection_modal.bottom(),
+        "the last game row should use space below the old dialog"
+    );
 }
 
 #[test]
