@@ -14,3 +14,5 @@ __pycache__/
 
 # Machine-specific Windows build/deploy scripts and artifacts.
 /local-kindle/
+
+/docs/drafts/

@@ -17,15 +17,19 @@ It is intentionally **not a chess engine**. Puzzle grading follows authored solu
 - **Touch-first puzzle solving** on a full 8×8 board, with Scribe pen support for interactive solution browsing.
 - **Graded Solution mode** with exact stored-line checking, automatic opponent replies, wrong-move rollback, completion feedback, and promotion choice.
 - **Free Board mode** for moving pieces without grading.
+- **Persistent settings panel** from the settings control beside Close, with simple ON/OFF choices for showing the Free Board, Notes, Lock and Flip toolbar buttons, plus STANDARD/SMALL board sizes. Puzzle and Game Review save these preferences independently. The smaller board sits at the left with controls beside it and a larger panel for bigger notes and analysis text directly below.
 - **Fast navigation** with previous/next controls plus a direct **GOTO** dialog for large collections.
 - **Multiple puzzle collections** with durable current-puzzle and solved progress stored separately from puzzle files.
+- **Game Review resume** remembers the selected file, game and authored move across relaunch, with its own state file independent of puzzle progress.
 - **Board orientation tools** including automatic side-to-move orientation, manual flip, and orientation lock.
 - **Puzzle metadata** including difficulty, topics, notes/descriptions, and Cyrillic text support.
 - **Rich book-style analysis** with inline PGN-style movetext, recursive variations, comments, conventional annotations (`!`, `?`, `!!`, `??`, `!?`, `?!`), and tappable move references that preview the exact position.
 - **E-ink-aware rendering** with deterministic grayscale output, damage-aware refreshes, a manual Refresh control for residual ghosting, and a sleep overlay with repeatable power-button sleep/wake handling.
 - **Reproducible Kindle builds and packaging** for ARMv7 / glibc 2.35, with host tests covering core logic, rendering, input contracts, lifecycle, and packaging.
 
-Phase one (the complete Kindle puzzle experience) and phase two (rich solution browsing) are both complete. The post-phase-two UI improvements above are implemented on `main`.
+Phase one (the complete Kindle puzzle experience), phase two (rich solution browsing),
+and phase three (Game Review) are complete. Game Review supports offline imports
+of annotated PGNs and browsing validated on the physical Scribe.
 
 ## How it works
 
@@ -54,7 +58,7 @@ The Kindle runtime stays deliberately small. Puzzle solving, rendering, and anal
 
 The workspace is split into four main crates:
 
-- **`chess-core`** — FEN/UCI board model, puzzle parsing, solution state, collections, progress, and rich-analysis state.
+- **`chess-core`** — FEN/UCI board model, puzzle parsing, solution state, collections, progress, versioned settings, and rich-analysis state.
 - **`chess-render`** — deterministic e-ink layout/rendering, hit testing, pieces, text, and damage regions.
 - **`kindle-platform`** — Kindle display presentation, Linux touch/pen input, paths, device lifecycle, and power integration.
 - **`fbink-sys`** — the raw FBInk FFI boundary.
@@ -83,6 +87,19 @@ scripts/deploy-kindle.sh --host root@DEVICE_IP --port 2222
 With Scriptlets/SH_Integration installed, the packaged app can be launched from the Kindle library as **Kindle Chess Puzzles**.
 
 For the full setup and recovery procedure, see [Build & Deploy](docs/BUILD_DEPLOY.md).
+
+To import review games, install the host dependencies in a virtual environment
+(`python3 -m pip install -r requirements-tools.txt`), then run:
+
+```sh
+python3 tools/pgn_review_converter.py my-games.pgn -o games-my-games.json --title "My games"
+```
+
+Copy the JSON to `/mnt/us/kindle-chess/games/` while the app is closed, relaunch,
+and tap the workspace icon beside Refresh. Use GAMES to select a game, PREV/NEXT
+to follow its main line, or tap moves to preview variations. See
+[Game Review import/update](docs/GAME_REVIEW_IMPORT.md) for setup, safe updates,
+stable IDs, Free Board behavior, and rollback. Physical review-mode acceptance passed on 2026-10-07.
 
 ## Project notes
 

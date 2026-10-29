@@ -1,0 +1,9 @@
+[Event "Stable Identity"]
+[Site "Test"]
+[Date "2026.03.01"]
+[Round "1"]
+[White "Alpha"]
+[Black "Beta"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 Nc6 *

@@ -141,13 +141,14 @@ Keep paths configurable.
 Task 06 uses these Kindle defaults:
 
 - puzzle JSON directory: `/mnt/us/kindle-chess/puzzles`;
-- app-owned progress file: `/mnt/us/kindle-chess/state/progress.json`.
+- app-owned progress file: `/mnt/us/kindle-chess/state/progress.json`;
+- app-owned settings file: `/mnt/us/kindle-chess/state/settings.json`.
 
-They can be overridden with `KINDLE_CHESS_PUZZLE_DIR` and `KINDLE_CHESS_PROGRESS_FILE`, so host tests use temporary directories and a future platform adapter is not coupled to Kindle paths. The platform storage adapter creates the puzzle directory/default `puzzles.json` only when no matching collection exists. Matching invalid collections are preserved rather than overwritten. Progress uses a same-directory temporary file, file sync, atomic rename, and directory sync; malformed or future-version progress is protected from automatic replacement.
+They can be overridden with `KINDLE_CHESS_PUZZLE_DIR`, `KINDLE_CHESS_PROGRESS_FILE`, and `KINDLE_CHESS_SETTINGS_FILE`, so host tests use temporary directories and a future platform adapter is not coupled to Kindle paths. If only the progress path is overridden, settings default beside it as `settings.json`. The platform storage adapter creates the puzzle directory/default `puzzles.json` only when no matching collection exists. Matching invalid collections are preserved rather than overwritten. Progress and settings use same-directory temporary files, file sync, atomic rename, and directory sync; malformed or future-version documents are protected from automatic replacement.
 
 Earlier device checkpoints verified `/mnt/us` is usable for application staging. HUMAN CHECKPOINT D passed on 2026-10-02 and verified these exact Task 06 locations through Scribe exit/relaunch and computer-copy changes: active collection, per-collection current puzzle IDs, and solved markers restored, while uploaded collection hashes remained unchanged. A newly copied valid collection was discovered, and a malformed file could be selected and removed without losing progress.
 
-Puzzle JSON remains user/source data. Solved/current/active progress is app-owned and is never written back into a puzzle collection.
+Puzzle JSON remains user/source data. Solved/current/active progress and UI settings are app-owned, stored separately, and are never written back into a puzzle collection.
 
 Do not bake a Kobo path or Cobalt store path into shared code.
 

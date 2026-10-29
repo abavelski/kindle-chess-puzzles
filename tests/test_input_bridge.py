@@ -18,6 +18,8 @@ class InputBridgeTests(unittest.TestCase):
 #include <assert.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <poll.h>
+int mock_poll(struct pollfd *fds, nfds_t count, int timeout);
 #define poll mock_poll
 #define ioctl mock_ioctl
 #include "input_bridge.c"

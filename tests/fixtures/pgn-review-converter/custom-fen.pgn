@@ -1,0 +1,11 @@
+[Event "Black promotion"]
+[Site "?"]
+[Date "2026.02.01"]
+[Round "1"]
+[White "White"]
+[Black "Black"]
+[Result "*"]
+[SetUp "1"]
+[FEN "8/8/8/8/8/6k1/7p/K7 b - - 0 1"]
+
+1... h1=Q+ (1... h1=N) 2. Ka2 *

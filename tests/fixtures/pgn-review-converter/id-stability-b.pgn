@@ -1,0 +1,9 @@
+[Event "Stable Identity"]
+[Site "Test"]
+[Date "2026.03.01"]
+[Round "1"]
+[White "Alpha"]
+[Black "Beta"]
+[Result "*"]
+
+1. e4 $1 {New annotation only.} e5 (1... c5 {Added sideline.} 2. Nf3) 2. Nf3 {Another note.} Nc6 *

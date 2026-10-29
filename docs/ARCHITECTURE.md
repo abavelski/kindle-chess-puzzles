@@ -17,6 +17,7 @@ crates/
     uci.rs
     puzzle.rs
     progress.rs
+    settings.rs
     app.rs
     view.rs
   chess-render/
@@ -115,6 +116,8 @@ AppState
   flipped
   orientation_locked
   description_visible
+  settings
+  settings_open
   progress
   transient error/warning
 ```
@@ -132,13 +135,20 @@ Flip
 ToggleMode
 ToggleOrientationLock
 ToggleDescription
+OpenSettings
+ToggleFreeModeSetting
+ToggleNotesSetting
+ToggleLockSetting
+ToggleFlipSetting
+ToggleBoardSizeSetting
+CloseSettings
 OpenCollectionPicker
 SelectCollection(key)
 CloseModal
 Exit
 ```
 
-`dispatch(Action)` should be deterministic and host-testable. It may return small effects for the outer runtime, such as "persist progress" or "exit", but it must not call FBInk or read `/dev/input`.
+`dispatch(Action)` should be deterministic and host-testable. It may return small effects for the outer runtime, such as "persist progress", "persist settings", or "exit", but it must not call FBInk or read `/dev/input`. Settings hold independent preferences for Puzzle and Game Review. The active workspace selects the profile used by controls and rendering; persistence always saves both profiles. Settings belong in core state, while the platform layer owns their filesystem persistence.
 
 ### View state
 
@@ -170,6 +180,16 @@ The renderer owns:
 - hit rectangles.
 
 The renderer does **not** own interaction state.
+
+Toolbar placement is derived in `chess-render::Layout` from display metrics, the core settings visibility flags, and a renderer alignment policy. The renderer uses those same rectangles for pixels and hit testing. Icon and text controls have different minimum widths. Left and right policies pack controls at their chosen edge; the current full-width policy stretches text controls evenly, spreads icon-only rows across their gaps, and keeps a single control at the left. No device coordinates or placement policy enter core state. The saved board-size preference selects the standard board or a board at 60% of its width and height (rounded down to whole squares). SMALL aligns the board at the left content edge and places toolbar and navigation controls at the bottom of the space to its right. Available toolbar icons replace their text labels; NOTE retains text. The SMALL toolbar uses compact left alignment and wraps into balanced rows when needed to preserve minimum touch sizes, while text navigation narrows to the sidebar width. The full-width text panel starts directly below the board and uses larger text. STANDARD geometry and presentation are unchanged. Dialog bounds retain their standard dimensions. A future user-selectable alignment would add a versioned core preference while leaving geometry in the renderer.
+
+Renderer button definitions carry an optional icon, optional text, and an explicit
+`ButtonType` (`Icon`, `Text`, or `IconAndText`). Toolbar layout and rendering use
+the same definitions; display type controls sizing and visible content even when
+both properties exist. Combined content places the icon left of the text; a
+single remaining property is centered. FREE, LOCK, RESET and FLIP use vector icons in SMALL and retain their
+text-only policy in STANDARD in both workspaces. Toolbar layout and drawing
+share the same board-size presentation policy.
 
 ## Sashité pieces
 
@@ -211,17 +231,20 @@ Because the Scribe has no Kobo-style page-turn buttons, parity navigation maps t
 
 ## Storage
 
-Core parsing/progress serialization takes bytes/strings, not paths.
+Core parsing plus progress/settings serialization takes bytes/strings, not paths.
 
 The Kindle adapter chooses:
 
 - puzzle directory;
+- review-game directory;
 - progress path;
+- settings path;
+- separate review-resume path;
 - logs/debug path.
 
 Keep paths configurable for tests.
 
-Puzzle collections remain editable source data. The app never writes them for progress. Progress writes should use a safe temp-write + sync + rename pattern when supported by the selected filesystem, with failure surfaced to the app.
+Puzzle collections remain editable source data. The app never writes them for progress or preferences. Progress and settings are separate versioned documents; both use a safe temp-write + sync + rename pattern when supported by the selected filesystem, with malformed/future documents protected from overwrite and failures surfaced to the app.
 
 ## Lifecycle
 
@@ -251,3 +274,28 @@ A later Kobo port is successful if it can reuse without modification:
 Only platform display/input/storage/lifecycle/build/deploy code should differ.
 
 No Kobo backend is part of the first Kindle milestone.
+
+### Workspace settings compatibility
+
+`settings.json` remains version 1: existing flat `show_free_mode_button`,
+`show_notes_button` and `small_board` fields now represent Puzzle preferences.
+An additive `game_review` object stores the workspace preferences for review.
+The additive `show_lock_button` and `show_flip_button` fields default to true
+in both profiles; they control visibility without changing orientation/lock.
+Loading an old file without that object copies its global values into both
+profiles; subsequent edits affect only the active workspace. Migration stays
+in memory until a settings edit is saved. Missing preference fields retain their
+existing defaults; malformed/future files remain protected from overwrite.
+Settings edits never persist puzzle progress or modify uploaded collections.
+
+### Review resume
+
+`review-resume.json` version 1 stores the last review collection filename, stable
+game ID, authored UCI move path and selected FEN, orientation/lock and analysis
+page/focus. Core captures/restores these values without touching puzzles; paths
+and atomic writes stay in the platform adapter. Runtime saves on review actions,
+retries failures (including exit), and restores the review session at startup
+without switching away from Puzzles. Source updates with missing/ambiguous paths
+or changed FEN fall back to the selected game's root; missing games use the first
+available game. Malformed/future/unreadable documents are protected. Scratch
+boards, piece selection, promotion dialogs and game pickers remain transient.

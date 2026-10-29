@@ -1,15 +1,21 @@
-use chess_core::Progress;
-use kindle_platform::{KindleStorage, ProgressStore, StoragePaths};
+use chess_core::{Progress, ReviewGameKey};
+use kindle_platform::{
+    KindleStorage, ProgressStore, StoragePaths, DEFAULT_REVIEW_DIR, REVIEW_DIR_ENV,
+};
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Mutex,
+    },
 };
 
 const BUNDLED: &[u8] = include_bytes!("../../../tests/fixtures/parity-puzzles.json");
 const PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/puzzles.json");
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 struct TempRoot(PathBuf);
 
@@ -47,6 +53,53 @@ fn write(path: &Path, bytes: &[u8]) {
         fs::create_dir_all(parent).expect("create fixture parent");
     }
     fs::write(path, bytes).expect("write fixture");
+}
+
+fn review_game_json(id: &str, white: &str) -> String {
+    r#"{
+      "id":"__ID__",
+      "fen":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "white":"__WHITE__",
+      "black":"Black",
+      "result":"*",
+      "event":"Test event",
+      "site":"Test site",
+      "date":"2026.10.07",
+      "round":"1",
+      "analysis":{
+        "version":1,
+        "root":"n0",
+        "nodes":[
+          {
+            "id":"n0",
+            "fen":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "children":["n1"]
+          },
+          {
+            "id":"n1",
+            "parent":"n0",
+            "move":{"uci":"e2e4","san":"e4"},
+            "fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+            "role":"main"
+          }
+        ]
+      }
+    }"#
+    .replace("__ID__", id)
+    .replace("__WHITE__", white)
+}
+
+fn review_file(games: &[(&str, &str)]) -> Vec<u8> {
+    let mut json = String::from(r#"{"version":1,"title":"Test reviews","games":["#);
+    json.push_str(
+        &games
+            .iter()
+            .map(|(id, white)| review_game_json(id, white))
+            .collect::<Vec<_>>()
+            .join(","),
+    );
+    json.push_str("]}");
+    json.into_bytes()
 }
 
 #[test]
@@ -137,6 +190,102 @@ fn invalid_only_discovery_preserves_source_and_does_not_install_over_it() {
         broken
     );
     assert!(!paths.puzzle_dir.join("puzzles.json").exists());
+}
+
+#[test]
+fn review_discovery_filters_sorts_flattens_and_scopes_duplicate_ids() {
+    let root = TempRoot::new("review-discovery");
+    let paths = root.paths();
+    let a = review_file(&[("shared", "A White")]);
+    let b = review_file(&[("shared", "B White"), ("second", "Second White")]);
+    let default = review_file(&[("default", "Default White")]);
+    write(&paths.review_dir.join("games-a.json"), &a);
+    write(&paths.review_dir.join("games-b.json"), &b);
+    write(&paths.review_dir.join("games.json"), &default);
+    write(
+        &paths.review_dir.join("games-broken.json"),
+        b"{ definitely not json",
+    );
+    write(&paths.review_dir.join("games-.json"), &default);
+    write(&paths.review_dir.join("games.txt"), &default);
+    write(&paths.review_dir.join("notes.json"), &default);
+    fs::create_dir_all(paths.review_dir.join("games-dir.json"))
+        .expect("create ignored review directory");
+
+    let source_before = fs::read(paths.review_dir.join("games-b.json")).unwrap();
+    let storage = KindleStorage::new(paths.clone());
+    let library = storage
+        .discover_review_library()
+        .expect("discover review library");
+
+    let keys = library
+        .games
+        .iter()
+        .map(|entry| {
+            (
+                entry.key().collection_id().to_owned(),
+                entry.key().game_id().to_owned(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        keys,
+        [
+            ("games-a.json".to_owned(), "shared".to_owned()),
+            ("games-b.json".to_owned(), "shared".to_owned()),
+            ("games-b.json".to_owned(), "second".to_owned()),
+            ("games.json".to_owned(), "default".to_owned()),
+        ]
+    );
+    assert_eq!(library.errors.len(), 1);
+    assert_eq!(library.errors[0].collection_id(), "games-broken.json");
+    assert!(library.errors[0].error().contains("Invalid review file"));
+
+    let selected = storage
+        .load_review_game(&ReviewGameKey::new("games-b.json", "shared"))
+        .expect("load duplicate-id game by file-scoped key");
+    assert_eq!(selected.metadata.white, "B White");
+    assert_eq!(
+        fs::read(paths.review_dir.join("games-b.json")).unwrap(),
+        source_before,
+        "review source files stay read-only"
+    );
+}
+
+#[test]
+fn missing_review_directory_is_an_empty_library_and_installs_nothing() {
+    let root = TempRoot::new("review-missing");
+    let paths = root.paths();
+    let storage = KindleStorage::new(paths.clone());
+
+    let library = storage
+        .discover_review_library()
+        .expect("missing review directory is valid");
+
+    assert!(library.games.is_empty());
+    assert!(library.errors.is_empty());
+    assert!(!paths.review_dir.exists());
+}
+
+#[test]
+fn review_directory_environment_override_is_honored() {
+    let _guard = ENV_LOCK.lock().expect("lock review env");
+    let root = TempRoot::new("review-env");
+    let override_dir = root.path().join("custom-games");
+    let previous = std::env::var_os(REVIEW_DIR_ENV);
+    std::env::set_var(REVIEW_DIR_ENV, &override_dir);
+
+    let paths = StoragePaths::from_env();
+
+    match previous {
+        Some(value) => std::env::set_var(REVIEW_DIR_ENV, value),
+        None => std::env::remove_var(REVIEW_DIR_ENV),
+    }
+    assert_eq!(paths.review_dir, override_dir);
+    assert_eq!(
+        StoragePaths::kindle_default().review_dir,
+        PathBuf::from(DEFAULT_REVIEW_DIR)
+    );
 }
 
 #[test]

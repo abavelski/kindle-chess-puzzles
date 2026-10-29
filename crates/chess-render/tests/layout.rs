@@ -1,5 +1,6 @@
 use chess_core::{
     parse_puzzle_file, Action, ActiveCollection, AppState, CollectionEntry, Progress,
+    REVIEW_GAMES_PER_PAGE,
 };
 use chess_render::{DisplayMetrics, HitTarget, Layout, Rect, MIN_TOUCH_MM};
 
@@ -98,6 +99,71 @@ fn landscape_metrics_still_produce_valid_layout_without_magic_scribe_coordinates
     assert_eq!(layout.board.width, layout.board.height);
     assert!(layout.viewport.contains_rect(layout.board));
     assert!(layout.status.bottom() <= landscape.height);
+}
+
+#[test]
+fn review_game_picker_spans_display_below_header_with_close_at_bottom_right() {
+    for metrics in [
+        SCRIBE,
+        DisplayMetrics {
+            width: 2480,
+            height: 1860,
+            dpi: 300,
+        },
+    ] {
+        let layout = Layout::new(metrics).expect("review picker layout fits");
+        assert_eq!(layout.review_game_modal.x, 0);
+        assert_eq!(layout.review_game_modal.width, metrics.width);
+        assert_eq!(layout.review_game_modal.y, layout.header.bottom());
+        assert!(layout.review_game_page_previous.right() < layout.review_game_page_next.x);
+        assert!(layout.review_game_page_next.right() < layout.review_game_close.x);
+        assert_eq!(layout.review_game_close.y, layout.review_game_page_next.y);
+    }
+}
+
+#[test]
+fn review_game_picker_fills_screen_with_touch_sized_non_overlapping_rows() {
+    for metrics in [
+        SCRIBE,
+        DisplayMetrics {
+            width: 2480,
+            height: 1860,
+            dpi: 300,
+        },
+    ] {
+        let layout = Layout::new(metrics).expect("review picker layout fits");
+        let minimum = layout.minimum_touch_px();
+        assert!(layout.viewport.contains_rect(layout.review_game_modal));
+        assert!(
+            layout.review_game_modal.bottom() > layout.collection_modal.bottom(),
+            "game picker extends beyond the board-sized collection dialog"
+        );
+        assert_eq!(layout.review_game_rows.len(), REVIEW_GAMES_PER_PAGE);
+
+        for (index, rect) in layout.review_game_rows.iter().enumerate() {
+            assert!(rect.width >= minimum && rect.height >= minimum);
+            assert!(layout.review_game_modal.contains_rect(*rect));
+            assert!(rect.bottom() < layout.review_game_close.y);
+            for previous in &layout.review_game_rows[..index] {
+                assert!(!rect.intersects(*previous), "game rows must not overlap");
+            }
+        }
+        for rect in [
+            layout.review_game_page_previous,
+            layout.review_game_close,
+            layout.review_game_page_next,
+        ] {
+            assert!(rect.width >= minimum && rect.height >= minimum);
+            assert!(layout.review_game_modal.contains_rect(rect));
+        }
+    }
+
+    let portrait = Layout::new(SCRIBE).expect("Scribe layout");
+    assert!(
+        portrait.review_game_rows[REVIEW_GAMES_PER_PAGE - 1].bottom()
+            > portrait.collection_modal.bottom(),
+        "the last game row should use space below the old dialog"
+    );
 }
 
 #[test]
@@ -229,7 +295,7 @@ fn goto_button_is_small_between_prev_next_and_modal_captures_keypad() {
 #[test]
 fn header_edge_controls_are_touch_sized_and_accessible_during_modals() {
     let layout = Layout::new(SCRIBE).expect("Scribe layout");
-    for rect in [layout.refresh, layout.exit] {
+    for rect in [layout.settings, layout.refresh, layout.exit] {
         assert!(rect.width >= layout.minimum_touch_px());
         assert!(rect.height >= layout.minimum_touch_px());
     }
@@ -242,7 +308,11 @@ fn header_edge_controls_are_touch_sized_and_accessible_during_modals() {
         assert!(!layout.exit.intersects(rect));
     }
     assert_eq!(layout.refresh.x, layout.header.x);
+    assert_eq!(layout.settings.y, layout.header.y);
     assert_eq!(layout.refresh.y, layout.header.y);
+    assert!(layout.collection_button.right() <= layout.settings.x);
+    assert!(layout.settings.right() <= layout.exit.x);
+    assert!(!layout.settings.intersects(layout.refresh));
     assert_eq!(layout.exit.right(), layout.header.right());
     assert_eq!(layout.exit.y, layout.header.y);
     assert!(!layout.refresh.intersects(layout.exit));

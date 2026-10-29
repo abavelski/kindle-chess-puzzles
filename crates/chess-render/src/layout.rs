@@ -1,9 +1,33 @@
 //! DPI-aware deterministic layout and hit testing.
 
-use crate::Rect;
-use chess_core::{Action, AnalysisNodeIndex, AppState, PromotionChoice, COLLECTIONS_PER_PAGE};
+use crate::{
+    button::{toolbar_button, toolbar_button_for_size},
+    ButtonSpec, ButtonType, Rect,
+};
+use chess_core::{
+    Action, AnalysisNodeIndex, AppState, PromotionChoice, Workspace, WorkspaceSettings,
+    COLLECTIONS_PER_PAGE, REVIEW_GAMES_PER_PAGE,
+};
 
 pub const MIN_TOUCH_MM: u32 = 10;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ToolbarAlignment {
+    Left,
+    Right,
+    FullWidth,
+}
+
+/// Developer-facing layout policy. This is deliberately not a saved setting.
+pub const APP_TOOLBAR_ALIGNMENT: ToolbarAlignment = ToolbarAlignment::FullWidth;
+const SMALL_TOOLBAR_ALIGNMENT: ToolbarAlignment = ToolbarAlignment::Left;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ToolbarButtonSpec {
+    target: HitTarget,
+    visible: bool,
+    button: ButtonSpec<'static>,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DisplayMetrics {
@@ -43,6 +67,18 @@ pub enum HitTarget {
     Flip,
     Refresh,
     Exit,
+    ToggleWorkspace,
+    ReviewToggleFree,
+    ReviewReset,
+    ReviewToggleOrientationLock,
+    ReviewFlip,
+    ReviewPrevious,
+    ReviewNext,
+    OpenReviewGamePicker,
+    ReviewGame(usize),
+    ReviewGamePickerPreviousPage,
+    ReviewGamePickerNextPage,
+    CloseReviewGamePicker,
     Previous,
     OpenPuzzleGoto,
     PuzzleGotoDigit(u8),
@@ -52,6 +88,13 @@ pub enum HitTarget {
     Next,
     Promotion(PromotionChoice),
     CancelPromotion,
+    OpenSettings,
+    ToggleFreeModeSetting,
+    ToggleNotesSetting,
+    ToggleLockSetting,
+    ToggleFlipSetting,
+    ToggleBoardSizeSetting,
+    CloseSettings,
     OpenCollections,
     Collection(usize),
     CollectionPreviousPage,
@@ -74,6 +117,18 @@ impl HitTarget {
             Self::Flip => Some(Action::Flip),
             Self::Refresh => None,
             Self::Exit => Some(Action::Exit),
+            Self::ToggleWorkspace => Some(Action::ToggleWorkspace),
+            Self::ReviewToggleFree => Some(Action::ReviewToggleFree),
+            Self::ReviewReset => Some(Action::ReviewReset),
+            Self::ReviewToggleOrientationLock => Some(Action::ReviewToggleOrientationLock),
+            Self::ReviewFlip => Some(Action::ReviewFlip),
+            Self::ReviewPrevious => Some(Action::ReviewPrevious),
+            Self::ReviewNext => Some(Action::ReviewNext),
+            Self::OpenReviewGamePicker => Some(Action::OpenReviewGamePicker),
+            Self::ReviewGame(index) => Some(Action::SelectReviewGame(index)),
+            Self::ReviewGamePickerPreviousPage => Some(Action::ReviewGamePickerPreviousPage),
+            Self::ReviewGamePickerNextPage => Some(Action::ReviewGamePickerNextPage),
+            Self::CloseReviewGamePicker => Some(Action::CloseReviewGamePicker),
             Self::Previous => Some(Action::PreviousPuzzle),
             Self::OpenPuzzleGoto => Some(Action::OpenPuzzleGoto),
             Self::PuzzleGotoDigit(digit) => Some(Action::PuzzleGotoDigit(digit)),
@@ -83,6 +138,13 @@ impl HitTarget {
             Self::Next => Some(Action::NextPuzzle),
             Self::Promotion(choice) => Some(Action::ChoosePromotion(choice)),
             Self::CancelPromotion => Some(Action::CancelPromotion),
+            Self::OpenSettings => Some(Action::OpenSettings),
+            Self::ToggleFreeModeSetting => Some(Action::ToggleFreeModeSetting),
+            Self::ToggleNotesSetting => Some(Action::ToggleNotesSetting),
+            Self::ToggleLockSetting => Some(Action::ToggleLockSetting),
+            Self::ToggleFlipSetting => Some(Action::ToggleFlipSetting),
+            Self::ToggleBoardSizeSetting => Some(Action::ToggleBoardSizeSetting),
+            Self::CloseSettings => Some(Action::CloseSettings),
             Self::OpenCollections => Some(Action::OpenCollectionPicker),
             Self::Collection(index) => Some(Action::SelectCollection(index)),
             Self::CollectionPreviousPage => Some(Action::CollectionPickerPreviousPage),
@@ -103,7 +165,9 @@ pub struct Layout {
     pub metrics: DisplayMetrics,
     pub viewport: Rect,
     pub header: Rect,
+    pub settings: Rect,
     pub refresh: Rect,
+    pub workspace: Rect,
     pub collection_button: Rect,
     pub board_outer: Rect,
     pub board: Rect,
@@ -128,6 +192,19 @@ pub struct Layout {
     pub collection_page_previous: Rect,
     pub collection_page_next: Rect,
     pub collection_close: Rect,
+    pub review_game_modal: Rect,
+    pub review_game_rows: [Rect; REVIEW_GAMES_PER_PAGE],
+    pub review_game_page_previous: Rect,
+    pub review_game_page_next: Rect,
+    pub review_game_close: Rect,
+    pub settings_modal: Rect,
+    pub settings_free_mode: Rect,
+    pub settings_notes: Rect,
+    pub settings_lock: Rect,
+    pub settings_flip: Rect,
+    pub settings_board_size: Rect,
+    pub settings_close_icon: Rect,
+    pub settings_close: Rect,
     square_size: u32,
     minimum_touch_px: u32,
     coordinate_gutter: u32,
@@ -136,6 +213,47 @@ pub struct Layout {
 
 impl Layout {
     pub fn new(metrics: DisplayMetrics) -> Result<Self, LayoutError> {
+        Self::with_toolbar_visibility(
+            metrics,
+            &WorkspaceSettings::default(),
+            false,
+            APP_TOOLBAR_ALIGNMENT,
+        )
+    }
+
+    pub fn for_app(metrics: DisplayMetrics, state: &AppState) -> Result<Self, LayoutError> {
+        let alignment = if state.settings().small_board() {
+            SMALL_TOOLBAR_ALIGNMENT
+        } else {
+            APP_TOOLBAR_ALIGNMENT
+        };
+        Self::for_app_with_alignment(metrics, state, alignment)
+    }
+
+    pub fn for_app_with_alignment(
+        metrics: DisplayMetrics,
+        state: &AppState,
+        alignment: ToolbarAlignment,
+    ) -> Result<Self, LayoutError> {
+        Self::with_toolbar_visibility(
+            metrics,
+            state.settings(),
+            state.workspace() == Workspace::Review,
+            alignment,
+        )
+    }
+
+    fn with_toolbar_visibility(
+        metrics: DisplayMetrics,
+        settings: &WorkspaceSettings,
+        review: bool,
+        alignment: ToolbarAlignment,
+    ) -> Result<Self, LayoutError> {
+        let show_free = settings.show_free_mode_button();
+        let show_notes = settings.show_notes_button();
+        let show_lock = settings.show_lock_button();
+        let show_flip = settings.show_flip_button();
+        let small_board = settings.small_board();
         if metrics.width == 0 || metrics.height == 0 || metrics.dpi == 0 {
             return Err(LayoutError::InvalidMetrics);
         }
@@ -176,9 +294,28 @@ impl Layout {
         if board_size < 8 * 24 {
             return Err(LayoutError::TooSmall);
         }
+        // Preserve standard content bounds for full-width text and unchanged dialogs.
+        let content_bounds = Rect::new(
+            (metrics.width - board_size) / 2 - coordinate_gutter,
+            header_height + small_gap,
+            board_size + coordinate_gutter * 2,
+            board_size + coordinate_gutter * 2,
+        );
+        let board_size = if small_board {
+            board_size * 3 / 5 / 8 * 8
+        } else {
+            board_size
+        };
+        if board_size < 8 * 24 {
+            return Err(LayoutError::TooSmall);
+        }
         let square_size = board_size / 8;
 
-        let board_x = (metrics.width - board_size) / 2;
+        let board_x = if small_board {
+            content_bounds.x + coordinate_gutter
+        } else {
+            (metrics.width - board_size) / 2
+        };
         let board_y = header_height
             .saturating_add(small_gap)
             .saturating_add(coordinate_gutter);
@@ -191,6 +328,7 @@ impl Layout {
         );
         let header = Rect::new(0, 0, metrics.width, header_height);
         let refresh = Rect::new(header.x, header.y, minimum_touch_px, header.height);
+        let workspace = Rect::new(refresh.right(), header.y, minimum_touch_px, header.height);
         let collection_button_width = minimum_touch_px
             .saturating_mul(2)
             .min(header.width.saturating_div(3).max(minimum_touch_px));
@@ -200,8 +338,17 @@ impl Layout {
             minimum_touch_px,
             header.height,
         );
-        let collection_button = Rect::new(
+        let settings = Rect::new(
             exit.x
+                .saturating_sub(small_gap)
+                .saturating_sub(minimum_touch_px),
+            header.y,
+            minimum_touch_px,
+            header.height,
+        );
+        let collection_button = Rect::new(
+            settings
+                .x
                 .saturating_sub(small_gap)
                 .saturating_sub(collection_button_width),
             header.y,
@@ -213,10 +360,20 @@ impl Layout {
             .bottom()
             .saturating_add(coordinate_gutter)
             .saturating_add(small_gap);
-        let toolbar = Rect::new(
-            board_outer.x,
-            toolbar_y,
-            board_outer.width,
+        let controls_x = if small_board {
+            board_outer.right() + gap
+        } else {
+            content_bounds.x
+        };
+        let controls_width = content_bounds.right().saturating_sub(controls_x);
+        let mut toolbar = Rect::new(
+            controls_x,
+            if small_board {
+                board_outer.y + control_visual_inset
+            } else {
+                toolbar_y
+            },
+            controls_width,
             compact_control_height,
         );
         let toolbar_touch = Rect::new(
@@ -226,105 +383,192 @@ impl Layout {
             minimum_touch_px,
         );
 
-        let analysis_target = ControlTarget {
-            rect: Rect::new(
-                toolbar_touch.x,
-                toolbar_touch.y,
-                minimum_touch_px,
-                minimum_touch_px,
-            ),
-            target: HitTarget::ToggleAnalysis,
-        };
-        let remaining_toolbar = Rect::new(
-            analysis_target.rect.right() + small_gap,
-            toolbar_touch.y,
-            toolbar_touch
-                .width
-                .saturating_sub(minimum_touch_px + small_gap),
-            toolbar_touch.height,
-        );
-        let other_targets = split_targets(
-            remaining_toolbar,
-            small_gap,
+        let mut toolbar_specs = if review {
             [
-                HitTarget::ToggleMode,
-                HitTarget::ToggleDescription,
-                HitTarget::ToggleOrientationLock,
-                HitTarget::Reset,
-                HitTarget::Flip,
-            ],
-        );
-        let toolbar_targets = [
-            analysis_target,
-            other_targets[0],
-            other_targets[1],
-            other_targets[2],
-            other_targets[3],
-            other_targets[4],
-        ];
-        if toolbar_targets
-            .iter()
-            .any(|target| target.rect.width < minimum_touch_px)
-        {
-            return Err(LayoutError::TooSmall);
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleMode,
+                    visible: show_free,
+                    button: toolbar_button(HitTarget::ToggleMode),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::Reset,
+                    visible: true,
+                    button: toolbar_button(HitTarget::Reset),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleOrientationLock,
+                    visible: show_lock,
+                    button: toolbar_button(HitTarget::ToggleOrientationLock),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::Flip,
+                    visible: show_flip,
+                    button: toolbar_button(HitTarget::Flip),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleAnalysis,
+                    visible: false,
+                    button: toolbar_button(HitTarget::ToggleAnalysis),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleDescription,
+                    visible: false,
+                    button: toolbar_button(HitTarget::ToggleDescription),
+                },
+            ]
+        } else {
+            [
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleAnalysis,
+                    visible: true,
+                    button: toolbar_button(HitTarget::ToggleAnalysis),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleMode,
+                    visible: show_free,
+                    button: toolbar_button(HitTarget::ToggleMode),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleDescription,
+                    visible: show_notes,
+                    button: toolbar_button(HitTarget::ToggleDescription),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::ToggleOrientationLock,
+                    visible: show_lock,
+                    button: toolbar_button(HitTarget::ToggleOrientationLock),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::Reset,
+                    visible: true,
+                    button: toolbar_button(HitTarget::Reset),
+                },
+                ToolbarButtonSpec {
+                    target: HitTarget::Flip,
+                    visible: show_flip,
+                    button: toolbar_button(HitTarget::Flip),
+                },
+            ]
+        };
+        for spec in &mut toolbar_specs {
+            spec.button = toolbar_button_for_size(spec.target, small_board);
         }
+        let mut toolbar_targets = if small_board {
+            let (targets, rows) = place_sidebar_toolbar(
+                toolbar_touch,
+                small_gap,
+                minimum_touch_px,
+                toolbar_specs,
+                alignment,
+            )?;
+            toolbar.height += (rows - 1) * (minimum_touch_px + small_gap);
+            targets
+        } else {
+            place_toolbar(
+                toolbar_touch,
+                small_gap,
+                minimum_touch_px,
+                px_for_mm(metrics.dpi, 16).max(minimum_touch_px),
+                toolbar_specs,
+                alignment,
+            )?
+        };
 
+        if small_board {
+            // Anchor the complete control group by its bottom touch edge.
+            let navigation_bottom =
+                toolbar.bottom() + gap + minimum_touch_px - control_visual_inset;
+            let offset = board_outer
+                .bottom()
+                .checked_sub(navigation_bottom)
+                .ok_or(LayoutError::TooSmall)?;
+            toolbar.y += offset;
+            for control in &mut toolbar_targets {
+                if control.rect.width > 0 {
+                    control.rect.y += offset;
+                }
+            }
+        }
         let nav_y = toolbar.bottom().saturating_add(gap);
         let nav_touch_y = nav_y.saturating_sub(control_visual_inset);
-        let goto_width = minimum_touch_px;
-        let side_nav_width = board_outer
-            .width
-            .saturating_sub(goto_width)
-            .saturating_sub(small_gap.saturating_mul(2))
-            / 2;
-        let previous = Rect::new(board_outer.x, nav_touch_y, side_nav_width, minimum_touch_px);
-        let goto = Rect::new(
-            previous.right().saturating_add(small_gap),
-            nav_touch_y,
-            goto_width,
-            minimum_touch_px,
-        );
-        let next = Rect::new(
-            goto.right().saturating_add(small_gap),
-            nav_touch_y,
-            board_outer
-                .right()
-                .saturating_sub(goto.right().saturating_add(small_gap)),
-            minimum_touch_px,
-        );
+        let (previous, goto, next) = if review {
+            let side_nav_width = controls_width.saturating_sub(small_gap) / 2;
+            let previous = Rect::new(controls_x, nav_touch_y, side_nav_width, minimum_touch_px);
+            let next_x = previous.right().saturating_add(small_gap);
+            (
+                previous,
+                Rect::new(previous.right(), nav_touch_y, 0, minimum_touch_px),
+                Rect::new(
+                    next_x,
+                    nav_touch_y,
+                    toolbar.right().saturating_sub(next_x),
+                    minimum_touch_px,
+                ),
+            )
+        } else {
+            let goto_width = minimum_touch_px;
+            let side_nav_width = toolbar
+                .width
+                .saturating_sub(goto_width)
+                .saturating_sub(small_gap.saturating_mul(2))
+                / 2;
+            let previous = Rect::new(controls_x, nav_touch_y, side_nav_width, minimum_touch_px);
+            let goto = Rect::new(
+                previous.right().saturating_add(small_gap),
+                nav_touch_y,
+                goto_width,
+                minimum_touch_px,
+            );
+            let next = Rect::new(
+                goto.right().saturating_add(small_gap),
+                nav_touch_y,
+                toolbar
+                    .right()
+                    .saturating_sub(goto.right().saturating_add(small_gap)),
+                minimum_touch_px,
+            );
+            (previous, goto, next)
+        };
         if previous.width < minimum_touch_px
-            || goto.width < minimum_touch_px
             || next.width < minimum_touch_px
+            || (!review && goto.width < minimum_touch_px)
         {
             return Err(LayoutError::TooSmall);
         }
 
-        let status_y = nav_y
-            .saturating_add(compact_control_height)
-            .saturating_add(small_gap);
+        let status_y = if small_board {
+            board_outer.bottom().saturating_add(small_gap)
+        } else {
+            nav_y
+                .saturating_add(compact_control_height)
+                .saturating_add(small_gap)
+        };
+        if small_board && next.bottom() > board_outer.bottom() {
+            return Err(LayoutError::TooSmall);
+        }
         let status_bottom = metrics.height.saturating_sub(margin);
         if status_bottom <= status_y {
             return Err(LayoutError::TooSmall);
         }
         let status = Rect::new(
-            board_outer.x,
+            content_bounds.x,
             status_y,
-            board_outer.width,
+            content_bounds.width,
             status_bottom - status_y,
         );
 
-        let modal_width = (board_outer.width * 3 / 4)
+        let modal_width = (content_bounds.width * 3 / 4)
             .max(minimum_touch_px.saturating_mul(5))
-            .min(board_outer.width);
+            .min(content_bounds.width);
         let modal_height = minimum_touch_px
             .saturating_mul(3)
             .saturating_add(gap.saturating_mul(2));
-        if modal_width > board_outer.width || modal_height > board_outer.height {
+        if modal_width > content_bounds.width || modal_height > content_bounds.height {
             return Err(LayoutError::TooSmall);
         }
         let promotion_modal = Rect::new(
-            board_outer.x + (board_outer.width - modal_width) / 2,
-            board_outer.y + (board_outer.height - modal_height) / 2,
+            content_bounds.x + (content_bounds.width - modal_width) / 2,
+            content_bounds.y + (content_bounds.height - modal_height) / 2,
             modal_width,
             modal_height,
         );
@@ -351,19 +595,19 @@ impl Layout {
             minimum_touch_px,
         );
 
-        let goto_modal_width = minimum_touch_px.saturating_mul(4).min(board_outer.width);
+        let goto_modal_width = minimum_touch_px.saturating_mul(4).min(content_bounds.width);
         let goto_modal_height = minimum_touch_px
             .saturating_mul(7)
             .saturating_add(gap.saturating_mul(3))
             .saturating_add(small_gap.saturating_mul(3));
         if goto_modal_width < minimum_touch_px.saturating_mul(3)
-            || goto_modal_height > board_outer.height
+            || goto_modal_height > content_bounds.height
         {
             return Err(LayoutError::TooSmall);
         }
         let goto_modal = Rect::new(
-            board_outer.x + (board_outer.width - goto_modal_width) / 2,
-            board_outer.y + (board_outer.height - goto_modal_height) / 2,
+            content_bounds.x + (content_bounds.width - goto_modal_width) / 2,
+            content_bounds.y + (content_bounds.height - goto_modal_height) / 2,
             goto_modal_width,
             goto_modal_height,
         );
@@ -424,7 +668,7 @@ impl Layout {
             return Err(LayoutError::TooSmall);
         }
 
-        let collection_modal = board_outer.inset(minimum_touch_px / 3);
+        let collection_modal = content_bounds.inset(minimum_touch_px / 3);
         let collection_rows_y = collection_modal
             .y
             .saturating_add(minimum_touch_px)
@@ -476,11 +720,143 @@ impl Layout {
         let collection_close = collection_nav_targets[1].rect;
         let collection_page_next = collection_nav_targets[2].rect;
 
+        // Unlike the collection picker, the game library uses the available height
+        // below the header, not just the square board-sized content area.
+        let review_game_modal = Rect::new(
+            0,
+            header.bottom(),
+            metrics.width,
+            metrics
+                .height
+                .saturating_sub(margin)
+                .saturating_sub(header.bottom()),
+        );
+        let review_game_rows_y = review_game_modal
+            .y
+            .saturating_add(minimum_touch_px)
+            .saturating_add(gap);
+        let review_game_nav_y = review_game_modal
+            .bottom()
+            .saturating_sub(small_gap)
+            .saturating_sub(minimum_touch_px);
+        let available_rows_height = review_game_nav_y
+            .saturating_sub(gap)
+            .saturating_sub(review_game_rows_y);
+        let row_step = minimum_touch_px.saturating_add(small_gap);
+        let rows_per_column_limit = available_rows_height.saturating_add(small_gap) / row_step;
+        if rows_per_column_limit == 0 {
+            return Err(LayoutError::TooSmall);
+        }
+        // A second column keeps all entries touch-sized when the display is
+        // shorter (for example, in landscape) without changing pagination.
+        let columns = u32::try_from(REVIEW_GAMES_PER_PAGE)
+            .expect("review page size fits")
+            .div_ceil(rows_per_column_limit);
+        let rows_per_column = u32::try_from(REVIEW_GAMES_PER_PAGE)
+            .expect("review page size fits")
+            .div_ceil(columns);
+        let review_row_width = review_game_modal
+            .width
+            .saturating_sub(small_gap.saturating_mul(columns.saturating_add(1)))
+            / columns;
+        if review_row_width < minimum_touch_px {
+            return Err(LayoutError::TooSmall);
+        }
+        let review_game_rows = std::array::from_fn(|index| {
+            let index = u32::try_from(index).expect("review row index fits");
+            let (column, row) = (index / rows_per_column, index % rows_per_column);
+            Rect::new(
+                review_game_modal
+                    .x
+                    .saturating_add(small_gap)
+                    .saturating_add(column.saturating_mul(review_row_width + small_gap)),
+                review_game_rows_y.saturating_add(row.saturating_mul(row_step)),
+                review_row_width,
+                minimum_touch_px,
+            )
+        });
+        let review_game_nav = Rect::new(
+            review_game_modal.x.saturating_add(small_gap),
+            review_game_nav_y,
+            review_game_modal
+                .width
+                .saturating_sub(small_gap.saturating_mul(2)),
+            minimum_touch_px,
+        );
+        let review_nav_targets = split_targets(
+            review_game_nav,
+            small_gap,
+            [
+                HitTarget::ReviewGamePickerPreviousPage,
+                HitTarget::ReviewGamePickerNextPage,
+                HitTarget::CloseReviewGamePicker,
+            ],
+        );
+        if review_nav_targets
+            .iter()
+            .any(|target| target.rect.width < minimum_touch_px)
+        {
+            return Err(LayoutError::TooSmall);
+        }
+        let review_game_page_previous = review_nav_targets[0].rect;
+        let review_game_page_next = review_nav_targets[1].rect;
+        let review_game_close = review_nav_targets[2].rect;
+
+        let settings_modal = collection_modal;
+        let settings_inner = settings_modal.inset(small_gap);
+        let settings_free_mode = Rect::new(
+            settings_inner.x,
+            settings_modal
+                .y
+                .saturating_add(minimum_touch_px)
+                .saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_notes = Rect::new(
+            settings_inner.x,
+            settings_free_mode.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_lock = Rect::new(
+            settings_inner.x,
+            settings_notes.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_flip = Rect::new(
+            settings_inner.x,
+            settings_lock.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_board_size = Rect::new(
+            settings_inner.x,
+            settings_flip.bottom().saturating_add(gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_close_icon = Rect::new(
+            settings_inner.right().saturating_sub(minimum_touch_px),
+            settings_modal.y.saturating_add(small_gap),
+            minimum_touch_px,
+            minimum_touch_px,
+        );
+        let settings_close = Rect::new(
+            settings_inner.x,
+            settings_inner.bottom().saturating_sub(minimum_touch_px),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+
         let layout = Self {
             metrics,
             viewport: Rect::new(0, 0, metrics.width, metrics.height),
             header,
+            settings,
             refresh,
+            workspace,
             collection_button,
             board_outer,
             board,
@@ -505,6 +881,19 @@ impl Layout {
             collection_page_previous,
             collection_page_next,
             collection_close,
+            review_game_modal,
+            review_game_rows,
+            review_game_page_previous,
+            review_game_page_next,
+            review_game_close,
+            settings_modal,
+            settings_free_mode,
+            settings_notes,
+            settings_lock,
+            settings_flip,
+            settings_board_size,
+            settings_close_icon,
+            settings_close,
             square_size,
             minimum_touch_px,
             coordinate_gutter,
@@ -512,7 +901,9 @@ impl Layout {
         };
         if !layout.viewport.contains_rect(layout.board_outer)
             || !layout.viewport.contains_rect(layout.header)
+            || !layout.viewport.contains_rect(layout.settings)
             || !layout.viewport.contains_rect(layout.refresh)
+            || !layout.viewport.contains_rect(layout.workspace)
             || !layout.viewport.contains_rect(layout.collection_button)
             || !layout.viewport.contains_rect(layout.toolbar)
             || !layout.viewport.contains_rect(layout.exit)
@@ -523,6 +914,11 @@ impl Layout {
             || !layout.viewport.contains_rect(layout.promotion_modal)
             || !layout.viewport.contains_rect(layout.goto_modal)
             || !layout.viewport.contains_rect(layout.collection_modal)
+            || !layout.viewport.contains_rect(layout.review_game_modal)
+            || !layout.viewport.contains_rect(layout.settings_modal)
+            || !layout
+                .settings_modal
+                .contains_rect(layout.settings_close_icon)
         {
             return Err(LayoutError::TooSmall);
         }
@@ -570,6 +966,30 @@ impl Layout {
         if self.exit.contains(x, y) {
             return Some(HitTarget::Exit);
         }
+        if state.settings_open() {
+            if self.settings_close_icon.contains(x, y) {
+                return Some(HitTarget::CloseSettings);
+            }
+            if self.settings_free_mode.contains(x, y) {
+                return Some(HitTarget::ToggleFreeModeSetting);
+            }
+            if self.settings_notes.contains(x, y) {
+                return Some(HitTarget::ToggleNotesSetting);
+            }
+            if self.settings_lock.contains(x, y) {
+                return Some(HitTarget::ToggleLockSetting);
+            }
+            if self.settings_flip.contains(x, y) {
+                return Some(HitTarget::ToggleFlipSetting);
+            }
+            if self.settings_board_size.contains(x, y) {
+                return Some(HitTarget::ToggleBoardSizeSetting);
+            }
+            if self.settings_close.contains(x, y) {
+                return Some(HitTarget::CloseSettings);
+            }
+            return None;
+        }
         if state.pending_promotion().is_some() {
             return self.hit_test(x, y, state.flipped(), true);
         }
@@ -588,6 +1008,36 @@ impl Layout {
             }
             if self.collection_close.contains(x, y) {
                 return Some(HitTarget::CloseCollections);
+            }
+            return None;
+        }
+
+        if let Some(review) = state
+            .review_state()
+            .filter(|review| review.game_picker_open())
+        {
+            let total = state.review_picker_entry_count();
+            for (slot, index) in review.game_picker_visible_range(total).enumerate() {
+                let rect = self.review_game_rows[slot];
+                if rect.contains(x, y) {
+                    return state
+                        .review_picker_game(index)
+                        .map(|_| HitTarget::ReviewGame(index));
+                }
+            }
+            let (previous, next, close) = (
+                self.review_game_page_previous,
+                self.review_game_page_next,
+                self.review_game_close,
+            );
+            if previous.contains(x, y) {
+                return Some(HitTarget::ReviewGamePickerPreviousPage);
+            }
+            if next.contains(x, y) {
+                return Some(HitTarget::ReviewGamePickerNextPage);
+            }
+            if close.contains(x, y) {
+                return Some(HitTarget::CloseReviewGamePicker);
             }
             return None;
         }
@@ -612,15 +1062,55 @@ impl Layout {
             return None;
         }
 
-        if !state.collection_entries().is_empty() && self.collection_button.contains(x, y) {
-            return Some(HitTarget::OpenCollections);
+        if self.workspace.contains(x, y) {
+            return Some(HitTarget::ToggleWorkspace);
+        }
+        if self.settings.contains(x, y) {
+            return Some(HitTarget::OpenSettings);
+        }
+        if self.collection_button.contains(x, y) {
+            match state.workspace() {
+                Workspace::Puzzles if !state.collection_entries().is_empty() => {
+                    return Some(HitTarget::OpenCollections);
+                }
+                Workspace::Review if state.review_state().is_some() => {
+                    return Some(HitTarget::OpenReviewGamePicker);
+                }
+                Workspace::Puzzles | Workspace::Review => {}
+            }
         }
 
         let target = self.hit_test(x, y, state.flipped(), false);
-        if target == Some(HitTarget::ToggleAnalysis) && !state.analysis_available() {
-            None
-        } else {
-            target
+        match state.workspace() {
+            Workspace::Puzzles => match target {
+                Some(HitTarget::ToggleAnalysis) if !state.analysis_available() => None,
+                Some(HitTarget::ToggleMode) if !state.settings().show_free_mode_button() => None,
+                Some(HitTarget::ToggleDescription) if !state.settings().show_notes_button() => None,
+                target => target,
+            },
+            Workspace::Review => match target {
+                Some(HitTarget::Square(_))
+                    if !state
+                        .review_state()
+                        .is_some_and(|review| review.free_board_enabled()) =>
+                {
+                    None
+                }
+                Some(HitTarget::ToggleMode) => Some(HitTarget::ReviewToggleFree),
+                Some(HitTarget::Reset) => Some(HitTarget::ReviewReset),
+                Some(HitTarget::ToggleOrientationLock) => {
+                    Some(HitTarget::ReviewToggleOrientationLock)
+                }
+                Some(HitTarget::Flip) => Some(HitTarget::ReviewFlip),
+                Some(HitTarget::Previous) => Some(HitTarget::ReviewPrevious),
+                Some(HitTarget::Next) => Some(HitTarget::ReviewNext),
+                Some(
+                    HitTarget::ToggleAnalysis
+                    | HitTarget::ToggleDescription
+                    | HitTarget::OpenPuzzleGoto,
+                ) => None,
+                target => target,
+            },
         }
     }
 
@@ -688,6 +1178,133 @@ impl Layout {
     }
 }
 
+/// Balance wrapped toolbar rows without reducing physical touch targets.
+fn place_sidebar_toolbar<const N: usize>(
+    rect: Rect,
+    gap: u32,
+    minimum: u32,
+    specs: [ToolbarButtonSpec; N],
+    alignment: ToolbarAlignment,
+) -> Result<([ControlTarget; N], u32), LayoutError> {
+    let count = specs.iter().filter(|spec| spec.visible).count() as u32;
+    let capacity = (rect.width + gap) / (minimum + gap);
+    if capacity == 0 || count == 0 {
+        return Err(LayoutError::TooSmall);
+    }
+    let rows = count.div_ceil(capacity);
+    let columns = count.div_ceil(rows);
+    let mut targets = specs.map(|spec| ControlTarget {
+        target: spec.target,
+        rect: Rect::new(0, 0, 0, 0),
+    });
+    let mut seen = 0;
+    for row in 0..rows {
+        let row_count = columns.min(count - seen);
+        let mut row_specs = specs;
+        let mut visible_index = 0;
+        for spec in &mut row_specs {
+            if spec.visible {
+                spec.visible = visible_index >= seen && visible_index < seen + row_count;
+                visible_index += 1;
+            }
+        }
+        let placed = place_toolbar(
+            Rect::new(
+                rect.x,
+                rect.y + row * (minimum + gap),
+                rect.width,
+                rect.height,
+            ),
+            gap,
+            minimum,
+            minimum,
+            row_specs,
+            alignment,
+        )?;
+        for (target, placed) in targets.iter_mut().zip(placed) {
+            if placed.rect.width > 0 {
+                *target = placed;
+            }
+        }
+        seen += row_count;
+    }
+    Ok((targets, rows))
+}
+
+fn place_toolbar<const N: usize>(
+    rect: Rect,
+    gap: u32,
+    icon_width: u32,
+    text_width: u32,
+    specs: [ToolbarButtonSpec; N],
+    alignment: ToolbarAlignment,
+) -> Result<[ControlTarget; N], LayoutError> {
+    let visible_count = specs.iter().filter(|spec| spec.visible).count() as u32;
+    let text_count = specs
+        .iter()
+        .filter(|spec| spec.visible && spec.button.button_type != ButtonType::Icon)
+        .count() as u32;
+    let gap_count = visible_count.saturating_sub(1);
+    let required = specs.iter().filter(|spec| spec.visible).fold(
+        gap.saturating_mul(gap_count),
+        |sum, spec| {
+            sum.saturating_add(match spec.button.button_type {
+                ButtonType::Icon => icon_width,
+                ButtonType::Text => text_width,
+                ButtonType::IconAndText => {
+                    icon_width.saturating_add(gap).saturating_add(text_width)
+                }
+            })
+        },
+    );
+    if required > rect.width {
+        return Err(LayoutError::TooSmall);
+    }
+    let extra = rect.width - required;
+    let stretch_text =
+        alignment == ToolbarAlignment::FullWidth && visible_count > 1 && text_count > 0;
+    let spread_icons =
+        alignment == ToolbarAlignment::FullWidth && visible_count > 1 && text_count == 0;
+    let mut x = match alignment {
+        ToolbarAlignment::Right => rect.right() - required,
+        ToolbarAlignment::Left | ToolbarAlignment::FullWidth => rect.x,
+    };
+    let mut seen = 0;
+    let mut text_seen = 0;
+    let mut targets = specs.map(|spec| ControlTarget {
+        rect: Rect::new(0, 0, 0, 0),
+        target: spec.target,
+    });
+    for (index, spec) in specs.iter().enumerate() {
+        if !spec.visible {
+            continue;
+        }
+        let mut width = match spec.button.button_type {
+            ButtonType::Icon => icon_width,
+            ButtonType::Text => text_width,
+            ButtonType::IconAndText => icon_width.saturating_add(gap).saturating_add(text_width),
+        };
+        if stretch_text && spec.button.button_type != ButtonType::Icon {
+            width += extra / text_count;
+            width += u32::from(text_seen < extra % text_count);
+            text_seen += 1;
+        }
+        targets[index].rect = Rect::new(x, rect.y, width, rect.height);
+        x += width;
+        seen += 1;
+        if seen < visible_count {
+            x += gap;
+            if spread_icons {
+                x += extra / gap_count;
+                if seen == gap_count {
+                    x += extra % gap_count;
+                }
+            }
+        }
+    }
+    Ok(targets)
+}
+
 fn split_targets<const N: usize>(
     rect: Rect,
     gap: u32,
@@ -716,4 +1333,94 @@ const fn px_for_mm(dpi: u32, millimeters: u32) -> u32 {
         .saturating_mul(10)
         .saturating_add(127)
         / 254
+}
+
+#[cfg(test)]
+mod toolbar_tests {
+    use super::*;
+
+    #[test]
+    fn full_width_icon_only_toolbar_distributes_space_between_icons() {
+        let rect = Rect::new(12, 20, 400, 80);
+        let specs = [
+            ToolbarButtonSpec {
+                target: HitTarget::ToggleAnalysis,
+                visible: true,
+                button: ButtonSpec {
+                    button_type: ButtonType::Icon,
+                    ..toolbar_button(HitTarget::ToggleAnalysis)
+                },
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::Reset,
+                visible: true,
+                button: ButtonSpec {
+                    button_type: ButtonType::Icon,
+                    ..toolbar_button(HitTarget::Reset)
+                },
+            },
+            ToolbarButtonSpec {
+                target: HitTarget::Flip,
+                visible: true,
+                button: ButtonSpec {
+                    button_type: ButtonType::Icon,
+                    ..toolbar_button(HitTarget::Flip)
+                },
+            },
+        ];
+        let controls =
+            place_toolbar(rect, 10, 80, 120, specs, ToolbarAlignment::FullWidth).unwrap();
+        assert_eq!(controls.map(|control| control.rect.x), [12, 172, 332]);
+        assert!(controls.iter().all(|control| control.rect.width == 80));
+        assert_eq!(controls[2].rect.right(), rect.right());
+    }
+
+    #[test]
+    fn display_type_controls_width_even_when_both_properties_exist() {
+        let rect = Rect::new(12, 20, 400, 80);
+        for (button_type, width) in [
+            (ButtonType::Icon, 80),
+            (ButtonType::Text, 120),
+            (ButtonType::IconAndText, 210),
+        ] {
+            let specs = [ToolbarButtonSpec {
+                target: HitTarget::Reset,
+                visible: true,
+                button: ButtonSpec {
+                    button_type,
+                    ..toolbar_button(HitTarget::Reset)
+                },
+            }];
+            let targets = place_toolbar(rect, 10, 80, 120, specs, ToolbarAlignment::Left).unwrap();
+            assert_eq!(targets[0].rect.width, width);
+        }
+    }
+
+    #[test]
+    fn one_button_stays_at_left_at_its_compact_width() {
+        let rect = Rect::new(12, 20, 400, 80);
+        for kind in [ButtonType::Icon, ButtonType::Text] {
+            let controls = place_toolbar(
+                rect,
+                10,
+                80,
+                120,
+                [ToolbarButtonSpec {
+                    target: HitTarget::Reset,
+                    visible: true,
+                    button: ButtonSpec {
+                        button_type: kind,
+                        ..toolbar_button(HitTarget::Reset)
+                    },
+                }],
+                ToolbarAlignment::FullWidth,
+            )
+            .unwrap();
+            assert_eq!(controls[0].rect.x, rect.x);
+            assert_eq!(
+                controls[0].rect.width,
+                if kind == ButtonType::Icon { 80 } else { 120 }
+            );
+        }
+    }
 }

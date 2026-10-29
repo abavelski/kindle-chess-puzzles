@@ -1959,3 +1959,325 @@ full board redraw. X exit returned 0; verified Xorg and awesome are S (sleeping,
 not stopped), and no chess process remains. Puzzle/progress hashes still match
 pre-deployment values. This accepts the button-sleep overlay and repeated wake
 fix; no new idle, reboot or crash-recovery checkpoint is inferred.
+
+### Task 38 toolbar deployment — 2026-10-07
+
+Built the uncommitted `main` working tree with `scripts/build-kindle.sh` and
+staged/deployed it through `scripts/stage-kindle.sh` and
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`. The full host
+gate and ARMv7/glibc-2.35 release validation passed. Installed binary SHA-256
+`71ea3e0abc7f3389b00fc8ccb941d80766a20ed926851b1aed98260b8f0d9959`
+matches the local validated artifact, and the device loader resolves all
+dependencies. The app and supervisor lock were absent before and after install;
+Xorg and awesome were present afterward.
+
+All five puzzle collection hashes, progress
+`5187d98b839b26b5749ffbeca89479eb39ee8439c36ec2abb32eb2503d5d5a3d`,
+and settings `c838d38e34fe81d9ce3135459a1efa9541d6904c2a76999cadd19741106ec443`
+matched their pre-deploy values. The library scriptlet is present. Physical
+toolbar appearance and tapping in this build await user review after launch;
+installation and host snapshots do not establish that observation.
+
+### Task 39 full-width toolbar deployment — 2026-10-07
+
+Staged the validated uncommitted `main` build and installed it with
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222` while the app
+and supervisor lock were absent. Installed runtime SHA-256
+`485f0ceb72a373bf6cab8e302b3120921b1a62727b4fdfdd6441f5efc3f113ed`
+matches the local validated build. `/lib/ld-linux-armhf.so.3 --list` resolved
+all dependencies; the library scriptlet is present. Xorg and awesome remained
+running, and the app and lock were absent after installation.
+
+All five collection hashes matched pre-deployment values. Progress
+`5187d98b839b26b5749ffbeca89479eb39ee8439c36ec2abb32eb2503d5d5a3d`
+and settings `36e521b24db1db917b1039e6d1e66166f4ff71a996b2424df23d7d787a3130ac`
+also matched. The app was left stopped for user launch. Full-width toolbar
+appearance and taps are pending physical review.
+
+### Task 39 physical acceptance — 2026-10-07
+
+After launching the full-width toolbar build, the user reported that it works
+fine and requested commit and push to `main`. This accepts the deployed toolbar
+change. No separate observations about sleep, reboot, or other device behavior
+were reported in this check.
+
+### Task 40 board-size setting deployed for testing — 2026-10-07
+
+Built the uncommitted `main` tree based on `a53950a` with
+`scripts/build-kindle.sh`, including all host gates and the validated ARMv7 /
+glibc 2.35 release. Staged and deployed through `scripts/stage-kindle.sh` and
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`. The app and
+supervisor lock were absent before installation.
+
+Installed runtime SHA-256
+`b001f5d024af00dd8de99f491bcd5e11ca50694c9f5e703b7d58b21ddb3c89ef`
+matches the validated local binary. The device loader resolved all dependencies,
+the library scriptlet is present, Xorg and awesome are present, and the app and
+supervisor lock remain absent for user launch.
+
+All five puzzle collection hashes matched before/after deployment. Progress
+`5187d98b839b26b5749ffbeca89479eb39ee8439c36ec2abb32eb2503d5d5a3d`
+and settings
+`c838d38e34fe81d9ce3135459a1efa9541d6904c2a76999cadd19741106ec443`
+also matched. No user collections or progress/settings files were rewritten.
+
+Physical review is pending: open Settings, tap BOARD SIZE to select SMALL,
+check the centered smaller board, raised toolbar/navigation, larger text panel,
+notes and analysis readability/taps, then switch back to STANDARD. Check that
+the selected size persists across exit/relaunch. Deployment does not establish
+those visual or interaction observations. Changes remain uncommitted.
+
+### Task 40 physical acceptance — 2026-10-07
+
+The user tested the deployed board-size update on the Scribe, reported “works”,
+and requested commit and push. This accepts the board-size setting and smaller
+layout. No separate sleep/reboot observations or detailed persistence-check
+results were reported. The pending-review note above records deployment-time
+status.
+
+
+### Task 49 prepared deployment — 2026-10-07
+
+Deployed the latest implementation from `main` commit
+`cd3fa5ac043523cb7e096094ee108dceed3b5e51`, copied by fast-forward onto the
+required `game-review` branch. `main` was not moved. No production behavior
+change was needed to prepare this checkpoint.
+
+`scripts/build-kindle.sh` passed formatting, strict Clippy, the full Rust
+workspace (including review import snapshots and regional damage replay),
+Python tooling, generated assets, lifecycle/FFI/packaging contracts, and the
+pinned ARMv7/glibc-2.35 release validation. The host dependency was installed
+in `target/task49-venv`; its `bin` directory was prepended to PATH for the build.
+
+- Build source SHA-256: `78c6c05fc37670bc614be039d0b62b65430a4e1ab49372a476fecfd5218b241a`.
+- Local and installed binary SHA-256: `a5c11aa336314286f8c1f562386586222b6423543dbad2bdfebff27a66b422ad`.
+- Device reconfirmed: first-generation Scribe, ARMv7, firmware 5.19.6.
+- Staged with `scripts/stage-kindle.sh`, installed with
+  `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+- The device loader resolved all dependencies. The scriptlet is present;
+  app process and `/tmp/kindle-chess.lock` were absent before/after deployment.
+  Xorg and awesome were present afterward. Left closed for user library launch.
+
+Prepared review files from the existing synthetic converter fixtures:
+
+| Installed file under `/mnt/us/kindle-chess/games/` | Source fixture | SHA-256 |
+| --- | --- | --- |
+| `games-task49-annotated.json` | `tests/fixtures/pgn-review-converter/annotated-unicode.pgn` | `ba00fae1ddcc8acd7ccf5ccfa988b6b790267190da404c012e0b19a7e65d1e14` |
+| `games-task49-short.json` | `tests/fixtures/pgn-review-converter/multi.pgn` | `3718a2cd2b329d387ac3d999622cddef6e861805b557eb063edf8b49f6072fb2` |
+
+Converted with `tools/pgn_review_converter.py -o`, titles “Task 49 annotated
+game” and “Task 49 short games”, respectively. The annotated José Raúl /
+Александр game has main line `1.d4 d5 2.c4 e6 3.Nc3 Nf6`, variation
+`1...Nf6 2.c4 e6`, nested `2...g6`, and the explicit `2.c4` prose reference.
+The two short games are One / Two (`1.e4 c5`) and Three / Four
+(`1.Nf3 d5 2.g3`). Both installed JSON hashes match host output.
+
+All puzzle collections, progress and settings matched byte-for-byte across
+installation. Preserved pre/post-deploy SHA-256 manifest:
+
+```text
+b22b1b1b2bd4b331ee00ce154934b576ce1e31bc59867543c8b833d1e992edf3  /mnt/us/kindle-chess/puzzles/puzzles-eink-book-001.json
+8dfadf965472f5e6d744df85e10435c1bd1af887c125020af39f1042ba4bad0a  /mnt/us/kindle-chess/puzzles/puzzles-eink-book-002.json
+b8c0eaed5e01a19c023db746594d3ca024009a5daf09d8bb3e5fe8d0a65e5357  /mnt/us/kindle-chess/puzzles/puzzles-eink-book-003.json
+7685d3583e42855c80a760454223e9727623bffa881f18444cfe220e78ed5d6e  /mnt/us/kindle-chess/puzzles/puzzles-eink-book-004.json
+3ddf457bbac3472c3f952ed082c46904023e644ddd2c814b9404729bfde27b84  /mnt/us/kindle-chess/puzzles/puzzles-task26-stylus.json
+64251392ff04ba3e7933b53766686a706cb6bda138764e3e62bcf6f242f70659  /mnt/us/kindle-chess/state/progress.json
+2d55c1bfb8651448d0caefd8700ed7b69c40c398faad4d65c6d1bde4f93e369c  /mnt/us/kindle-chess/state/settings.json
+```
+
+#### HUMAN CHECKPOINT 49A — passed 2026-10-07
+
+The user confirmed “it all works” after device testing and requested Task 49
+closure, commit and push to `main`. All twelve checkpoint items are accepted
+by that report. Task 49 is Implemented and Phase 3 is closed.
+Review-only testing should avoid puzzle navigation/solving so the recorded
+progress baseline can be compared after the run. Board-size settings may change
+intentionally. First leave a recognizable puzzle attempt/analysis state, then
+switch to Review; compare that exact session when switching back before Close.
+
+| Item | Physical observation | Status |
+| --- | --- | --- |
+| 1 | Library launch with the three installed games and annotations/variations | Passed (user confirmation) |
+| 2 | Refresh and workspace icon distinguishable and tappable | Passed (user confirmation) |
+| 3 | GAMES selection updates metadata and board | Passed (user confirmation) |
+| 4 | PREV/NEXT traverse main line; root/final disabled controls | Passed (user confirmation) |
+| 5 | Main-line, variation and explicit prose-reference taps show intended positions | Passed (user confirmation) |
+| 6 | Variation PREV/NEXT return predictably to main line | Passed (user confirmation) |
+| 7 | FREE scratch moves, RESET, authored navigation and FREE exit | Passed (user confirmation) |
+| 8 | STANDARD/SMALL readability and analysis tap targets | Passed (user confirmation) |
+| 9 | FLIP/LOCK; matching finger/stylus movetext and picker targets | Passed (user confirmation) |
+| 10 | Returning to Puzzles restores the exact previous session | Passed (user confirmation) |
+| 11 | Review use preserves solved/current puzzle progress | Passed (user confirmation) |
+| 12 | Manual Refresh, repeated sleep/wake, Close/relaunch and native recovery | Passed (user confirmation) |
+
+Post-test read-only SSH verification confirmed that all five puzzle collections,
+both review JSON files, and `progress.json` still match the deployment manifest.
+The installed binary still matches `a5c11aa336314286f8c1f562386586222b6423543dbad2bdfebff27a66b422ad`.
+Settings changes during board-size testing are intentional and are not treated
+as progress changes. Acceptance is based on the user report; no additional reboot
+or crash-recovery observation is inferred. Integration into `main` is explicitly
+authorized by the same user request. Existing X exit and SSH recovery remain
+available.
+
+#### Real-game import and comment cleanup — 2026-10-07
+
+Converted the user's local `data/game1.pgn` (Fischer–Sherwin, 1957, Russian
+annotations) with `tools/pgn_review_converter.py`, then copied it via the existing
+scp/SSH transport to `/mnt/us/kindle-chess/games/games-game1.json` while the app
+and supervisor lock were absent. The game contains 65 main-line plies and 164
+variation plies. The user confirmed that the imported game works after `%pre`
+wrappers were unwrapped while retaining their prose.
+
+The user subsequently requested removal of unsupported board annotation markup.
+`tools/clean_pgn.py data/game1.pgn -o data/game1-clean.pgn` now unwraps 35 `%pre`
+directives and removes five `%csl`/`%cal` directives. Converted with title
+`Fischer – Sherwin, 1957`, the resulting JSON is 107,968 bytes and retains the
+same game ID, move tree and FENs; only comment/content text changed.
+
+Uploaded to a hidden temporary filename, verified SHA-256, backed up the previous
+file as `games-game1.json.pre-strip.bak`, and renamed the new file into place.
+Installed SHA-256 matches host output:
+`83195012766ef6893ac44840f56a27e746913e3c24eacbf0e5d7621a8cf8fe8e`.
+All nine other puzzle/state/review files matched their pre-upload hashes,
+including progress and settings. Original PGN and generated files remain local
+under the ignored `data/` directory. Relaunch reloads the updated review library;
+this transfer verification does not assert a new physical visual checkpoint.
+
+Future board marks are described in the
+[deferred PGN annotation proposal](../PGN_BOARD_ANNOTATIONS.md).
+
+#### Task 50 prepared deployment — 2026-10-07
+
+Removed renderer-added comment braces in the shared puzzle/review analysis flow.
+Variation parentheses, authored prose punctuation, bold move references, NAGs
+and selected-move inversion remain. Inspected updated STANDARD/SMALL frames;
+full host gates and the pinned ARMv7/glibc-2.35 build passed. Deployed the
+uncommitted `main` working tree based on `7ab213f` with
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222` after the user
+closed the app and restored SSH availability.
+
+- Build source SHA-256: `3e1904f18213cdc4f83d9dd0fe7b22ee9d4d7a84eb8359de8124c5ec00607e5a`.
+- Local/installed binary SHA-256: `72268220b88d97a75ae0b87e1782a875dd1dabedcba2279b1883335bf557fe5a`.
+- Device loader resolved all dependencies; supervisor lock absent afterward.
+- All ten puzzle collections, review collections, progress and settings files
+  retained their pre-deployment SHA-256 hashes.
+
+Physical validation is pending. Check brace-free prose in the real Fischer–Sherwin
+game, main-line and variation move taps, PREV/NEXT and pagination, then puzzle
+analysis comments/references and a normal graded attempt. Confirm readability
+in STANDARD/SMALL, return to puzzle mode, and normal X exit. Changes remain
+uncommitted until the user accepts and explicitly requests committing.
+
+
+#### Task 50 merged rebuild and deployment — 2026-10-09
+
+At the user's request, committed the prepared book-style prose changes as
+`78c2361`, fetched `origin/main` at `09697fe`, and merged it without conflicts
+as `5e9ed4c`. The merged build also includes the expanded Game Review picker.
+
+- Full host gates passed through `scripts/build-kindle.sh`: formatting, clippy,
+  workspace tests/snapshots, generated assets, Python and platform/package contracts.
+- Pinned ARMv7/glibc-2.35 release build and ELF validation passed.
+- Staged with `scripts/stage-kindle.sh` and deployed with
+  `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+- App process and `/tmp/kindle-chess.lock` were absent before installation.
+- Build source SHA-256: `16d19052f3cf57c182f8487759637c248d2cad0e7051adbfe017ac39bcd038c2`.
+- Host/installed binary SHA-256: `96bf9e24f65c18c593e2f7c9567dda4f07a6c3db652b4490aa65410e53e3e782`.
+- Device loader resolved all dependencies. Supervisor lock absent afterward.
+- All 118 puzzle/game/progress/settings files retained identical SHA-256 hashes.
+  Local manifests and loader output are in ignored `probe-output/deploy-20261009/`.
+
+The app is installed for library launch and user testing. Physical acceptance of
+comment readability, move taps, pagination and the expanded game picker remains
+pending; no new visual/device-interaction pass is asserted.
+
+
+#### Task 51 dialog deployment — 2026-10-09
+
+Only GAMES dialog geometry changed: full display width, top at header bottom,
+CLOSE at bottom right and PAGE > in the middle. Existing bottom edge and
+pagination are preserved. Full host gates and pinned release build passed.
+Inspected Gray8 picker frame; other existing snapshots remain unchanged.
+Deployed using scripts/stage-kindle.sh and scripts/deploy-kindle.sh --host
+root@192.168.1.20 --port 2222 after user X exit; app/lock absent before install.
+
+- Binary SHA-256 (host and device): `2279d1b6bb438c6771217864b22752000c1c2a522a942d746d8c9482b43a4f09`.
+- Source SHA-256: `c8d5e6b9aa402ccc2714f0eb51ee70b31b57888fe0f9911aba929f611f117ca3`.
+- All 118 collection/state hashes unchanged; loader dependencies resolved.
+- Verification artifacts: ignored probe-output/dialog-20261009/.
+
+Physical review of bounds, game selection, PAGE > and CLOSE remains pending.
+
+
+#### Task 52 settings deployment — 2026-10-09
+
+Deployed independent Puzzle/Game Review preferences using the existing staged
+package and scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222.
+The user restored SSH availability; app process and supervisor lock were absent
+before install. Full host gates and pinned ARMv7/glibc-2.35 build passed earlier.
+
+- Host/installed binary SHA-256: `d9b0487730ee66f2f88778077bbb7f7c31a75032708d04f6623d4664a16b6027`.
+- Source SHA-256: `6d183e785bfe40782778fe33ef5b4b7e23668da254bda8b8014f7da992301836`.
+- All 118 collection/state hashes unchanged; device loader resolved dependencies.
+- Verification artifacts: ignored probe-output/workspace-settings-20261009/.
+
+Physical validation pending: edit board size/optional controls in Game Review,
+switch to Puzzles and confirm its preferences/session are preserved, edit Puzzle
+preferences and check review is unchanged, then exit/relaunch and confirm both
+profiles survive. Existing global preferences initially populate both profiles.
+
+## Task 53 — Review resume deployment (2026-10-09)
+
+On explicit user request, staged the host-tested ARMv7/glibc-2.35 release and
+installed through `scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+The app process and supervisor lock were absent before installation. Installed
+binary SHA-256 is `23027062186b46891e10844ac183197933cedb36ee46f2f62c863e5cb9181ba4`,
+matching the successful build receipt; the device loader resolved dependencies.
+All 118 puzzle/game/state file hashes remained unchanged. No app launch or
+physical review-position/restart validation was performed; no commit was made.
+
+
+## Task 55 — Small-board sidebar test deployment (2026-10-09)
+
+On explicit user request, rebuilt the uncommitted working tree, staged through
+`scripts/stage-kindle.sh`, and deployed through
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+Full host gates, snapshots and the pinned ARMv7/glibc-2.35 release validation
+passed. Read-only preflight reconfirmed ARMv7 and firmware 5.19.6; the app,
+supervisor lock and installation lock were absent.
+
+- Host/installed binary SHA-256: `531fffc9d016812d360832b07890f1519ea6f175d9707212621136c6718e9cba`.
+- Build source SHA-256: `10e9580e0e98846c273a5301ed6a8e0cf2ba8063497e83ca345239632e407d09`.
+- Device loader resolved all dependencies; app/installation locks absent afterward.
+- All 119 puzzle/game/state file SHA-256 hashes remained identical.
+- Verification artifacts: ignored `probe-output/small-sidebar-20261009/`.
+
+SMALL uses a left-aligned board, compact left-aligned toolbar icons to its right,
+narrower text navigation and analysis directly below the board. STANDARD
+snapshot checksums remain unchanged. Physical layout/tap validation is pending;
+open the library scriptlet, select SMALL in each workspace and check controls,
+analysis taps, optional-button visibility, flip and normal X exit. No app launch
+or physical visual acceptance is asserted. No commit was made.
+
+
+## Tasks 55–56 — Committed layout/settings deployment (2026-10-09)
+
+On explicit user request, committed and pushed the completed improvements to
+`main` as `1a6fca3`, rebuilt that revision with `scripts/build-kindle.sh`, staged
+with `scripts/stage-kindle.sh`, and installed with
+`scripts/deploy-kindle.sh --host root@192.168.1.20 --port 2222`.
+Full host gates and pinned ARMv7/glibc-2.35 release validation passed.
+Read-only preflight reconfirmed ARMv7, firmware 5.19.6 and absent app/locks.
+
+- Installed binary SHA-256: `c564374cddbd9474cc6f30fbef971efe059f5e3fee0af6f490673356da966468`, matching the host build.
+- Build source SHA-256: `9cd06c12919b35a097fd739c6b8ce39d2b10e06bbf46c0df54ef810733006d13`.
+- Device loader resolved all dependencies; app and installation locks absent afterward.
+- All 119 puzzle/game/state file hashes remained identical across deployment.
+- Evidence: ignored `probe-output/layout-settings-release-20261009/`.
+
+This build includes bottom-anchored SMALL sidebar controls and independent
+LOCK BUTTON/FLIP BUTTON visibility settings in each workspace. Existing files
+without the new fields default both controls to ON. No app launch or new
+physical acceptance is asserted. For user testing, select SMALL in each
+workspace, check bottom placement and control taps, toggle Lock/Flip visibility,
+switch workspaces and exit/relaunch to check independently restored settings.

@@ -229,14 +229,20 @@ def _structured_text(
     return spans, "".join(projection)
 
 
-def _build_tree(game: chess.pgn.Game, puzzle_id: str, start_board: chess.Board) -> tuple[list[dict[str, Any]], dict[str, str]]:
+def _build_tree(
+    game: chess.pgn.Game,
+    puzzle_id: str,
+    start_board: chess.Board,
+    *,
+    context_kind: str = "puzzle",
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
     root = {"id": "n0", "fen": _board_fen(start_board)}
     nodes: list[dict[str, Any]] = [root]
     raw_comments: dict[str, str] = {"n0": game.comment or ""}
     next_id = 1
 
     if ROLE_ALTERNATIVE_DIRECTIVE in raw_comments["n0"]:
-        _fail(f"puzzle {puzzle_id} root comment", "[%role alternative] cannot be attached to the root")
+        _fail(f"{context_kind} {puzzle_id} root comment", "[%role alternative] cannot be attached to the root")
 
     def create_child(
         child: chess.pgn.ChildNode,
@@ -247,7 +253,7 @@ def _build_tree(game: chess.pgn.Game, puzzle_id: str, start_board: chess.Board) 
         on_main_path: bool,
     ) -> tuple[dict[str, Any], chess.Board]:
         nonlocal next_id
-        context = f"puzzle {puzzle_id} move {next_id}"
+        context = f"{context_kind} {puzzle_id} move {next_id}"
         move = child.move
         if move not in board.legal_moves:
             _fail(context, f"illegal move {move.uci()} for position {board.fen(en_passant='fen')}")
@@ -265,7 +271,7 @@ def _build_tree(game: chess.pgn.Game, puzzle_id: str, start_board: chess.Board) 
         raw_parts = [part for part in (getattr(child, "starting_comment", ""), child.comment or "") if part]
         raw_comment, is_alternative = _strip_alternative_directive(
             "\n".join(raw_parts),
-            f"puzzle {puzzle_id} comment on {node_id}",
+            f"{context_kind} {puzzle_id} comment on {node_id}",
             branch_root=branch_root,
         )
         role = "main" if on_main_path else ("alternative" if is_alternative else "sideline")

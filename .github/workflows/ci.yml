@@ -34,6 +34,7 @@ jobs:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@1.85.1
         with:
+          components: rustfmt, clippy
           targets: armv7-unknown-linux-gnueabihf
       - uses: actions/setup-python@v5
         with:

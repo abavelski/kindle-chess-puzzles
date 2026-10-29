@@ -76,7 +76,8 @@ Post-phase-two [Task 30](../tasks/improvements/30-inline-pgn-analysis.md) replac
 indented/labeled rows with inline PGN movetext. Ordered first children continue each
 line; later children form recursive parenthesized variations. Move numbers come from
 the parent position's validated FEN side/fullmove fields. NAGs use $N and structured
-comments use braces; descriptions/root prose remain associated with the movetext.
+comments display as plain prose without renderer-added braces; descriptions/root
+prose remain associated with the movetext. Source PGN retains comment delimiters.
 Wrapped lines retain the existing overflow page state and controls. Finger and stylus resolve to the same logical action. Stylus decoding
 belongs only in the Kindle input adapter; the shared app must not know Linux pen event codes.
 

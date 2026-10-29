@@ -3,6 +3,10 @@
 Phase one is complete and archived under [`implemented/phase-1/`](implemented/phase-1/).
 Phase two is complete and archived under [`implemented/phase-2/`](implemented/phase-2/).
 Post-phase-two improvements are tracked under `improvements/`.
+
+Phase three game review is complete under [`phase-3/`](phase-3/) and described in
+[`docs/GAME_REVIEW.md`](../docs/GAME_REVIEW.md). Checkpoint 49A passed on
+2026-10-07; integration from `game-review` into `main` was explicitly authorized.
 [Task 29 — compact analysis toolbar toggle](improvements/29-analysis-toolbar-toggle.md)
 moves analysis into the first icon-only toolbar control.
 [Task 30 — inline PGN analysis](improvements/30-inline-pgn-analysis.md) replaces
@@ -80,3 +84,33 @@ adds a visible sleeping notice and removes it on wake.
 
 [Task 37 — repeatable button sleep/wake](improvements/37-repeatable-sleep-wake.md)
 fixes native wake completion while the app owns the display.
+
+[Task 38 — dynamic right-aligned toolbar](improvements/38-dynamic-toolbar-layout.md)
+compacts visible icon and text controls when Settings hides FREE or NOTE.
+
+[Task 39 — toolbar alignment policies](improvements/39-toolbar-alignment.md)
+adds developer-selectable left, right, and full-width placement; full width is active.
+
+[Task 40 — Board size setting](improvements/40-board-size-setting.md)
+adds STANDARD/SMALL board sizes and a larger text panel in the smaller layout.
+
+[Task 50 — Book-style comment prose](improvements/50-book-style-comment-prose.md)
+removes display-only comment braces in puzzle analysis and game review;
+physical validation is pending.
+
+
+[Task 52 — Separate workspace settings](improvements/52-workspace-settings.md)
+keeps Puzzle and Game Review preferences independent, with migration from
+existing global settings. Host implementation passed; device validation is pending.
+
+[Task 53 — Persist Game Review position](improvements/53-review-resume.md)
+restores the last review file/game and authored move independently of puzzle progress.
+
+[Task 54 — Generic button properties](improvements/54-generic-buttons.md)
+shares optional icon/text and explicit display types while preserving the UI.
+
+[Task 55 — Small-board sidebar controls](improvements/55-small-board-sidebar.md)
+places SMALL controls beside a left-aligned board and analysis directly below it.
+
+[Task 56 — Lock and Flip button settings](improvements/56-lock-flip-button-settings.md)
+adds independently saved visibility controls to both workspace profiles.

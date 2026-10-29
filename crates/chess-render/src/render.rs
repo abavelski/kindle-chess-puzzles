@@ -1,15 +1,20 @@
 //! Deterministic monochrome-first chess application renderer.
 
 use crate::{
-    analysis_panel::draw_analysis_panel,
+    analysis_panel::{draw_analysis_panel, AnalysisView},
+    button::toolbar_button_for_size,
     font::{
         draw_text_bold, draw_text_bold_vertically_centered, draw_text_centered, draw_wrapped_text,
         draw_wrapped_text_with_line_spacing, measure_text_bold,
     },
     pieces::draw_piece,
-    AnalysisPanelOutput, DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect,
+    AnalysisPanelOutput, ButtonIcon, ButtonSpec, ButtonType, DisplayMetrics, Gray8, HitTarget,
+    Layout, LayoutError, Rect,
 };
-use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback};
+use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback, Workspace};
+
+#[cfg(test)]
+use crate::button::toolbar_button;
 
 const WHITE: u8 = 255;
 const INK: u8 = 0;
@@ -31,9 +36,20 @@ pub struct RenderOutput {
 
 impl RenderOutput {
     pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
-        if state.analysis_browser_open()
+        if state.settings_open() {
+            return self.layout.hit_test_app(x, y, state);
+        }
+
+        let review_picker_open = state
+            .review_state()
+            .is_some_and(|review| review.game_picker_open());
+        let analysis_visible =
+            state.workspace() == Workspace::Review || state.analysis_browser_open();
+        if analysis_visible
             && !state.collection_picker_open()
+            && !review_picker_open
             && !state.puzzle_goto_open()
+            && state.pending_promotion().is_none()
         {
             if let Some(target) = self
                 .analysis
@@ -42,7 +58,7 @@ impl RenderOutput {
             {
                 return Some(target);
             }
-            if self.layout.board.contains(x, y) {
+            if state.workspace() == Workspace::Puzzles && self.layout.board.contains(x, y) {
                 return None;
             }
         }
@@ -52,7 +68,7 @@ impl RenderOutput {
 }
 
 pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput, LayoutError> {
-    let layout = Layout::new(metrics)?;
+    let layout = Layout::for_app(metrics, state)?;
     let mut frame = Gray8::new(metrics.width, metrics.height, WHITE);
     let text_scale = (metrics.dpi / 100).clamp(2, 5);
     let coordinate_scale = (metrics.dpi / 100).clamp(2, 4);
@@ -61,26 +77,39 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     draw_board(&mut frame, state, layout, coordinate_scale);
     draw_toolbar(&mut frame, state, layout, text_scale);
     draw_navigation(&mut frame, state, layout, text_scale);
-    let analysis_entry = state
-        .analysis_available()
+    let analysis_entry = (state.workspace() == Workspace::Puzzles && state.analysis_available())
         .then_some(layout.toolbar_targets[0].rect);
     let analysis = draw_status(&mut frame, state, layout, text_scale);
 
-    match state.feedback() {
-        SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
-        SolutionFeedback::Complete => draw_complete_overlay(&mut frame, layout),
-        SolutionFeedback::None | SolutionFeedback::Correct => {}
+    if state.workspace() == Workspace::Puzzles {
+        match state.feedback() {
+            SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
+            SolutionFeedback::Complete => draw_complete_overlay(&mut frame, layout),
+            SolutionFeedback::None | SolutionFeedback::Correct => {}
+        }
     }
 
     if let Some(pending) = state.pending_promotion() {
         draw_promotion_modal(&mut frame, layout, pending.color(), text_scale);
     }
 
-    if state.collection_picker_open() {
+    if state.workspace() == Workspace::Puzzles && state.collection_picker_open() {
         draw_collection_picker(&mut frame, state, layout, text_scale);
     }
 
-    if state.puzzle_goto_open() {
+    if state.workspace() == Workspace::Review
+        && state
+            .review_state()
+            .is_some_and(|review| review.game_picker_open())
+    {
+        draw_review_game_picker(&mut frame, state, layout, text_scale);
+    }
+
+    if state.settings_open() {
+        draw_settings_panel(&mut frame, state, layout, text_scale);
+    }
+
+    if state.workspace() == Workspace::Puzzles && state.puzzle_goto_open() {
         draw_puzzle_goto(&mut frame, state, layout, text_scale);
     }
 
@@ -95,75 +124,186 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
 
 fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scale: u32) {
     frame.stroke_rect(layout.header, 3, INK);
-    let puzzle = state.active_puzzle();
-    let difficulty = puzzle
-        .difficulty
-        .as_ref()
-        .map(|value| format!(" ({value})"))
-        .unwrap_or_default();
-    let title = format!(
-        "{}/{} {}{}",
-        state.active_puzzle_index() + 1,
-        state.active_collection().puzzles().len(),
-        puzzle.id,
-        difficulty
-    );
     let padding = layout.header.height / 8;
-    let side = match puzzle.side_to_move() {
-        Color::White => "WHITE TO MOVE",
-        Color::Black => "BLACK TO MOVE",
-    };
-    let side_width = measure_text_bold(side, control_scale) + padding * 2;
-    let side_rect = Rect::new(
-        layout.header.x + layout.header.width.saturating_sub(side_width) / 2,
-        layout.header.y,
-        side_width,
-        layout.header.height,
-    );
-    let title_x = layout.refresh.right().saturating_add(padding);
-    let title_rect = Rect::new(
-        title_x,
-        layout.header.y,
-        side_rect.x.saturating_sub(title_x + padding),
-        layout.header.height,
-    );
-    let mut title_scale = control_scale;
-    while title_scale > 2 && measure_text_bold(&title, title_scale) > title_rect.width {
-        title_scale -= 1;
-    }
-    draw_text_bold_vertically_centered(frame, title_x, title_rect, &title, title_scale, INK);
-    draw_text_centered(frame, side_rect, side, control_scale, INK);
 
-    if state.is_current_solved() {
-        let badge_width = layout.minimum_touch_px().saturating_mul(2);
-        let right = if state.collection_entries().is_empty() {
-            layout.exit.x
-        } else {
-            layout.collection_button.x
-        };
-        let badge = header_control_visual_rect(
-            layout,
-            Rect::new(
-                right.saturating_sub(badge_width),
+    match state.workspace() {
+        Workspace::Puzzles => {
+            let puzzle = state.active_puzzle();
+            let difficulty = puzzle
+                .difficulty
+                .as_ref()
+                .map(|value| format!(" ({value})"))
+                .unwrap_or_default();
+            let title = format!(
+                "{}/{} {}{}",
+                state.active_puzzle_index() + 1,
+                state.active_collection().puzzles().len(),
+                puzzle.id,
+                difficulty
+            );
+            let side = match puzzle.side_to_move() {
+                Color::White => "WHITE TO MOVE",
+                Color::Black => "BLACK TO MOVE",
+            };
+            let side_width = measure_text_bold(side, control_scale) + padding * 2;
+            let side_rect = Rect::new(
+                layout.header.x + layout.header.width.saturating_sub(side_width) / 2,
                 layout.header.y,
-                badge_width,
+                side_width,
                 layout.header.height,
-            ),
-        );
-        draw_button(frame, badge, "SOLVED", true, control_scale);
+            );
+            let title_x = layout.workspace.right().saturating_add(padding);
+            let title_rect = Rect::new(
+                title_x,
+                layout.header.y,
+                side_rect.x.saturating_sub(title_x + padding),
+                layout.header.height,
+            );
+            let mut title_scale = control_scale;
+            while title_scale > 2 && measure_text_bold(&title, title_scale) > title_rect.width {
+                title_scale -= 1;
+            }
+            draw_text_bold_vertically_centered(
+                frame,
+                title_x,
+                title_rect,
+                &title,
+                title_scale,
+                INK,
+            );
+            draw_text_centered(frame, side_rect, side, control_scale, INK);
+
+            if state.is_current_solved() {
+                let badge_width = layout.minimum_touch_px().saturating_mul(2);
+                let right = if state.collection_entries().is_empty() {
+                    layout.settings.x
+                } else {
+                    layout.collection_button.x
+                };
+                let badge = header_control_visual_rect(
+                    layout,
+                    Rect::new(
+                        right.saturating_sub(badge_width),
+                        layout.header.y,
+                        badge_width,
+                        layout.header.height,
+                    ),
+                );
+                draw_button(frame, badge, "SOLVED", true, control_scale);
+            }
+
+            if !state.collection_entries().is_empty() {
+                draw_button(
+                    frame,
+                    header_control_visual_rect(layout, layout.collection_button),
+                    "FILES",
+                    false,
+                    control_scale,
+                );
+            }
+        }
+        Workspace::Review => {
+            if let (Some(entry), Some(review)) = (state.active_review_game(), state.review_state())
+            {
+                let game = entry.game();
+                let title = format!(
+                    "{} - {}  {}",
+                    game.metadata.white, game.metadata.black, game.metadata.result
+                );
+                let context = game
+                    .analysis
+                    .node(review.selected_node())
+                    .and_then(|node| node.movement.as_ref())
+                    .map(|movement| format!("PLY {} {}", review.main_line_ply(), movement.san))
+                    .unwrap_or_else(|| "START".to_owned());
+                let context_width = measure_text_bold(&context, control_scale)
+                    .saturating_add(padding.saturating_mul(2))
+                    .max(layout.minimum_touch_px().saturating_mul(2))
+                    .min(layout.minimum_touch_px().saturating_mul(3));
+                let context_rect = Rect::new(
+                    layout.header.x + layout.header.width.saturating_sub(context_width) / 2,
+                    layout.header.y,
+                    context_width,
+                    layout.header.height,
+                );
+                let title_x = layout.workspace.right().saturating_add(padding);
+                let title_rect = Rect::new(
+                    title_x,
+                    layout.header.y,
+                    context_rect.x.saturating_sub(title_x + padding),
+                    layout.header.height,
+                );
+                draw_fitted_bold_left(frame, title_rect, &title, control_scale, INK);
+                draw_fitted_bold_centered(frame, context_rect, &context, control_scale, INK);
+            }
+
+            draw_button(
+                frame,
+                header_control_visual_rect(layout, layout.collection_button),
+                "GAMES",
+                false,
+                control_scale,
+            );
+        }
     }
 
-    if !state.collection_entries().is_empty() {
-        draw_button(
-            frame,
-            header_control_visual_rect(layout, layout.collection_button),
-            "FILES",
-            false,
-            control_scale,
-        );
-    }
+    draw_settings_button(frame, header_control_visual_rect(layout, layout.settings));
     draw_refresh_button(frame, header_control_visual_rect(layout, layout.refresh));
+    draw_workspace_button(
+        frame,
+        header_control_visual_rect(layout, layout.workspace),
+        state.workspace() == Workspace::Review,
+    );
     draw_close_button(frame, header_control_visual_rect(layout, layout.exit));
+}
+
+fn fit_bold_text(text: &str, width: u32, preferred_scale: u32) -> (String, u32) {
+    let mut scale = preferred_scale;
+    while scale > 2 && measure_text_bold(text, scale) > width {
+        scale -= 1;
+    }
+    if measure_text_bold(text, scale) <= width {
+        return (text.to_owned(), scale);
+    }
+
+    let suffix = "...";
+    if measure_text_bold(suffix, scale) > width {
+        return (String::new(), scale);
+    }
+    let mut characters = text.chars().collect::<Vec<_>>();
+    while !characters.is_empty() {
+        characters.pop();
+        let mut candidate = characters.iter().copied().collect::<String>();
+        candidate.push_str(suffix);
+        if measure_text_bold(&candidate, scale) <= width {
+            return (candidate, scale);
+        }
+    }
+    (suffix.to_owned(), scale)
+}
+
+fn draw_fitted_bold_left(
+    frame: &mut Gray8,
+    rect: Rect,
+    text: &str,
+    preferred_scale: u32,
+    tone: u8,
+) {
+    let (display, scale) = fit_bold_text(text, rect.width, preferred_scale);
+    draw_text_bold_vertically_centered(frame, rect.x, rect, &display, scale, tone);
+}
+
+fn draw_fitted_bold_centered(
+    frame: &mut Gray8,
+    rect: Rect,
+    text: &str,
+    preferred_scale: u32,
+    tone: u8,
+) {
+    let (display, scale) = fit_bold_text(text, rect.width, preferred_scale);
+    let width = measure_text_bold(&display, scale);
+    let x = rect.x.saturating_add(rect.width.saturating_sub(width) / 2);
+    draw_text_bold_vertically_centered(frame, x, rect, &display, scale, tone);
 }
 
 fn header_control_visual_rect(layout: Layout, rect: Rect) -> Rect {
@@ -223,42 +363,47 @@ fn draw_coordinates(frame: &mut Gray8, flipped: bool, layout: Layout, scale: u32
 
 fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
     for target in layout.toolbar_targets {
-        if target.target == HitTarget::ToggleAnalysis {
-            draw_analysis_toggle(frame, layout.control_visual_rect(target.rect), state);
+        if target.rect.width == 0 {
             continue;
         }
-        let (label, selected) = match target.target {
-            HitTarget::ToggleMode => ("FREE", state.mode() == BoardMode::FreeBoard),
-            HitTarget::ToggleDescription => ("NOTE", state.description_visible()),
-            HitTarget::ToggleOrientationLock => ("LOCK", state.orientation_locked()),
-            HitTarget::Reset => ("RESET", false),
-            HitTarget::Flip => ("FLIP", false),
-            _ => continue,
+
+        let (selected, enabled) = match state.workspace() {
+            Workspace::Puzzles => match target.target {
+                HitTarget::ToggleAnalysis => {
+                    (state.analysis_browser_open(), state.analysis_available())
+                }
+                HitTarget::ToggleMode => (state.mode() == BoardMode::FreeBoard, true),
+                HitTarget::ToggleDescription => (state.description_visible(), true),
+                HitTarget::ToggleOrientationLock => (state.orientation_locked(), true),
+                HitTarget::Reset | HitTarget::Flip => (false, true),
+                _ => continue,
+            },
+            Workspace::Review => {
+                let Some(review) = state.review_state() else {
+                    continue;
+                };
+                match target.target {
+                    HitTarget::ToggleMode => (review.free_board_enabled(), true),
+                    HitTarget::ToggleOrientationLock => (review.orientation_locked(), true),
+                    HitTarget::Reset | HitTarget::Flip => (false, true),
+                    _ => continue,
+                }
+            }
         };
-        draw_button(
+        draw_button_spec(
             frame,
             layout.control_visual_rect(target.rect),
-            label,
+            toolbar_button_for_size(target.target, state.settings().small_board()),
             selected,
+            enabled,
             scale,
         );
     }
 }
 
-fn draw_analysis_toggle(frame: &mut Gray8, rect: Rect, state: &AppState) {
-    let selected = state.analysis_browser_open();
-    let background = if selected { INK } else { WHITE };
-    let ink = if selected {
-        WHITE
-    } else if state.analysis_available() {
-        INK
-    } else {
-        DISABLED_INK
-    };
-    draw_button_chrome(frame, rect, background, ink, selected);
+fn draw_analysis_icon(frame: &mut Gray8, rect: Rect, thickness: u32, ink: u8) {
     // An open book: two pages and a central spine, drawn without font glyphs.
-    let icon = rect.inset(rect.width.min(rect.height) / 4);
-    let thickness = (rect.height / 24).clamp(3, 6);
+    let icon = rect;
     frame.stroke_rect(icon, thickness, ink);
     frame.fill_rect(
         Rect::new(icon.x + icon.width / 2, icon.y, thickness, icon.height),
@@ -280,6 +425,28 @@ fn draw_analysis_toggle(frame: &mut Gray8, rect: Rect, state: &AppState) {
 }
 
 fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    if state.workspace() == Workspace::Review {
+        let (can_previous, can_next) = match (state.review_state(), state.active_review_game()) {
+            (Some(review), Some(entry)) => (review.can_previous(), review.can_next(entry.game())),
+            _ => (false, false),
+        };
+        draw_navigation_button(
+            frame,
+            layout.control_visual_rect(layout.previous),
+            "< PREV",
+            can_previous,
+            scale,
+        );
+        draw_navigation_button(
+            frame,
+            layout.control_visual_rect(layout.next),
+            "NEXT >",
+            can_next,
+            scale,
+        );
+        return;
+    }
+
     draw_navigation_button(
         frame,
         layout.control_visual_rect(layout.previous),
@@ -303,6 +470,32 @@ fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u
     );
 }
 
+fn analysis_view(state: &AppState) -> Option<AnalysisView<'_>> {
+    match state.workspace() {
+        Workspace::Puzzles => {
+            let puzzle = state.active_puzzle();
+            Some(AnalysisView {
+                tree: puzzle.analysis.as_ref()?,
+                leading_content: puzzle.description_content.as_slice(),
+                selected: state.selected_analysis_node(),
+                page: state.analysis_page(),
+                focus: None,
+            })
+        }
+        Workspace::Review => {
+            let review = state.review_state()?;
+            let game = state.active_review_game()?.game();
+            Some(AnalysisView {
+                tree: &game.analysis,
+                leading_content: &[],
+                selected: Some(review.selected_node()),
+                page: review.analysis_page(),
+                focus: review.analysis_focus(),
+            })
+        }
+    }
+}
+
 fn draw_status(
     frame: &mut Gray8,
     state: &AppState,
@@ -311,11 +504,29 @@ fn draw_status(
 ) -> Option<AnalysisPanelOutput> {
     draw_button_chrome(frame, layout.status, WHITE, INK, false);
 
-    let padding = (layout.status.height / 12).max(8);
+    let small_board = state.settings().small_board();
+    let analysis_scale = if small_board {
+        (scale + 1).min(5)
+    } else {
+        scale.min(3)
+    };
+    let scale = if small_board {
+        (scale + 1).min(5)
+    } else {
+        scale
+    };
+    let padding = if small_board {
+        (layout.minimum_touch_px() / 4).max(8)
+    } else {
+        (layout.status.height / 12).max(8)
+    };
     let mut content = layout.status.inset(padding);
 
-    if state.analysis_browser_open() {
-        return draw_analysis_panel(frame, state, layout, content, scale.min(3));
+    let show_analysis = state.workspace() == Workspace::Review || state.analysis_browser_open();
+    if show_analysis {
+        if let Some(view) = analysis_view(state) {
+            return draw_analysis_panel(frame, view, layout, content, analysis_scale);
+        }
     }
 
     if state.feedback() == SolutionFeedback::Correct {
@@ -514,6 +725,94 @@ fn draw_puzzle_goto(frame: &mut Gray8, state: &AppState, layout: Layout, scale: 
     draw_button(frame, layout.goto_cancel, "CANCEL", false, scale.min(3));
 }
 
+fn draw_settings_panel(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    frame.fill_rect(layout.settings_modal, WHITE);
+    frame.stroke_rect(layout.settings_modal, 6, INK);
+
+    let title = Rect::new(
+        layout
+            .settings_modal
+            .x
+            .saturating_add(layout.minimum_touch_px()),
+        layout.settings_modal.y,
+        layout
+            .settings_modal
+            .width
+            .saturating_sub(layout.minimum_touch_px().saturating_mul(2)),
+        layout.minimum_touch_px(),
+    );
+    draw_text_centered(frame, title, "SETTINGS", scale, INK);
+    draw_close_button(
+        frame,
+        layout
+            .settings_close_icon
+            .inset(layout.minimum_touch_px() / 10),
+    );
+
+    draw_setting_row(
+        frame,
+        layout.settings_free_mode,
+        "FREE MODE BUTTON",
+        state.settings().show_free_mode_button(),
+        scale.min(3),
+    );
+    draw_setting_row(
+        frame,
+        layout.settings_notes,
+        "NOTES BUTTON",
+        state.settings().show_notes_button(),
+        scale.min(3),
+    );
+    draw_setting_row(
+        frame,
+        layout.settings_lock,
+        "LOCK BUTTON",
+        state.settings().show_lock_button(),
+        scale.min(3),
+    );
+    draw_setting_row(
+        frame,
+        layout.settings_flip,
+        "FLIP BUTTON",
+        state.settings().show_flip_button(),
+        scale.min(3),
+    );
+    draw_setting_value_row(
+        frame,
+        layout.settings_board_size,
+        "BOARD SIZE",
+        if state.settings().small_board() {
+            "SMALL"
+        } else {
+            "STANDARD"
+        },
+        scale.min(3),
+    );
+    draw_button(frame, layout.settings_close, "CLOSE", false, scale);
+}
+
+fn draw_setting_row(frame: &mut Gray8, rect: Rect, label: &str, enabled: bool, scale: u32) {
+    draw_setting_value_row(
+        frame,
+        rect,
+        label,
+        if enabled { "ON" } else { "OFF" },
+        scale,
+    );
+}
+
+fn draw_setting_value_row(frame: &mut Gray8, rect: Rect, label: &str, value: &str, scale: u32) {
+    draw_button_chrome(frame, rect, WHITE, INK, false);
+    let padding = (rect.height / 5).max(8);
+    draw_text_bold_vertically_centered(frame, rect.x + padding, rect, label, scale, INK);
+    let value_width = measure_text_bold(value, scale);
+    let value_x = rect
+        .right()
+        .saturating_sub(padding)
+        .saturating_sub(value_width);
+    draw_text_bold_vertically_centered(frame, value_x, rect, value, scale, INK);
+}
+
 fn draw_collection_picker(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
     frame.fill_rect(layout.collection_modal, WHITE);
     frame.stroke_rect(layout.collection_modal, 6, INK);
@@ -574,6 +873,76 @@ fn draw_collection_picker(frame: &mut Gray8, state: &AppState, layout: Layout, s
     );
 }
 
+fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+    let Some(review) = state.review_state() else {
+        return;
+    };
+    let total = state.review_picker_entry_count();
+    let modal = layout.review_game_modal;
+    frame.fill_rect(modal, WHITE);
+    frame.stroke_rect(modal, 6, INK);
+
+    let title = Rect::new(modal.x, modal.y, modal.width, layout.minimum_touch_px());
+    let page_count = review.game_picker_page_count(total).max(1);
+    draw_text_centered(
+        frame,
+        title,
+        &format!("GAMES {}/{}", review.game_picker_page() + 1, page_count),
+        scale,
+        INK,
+    );
+
+    for (slot, index) in review.game_picker_visible_range(total).enumerate() {
+        let rect = layout.review_game_rows[slot];
+        let (text, selected, invalid) = if let Some(entry) = state.review_picker_game(index) {
+            (
+                entry.label().to_owned(),
+                index == review.active_game_index(),
+                false,
+            )
+        } else if let Some(error) = state.review_picker_error(index) {
+            (
+                format!("{}\n! {}", error.collection_id(), error.error()),
+                false,
+                true,
+            )
+        } else {
+            continue;
+        };
+        let (background, foreground) = if selected {
+            (INK, WHITE)
+        } else if invalid {
+            (SOFT_GRAY, INK)
+        } else {
+            (WHITE, INK)
+        };
+        frame.fill_rect(rect, background);
+        frame.stroke_rect(rect, 3, INK);
+        draw_wrapped_text(frame, rect.inset(10), &text, scale.min(3), foreground);
+    }
+
+    let (previous, close, next) = (
+        layout.review_game_page_previous,
+        layout.review_game_close,
+        layout.review_game_page_next,
+    );
+    draw_navigation_button(
+        frame,
+        previous,
+        "< PAGE",
+        review.game_picker_can_previous_page(),
+        scale,
+    );
+    draw_button(frame, close, "CLOSE", false, scale);
+    draw_navigation_button(
+        frame,
+        next,
+        "PAGE >",
+        review.game_picker_can_next_page(total),
+        scale,
+    );
+}
+
 fn draw_navigation_button(frame: &mut Gray8, rect: Rect, label: &str, enabled: bool, scale: u32) {
     if enabled {
         draw_button(frame, rect, label, false, scale);
@@ -581,6 +950,23 @@ fn draw_navigation_button(frame: &mut Gray8, rect: Rect, label: &str, enabled: b
         draw_button_chrome(frame, rect, SOFT_GRAY, DISABLED_INK, false);
         draw_text_centered(frame, rect.inset(6), label, scale, DISABLED_INK);
     }
+}
+
+fn draw_workspace_button(frame: &mut Gray8, rect: Rect, selected: bool) {
+    let (background, ink) = if selected { (INK, WHITE) } else { (WHITE, INK) };
+    draw_button_chrome(frame, rect, background, INK, selected);
+    let size = rect.width.min(rect.height);
+    let icon = rect.inset(size / 4);
+    let thickness = (size / 24).clamp(3, 6);
+    frame.stroke_rect(icon, thickness, ink);
+    frame.fill_rect(
+        Rect::new(icon.x + icon.width / 2, icon.y, thickness, icon.height),
+        ink,
+    );
+    frame.fill_rect(
+        Rect::new(icon.x, icon.y + icon.height / 2, icon.width, thickness),
+        ink,
+    );
 }
 
 fn draw_refresh_button(frame: &mut Gray8, rect: Rect) {
@@ -680,6 +1066,30 @@ fn draw_refresh_icon(frame: &mut Gray8, rect: Rect, thickness: u32, tone: u8) {
     );
 }
 
+fn draw_settings_button(frame: &mut Gray8, rect: Rect) {
+    draw_button_chrome(frame, rect, WHITE, INK, false);
+    let icon = rect.inset(rect.width.min(rect.height) / 4);
+    let thickness = (rect.height / 24).clamp(3, 6);
+    for row in 0..3 {
+        let y = icon.y + (row + 1) * icon.height / 4;
+        frame.fill_rect(Rect::new(icon.x, y, icon.width, thickness), INK);
+        let knob_x = if row == 1 {
+            icon.x + icon.width / 3
+        } else {
+            icon.x + icon.width * 2 / 3
+        };
+        frame.fill_rect(
+            Rect::new(
+                knob_x.saturating_sub(thickness),
+                y.saturating_sub(thickness),
+                thickness * 3,
+                thickness * 3,
+            ),
+            INK,
+        );
+    }
+}
+
 fn draw_close_button(frame: &mut Gray8, rect: Rect) {
     draw_button_chrome(frame, rect, WHITE, INK, false);
     let size = rect.width.min(rect.height);
@@ -712,9 +1122,138 @@ fn draw_close_icon(frame: &mut Gray8, rect: Rect, thickness: u32, tone: u8) {
 }
 
 fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
-    let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
-    draw_button_chrome(frame, rect, background, INK, selected);
-    draw_text_centered(frame, rect.inset(6), label, scale, foreground);
+    draw_button_spec(
+        frame,
+        rect,
+        ButtonSpec {
+            icon: None,
+            text: Some(label),
+            button_type: ButtonType::Text,
+        },
+        selected,
+        true,
+        scale,
+    );
+}
+
+fn draw_button_spec(
+    frame: &mut Gray8,
+    rect: Rect,
+    button: ButtonSpec<'_>,
+    selected: bool,
+    enabled: bool,
+    scale: u32,
+) {
+    let background = if selected { INK } else { WHITE };
+    let foreground = if selected {
+        WHITE
+    } else if enabled {
+        INK
+    } else {
+        DISABLED_INK
+    };
+    let border = if button.button_type == ButtonType::Icon {
+        foreground
+    } else if selected || enabled {
+        INK
+    } else {
+        DISABLED_INK
+    };
+    draw_button_chrome(frame, rect, background, border, selected);
+    let icon = button.displayed_icon();
+    let text = button.displayed_text();
+    let combined = icon.is_some() && text.is_some();
+    let icon_rect = if combined {
+        Rect::new(rect.x, rect.y, rect.height.min(rect.width), rect.height)
+    } else {
+        rect
+    };
+    if let Some(icon) = icon {
+        draw_button_icon(frame, icon_rect, icon, foreground);
+    }
+    if let Some(text) = text {
+        let text_rect = if combined {
+            Rect::new(
+                icon_rect.right(),
+                rect.y,
+                rect.width.saturating_sub(icon_rect.width),
+                rect.height,
+            )
+        } else {
+            rect
+        };
+        draw_text_centered(frame, text_rect.inset(6), text, scale, foreground);
+    }
+}
+
+fn draw_button_icon(frame: &mut Gray8, rect: Rect, icon: ButtonIcon, tone: u8) {
+    let icon_rect = rect.inset(rect.width.min(rect.height) / 4);
+    let thickness = (rect.height / 24).clamp(3, 6);
+    match icon {
+        ButtonIcon::Analysis => draw_analysis_icon(frame, icon_rect, thickness, tone),
+        ButtonIcon::Reset => draw_refresh_icon(frame, icon_rect, thickness, tone),
+        ButtonIcon::FreeBoard => {
+            // A small checkerboard, independent of chess-piece assets.
+            for row in 0..3 {
+                for column in 0..3 {
+                    if (row + column) % 2 == 0 {
+                        frame.fill_rect(
+                            Rect::new(
+                                icon_rect.x + column * icon_rect.width / 3,
+                                icon_rect.y + row * icon_rect.height / 3,
+                                icon_rect.width / 3,
+                                icon_rect.height / 3,
+                            ),
+                            tone,
+                        );
+                    }
+                }
+            }
+            frame.stroke_rect(icon_rect, thickness, tone);
+        }
+        ButtonIcon::Lock => {
+            let shackle = Rect::new(
+                icon_rect.x + icon_rect.width / 4,
+                icon_rect.y,
+                icon_rect.width / 2,
+                icon_rect.height * 2 / 3,
+            );
+            frame.stroke_rect(shackle, thickness, tone);
+            frame.fill_rect(
+                Rect::new(
+                    icon_rect.x,
+                    icon_rect.y + icon_rect.height / 3,
+                    icon_rect.width,
+                    icon_rect.height * 2 / 3,
+                ),
+                tone,
+            );
+        }
+        ButtonIcon::Flip => {
+            // Opposing arrows communicate reversing orientation.
+            let left = icon_rect.x;
+            let right = icon_rect.right().saturating_sub(1);
+            let arrow = icon_rect.width / 4;
+            for (y, tip, tail) in [
+                (
+                    icon_rect.y + icon_rect.height / 3,
+                    right,
+                    right.saturating_sub(arrow),
+                ),
+                (icon_rect.y + icon_rect.height * 2 / 3, left, left + arrow),
+            ] {
+                for (x0, y0, x1, y1) in [
+                    (left, y, right, y),
+                    (tail, y.saturating_sub(arrow / 2), tip, y),
+                    (tail, y + arrow / 2, tip, y),
+                ] {
+                    draw_thick_line(
+                        frame, x0 as i32, y0 as i32, x1 as i32, y1 as i32, thickness, tone,
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn draw_button_chrome(frame: &mut Gray8, rect: Rect, background: u8, border: u8, selected: bool) {
@@ -803,4 +1342,131 @@ pub fn draw_sleeping_overlay(frame: &mut Gray8, layout: Layout, metrics: Display
         INK,
     );
     rect
+}
+
+#[cfg(test)]
+mod button_tests {
+    use super::*;
+
+    fn button_frame(button: ButtonSpec<'_>, selected: bool, enabled: bool) -> Gray8 {
+        let mut frame = Gray8::new(240, 100, WHITE);
+        draw_button_spec(
+            &mut frame,
+            Rect::new(0, 0, 240, 100),
+            button,
+            selected,
+            enabled,
+            3,
+        );
+        frame
+    }
+
+    #[test]
+    fn text_type_ignores_icon_and_icon_type_ignores_text_in_all_states() {
+        let both = toolbar_button(HitTarget::Reset);
+        for selected in [false, true] {
+            for enabled in [false, true] {
+                assert_eq!(
+                    button_frame(both, selected, enabled),
+                    button_frame(ButtonSpec { icon: None, ..both }, selected, enabled)
+                );
+                let icon = ButtonSpec {
+                    button_type: ButtonType::Icon,
+                    ..both
+                };
+                assert_eq!(
+                    button_frame(icon, selected, enabled),
+                    button_frame(ButtonSpec { text: None, ..icon }, selected, enabled)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn combined_type_draws_both_and_centers_single_remaining_content() {
+        let both = ButtonSpec {
+            button_type: ButtonType::IconAndText,
+            ..toolbar_button(HitTarget::Reset)
+        };
+        for selected in [false, true] {
+            for enabled in [false, true] {
+                let combined = button_frame(both, selected, enabled);
+                assert_ne!(
+                    combined,
+                    button_frame(ButtonSpec { icon: None, ..both }, selected, enabled)
+                );
+                assert_ne!(
+                    combined,
+                    button_frame(ButtonSpec { text: None, ..both }, selected, enabled)
+                );
+                assert_eq!(
+                    button_frame(ButtonSpec { icon: None, ..both }, selected, enabled),
+                    button_frame(
+                        ButtonSpec {
+                            icon: None,
+                            button_type: ButtonType::Text,
+                            ..both
+                        },
+                        selected,
+                        enabled
+                    )
+                );
+                // Compare content away from chrome; icon-only retains its historic border policy.
+                let combined_icon =
+                    button_frame(ButtonSpec { text: None, ..both }, selected, enabled);
+                let icon = button_frame(
+                    ButtonSpec {
+                        text: None,
+                        button_type: ButtonType::Icon,
+                        ..both
+                    },
+                    selected,
+                    enabled,
+                );
+                for y in 25..75 {
+                    for x in 60..180 {
+                        assert_eq!(combined_icon.pixel(x, y), icon.pixel(x, y));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn new_toolbar_icons_render_distinct_deterministic_monochrome_content() {
+        let mut hashes = Vec::new();
+        for target in [
+            HitTarget::ToggleMode,
+            HitTarget::ToggleOrientationLock,
+            HitTarget::Reset,
+            HitTarget::Flip,
+        ] {
+            let button = toolbar_button(target);
+            assert!(button.icon.is_some());
+            assert!(button.text.is_some());
+            assert_eq!(button.button_type, ButtonType::Text);
+            let icon = ButtonSpec {
+                button_type: ButtonType::Icon,
+                ..button
+            };
+            let frame = button_frame(icon, false, true);
+            assert_eq!(frame, button_frame(icon, false, true));
+            assert!(frame
+                .pixels()
+                .iter()
+                .all(|pixel| *pixel == WHITE || *pixel == INK));
+            assert_ne!(
+                frame,
+                button_frame(ButtonSpec { icon: None, ..icon }, false, true)
+            );
+            let disabled = button_frame(icon, false, false);
+            assert!(disabled.pixels().contains(&DISABLED_INK));
+            let selected = button_frame(icon, true, true);
+            assert_ne!(frame, selected);
+            hashes.push(frame.checksum64());
+        }
+        hashes.sort_unstable();
+        hashes.dedup();
+        assert_eq!(hashes.len(), 4);
+    }
 }

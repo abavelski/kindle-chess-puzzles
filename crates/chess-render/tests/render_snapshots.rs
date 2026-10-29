@@ -118,6 +118,7 @@ fn header_controls_share_compact_height_and_title_is_visible() {
     let inset = layout.header.height / 10;
     let refresh = layout.refresh.inset(inset);
     let files = layout.collection_button.inset(inset);
+    let settings = layout.settings.inset(inset);
     let close = layout.exit.inset(inset);
     let solved_width = layout
         .minimum_touch_px()
@@ -128,9 +129,13 @@ fn header_controls_share_compact_height_and_title_is_visible() {
     assert_eq!(files.width, solved_width);
     assert_eq!(files.height, solved_height);
     assert_eq!(refresh.height, solved_height);
+    assert_eq!(settings.height, solved_height);
     assert_eq!(close.height, solved_height);
-    assert_eq!(refresh.width, close.width);
+    assert_eq!(refresh.width, settings.width);
+    assert_eq!(settings.width, close.width);
     assert!(close.width < files.width);
+    assert!(files.right() <= settings.x);
+    assert!(settings.right() <= layout.exit.x);
 
     let refresh_mid_y = refresh.y + refresh.height / 2;
     assert_eq!(
@@ -396,6 +401,15 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     }"#;
     actual.push(("number-difficulty", hash(&state(number))));
 
+    let mut settings = state(PUZZLES);
+    settings.dispatch(Action::OpenSettings);
+    actual.push(("settings-panel", hash(&settings)));
+
+    settings.dispatch(Action::ToggleFreeModeSetting);
+    settings.dispatch(Action::ToggleNotesSetting);
+    settings.dispatch(Action::CloseSettings);
+    actual.push(("toolbar-both-hidden", hash(&settings)));
+
     let mut picker = state(PUZZLES);
     picker.set_collection_entries(vec![
         CollectionEntry::valid("puzzles.json", "Lichess sample puzzles"),
@@ -458,32 +472,184 @@ fn parity_visual_states_match_reviewed_gray8_snapshots() {
     ));
 
     const EXPECTED: &[(&str, u64)] = &[
-        ("white", 4_884_435_537_000_534_857),
-        ("black", 6_700_564_756_087_038_875),
-        ("selected", 12_166_325_029_067_855_449),
-        ("correct", 18_129_923_658_903_622_691),
-        ("wrong", 9_004_913_695_449_335_592),
-        ("complete", 16_405_110_695_274_635_018),
-        ("solved", 11_974_152_226_200_294_004),
-        ("free-board", 144_886_414_498_682_218),
-        ("orientation-lock", 15_364_844_744_569_242_713),
-        ("description", 1_005_011_941_984_410_416),
-        ("promotion", 8_849_861_698_220_693_031),
-        ("long-description", 268_113_212_588_783_529),
-        ("number-difficulty", 10_609_861_893_814_296_373),
-        ("collection-picker", 12_396_572_740_623_878_554),
-        ("puzzle-goto", 10_687_885_188_894_626_256),
-        ("collection-picker-error", 9_521_773_089_387_070_565),
-        ("progress-warning", 12_463_598_187_217_391_070),
-        ("topic-default", 5_151_334_643_563_176_438),
-        ("black-side-header", 15_042_820_486_656_193_416),
-        ("topic-note", 1_005_011_941_984_410_416),
-        ("topic-wrong", 18_247_671_159_504_269_915),
-        ("topic-reset", 5_151_334_643_563_176_438),
-        ("topic-free-board", 8_249_617_830_640_389_880),
-        ("topic-only", 16_769_582_982_915_061_438),
-        ("long-header", 16_449_186_995_637_426_167),
+        ("white", 9_760_894_365_916_440_813),
+        ("black", 8_593_948_898_781_614_127),
+        ("selected", 1_725_143_829_086_474_077),
+        ("correct", 9_372_062_701_321_505_223),
+        ("wrong", 17_041_585_568_168_551_804),
+        ("complete", 8_093_415_275_269_334_814),
+        ("solved", 3_368_849_747_325_092_352),
+        ("free-board", 3_658_783_538_781_271_082),
+        ("orientation-lock", 9_561_028_451_284_079_869),
+        ("description", 17_360_303_566_641_089_540),
+        ("promotion", 8_157_208_443_279_174_683),
+        ("long-description", 115_374_366_990_050_245),
+        ("number-difficulty", 8_302_406_461_767_038_921),
+        ("settings-panel", 15_015_938_234_012_989_282),
+        ("toolbar-both-hidden", 4_733_193_552_348_731_552),
+        ("collection-picker", 863_362_585_217_474_590),
+        ("puzzle-goto", 7_868_128_827_776_782_836),
+        ("collection-picker-error", 17_237_771_526_867_793_393),
+        ("progress-warning", 11_028_304_019_650_871_434),
+        ("topic-default", 17_521_169_582_287_760_842),
+        ("black-side-header", 2_504_381_279_138_994_476),
+        ("topic-note", 17_360_303_566_641_089_540),
+        ("topic-wrong", 16_286_056_173_196_779_967),
+        ("topic-reset", 17_521_169_582_287_760_842),
+        ("topic-free-board", 10_787_182_737_743_285_232),
+        ("topic-only", 2_339_285_739_454_535_546),
+        ("long-header", 8_313_023_483_803_530_321),
     ];
 
     assert_eq!(actual.as_slice(), EXPECTED);
+}
+
+#[test]
+fn smaller_board_visual_states_match_reviewed_gray8_snapshots() {
+    fn small(bytes: &[u8]) -> AppState {
+        let mut app = state(bytes);
+        app.dispatch(Action::OpenSettings);
+        app.dispatch(Action::ToggleBoardSizeSetting);
+        app.dispatch(Action::CloseSettings);
+        app
+    }
+    let mut actual = Vec::new();
+    let mut app = small(PUZZLES);
+    actual.push(("small-board", hash(&app)));
+    app.dispatch(Action::ToggleDescription);
+    actual.push(("small-description", hash(&app)));
+    app.dispatch(Action::OpenSettings);
+    actual.push(("small-settings", hash(&app)));
+    app.dispatch(Action::CloseSettings);
+    app.dispatch(Action::OpenPuzzleGoto);
+    actual.push(("small-goto", hash(&app)));
+    app.dispatch(Action::CancelPuzzleGoto);
+    app.set_collection_entries(vec![CollectionEntry::valid("puzzles.json", "Puzzles")]);
+    app.dispatch(Action::OpenCollectionPicker);
+    actual.push(("small-collections", hash(&app)));
+    let mut promotion = small(PROMOTIONS);
+    play(&mut promotion, "a7a8");
+    assert!(promotion.pending_promotion().is_some());
+    actual.push(("small-promotion", hash(&promotion)));
+    let rich = include_bytes!("../../../tests/fixtures/rich-analysis/valid-rich.json");
+    let mut analysis = small(rich);
+    analysis.dispatch(Action::ToggleAnalysis);
+    actual.push(("small-analysis", hash(&analysis)));
+    let mut topic = small(r#"{"version":1,"puzzles":[{"id":"topic","fen":"7k/8/5KQ1/8/8/8/8/8 w - - 0 1","solution":["g6g7"],"topic":"Find the winning move.\nНайдите лучший ход."}]}"#.as_bytes());
+    actual.push(("small-topic", hash(&topic)));
+    topic.dispatch(Action::Flip);
+    actual.push(("small-flipped", hash(&topic)));
+    let mut free = small(PUZZLES);
+    free.dispatch(Action::ToggleMode);
+    actual.push(("small-free", hash(&free)));
+    free.dispatch(Action::ToggleOrientationLock);
+    actual.push(("small-locked", hash(&free)));
+    free.dispatch(Action::ToggleFreeModeSetting);
+    free.dispatch(Action::ToggleNotesSetting);
+    actual.push(("small-hidden-controls", hash(&free)));
+    const EXPECTED: &[(&str, u64)] = &[
+        ("small-board", 12993960575876375483),
+        ("small-description", 14227947985857266275),
+        ("small-settings", 1061144063131778047),
+        ("small-goto", 12019553447108263684),
+        ("small-collections", 2167974840530297815),
+        ("small-promotion", 7602527400203273217),
+        ("small-analysis", 7743292542008109140),
+        ("small-topic", 14699384574776479462),
+        ("small-flipped", 7664561400626763616),
+        ("small-free", 17613509344666808717),
+        ("small-locked", 4512497070776115097),
+        ("small-hidden-controls", 5675597048798315616),
+    ];
+    assert_eq!(actual.as_slice(), EXPECTED);
+}
+
+#[test]
+fn lock_flip_visibility_states_match_reviewed_snapshots() {
+    let directory = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/lock-flip-snapshots");
+    std::fs::create_dir_all(&directory).unwrap();
+    let mut actual = Vec::new();
+    for review in [false, true] {
+        for small in [false, true] {
+            for mask in 0..4 {
+                let mut app = state(PUZZLES);
+                if review {
+                    let games = chess_core::parse_review_file(include_bytes!(
+                        "../../../tests/fixtures/game-review/valid-standard.json"
+                    ))
+                    .unwrap();
+                    app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+                        "games.json",
+                        games.games[0].clone(),
+                    )]);
+                    app.dispatch(Action::ToggleWorkspace);
+                }
+                if small {
+                    app.dispatch(Action::ToggleBoardSizeSetting);
+                }
+                app.dispatch(Action::OpenSettings);
+                if mask & 1 != 0 {
+                    app.dispatch(Action::ToggleLockSetting);
+                }
+                if mask & 2 != 0 {
+                    app.dispatch(Action::ToggleFlipSetting);
+                }
+                for panel in [true, false] {
+                    if !panel {
+                        app.dispatch(Action::CloseSettings);
+                    }
+                    let name = format!(
+                        "{}-{}-{}-{mask}",
+                        if review { "review" } else { "puzzles" },
+                        if small { "small" } else { "standard" },
+                        if panel { "settings" } else { "toolbar" }
+                    );
+                    let output = render(&app, SCRIBE).unwrap();
+                    std::fs::write(directory.join(format!("{name}.pgm")), output.frame.to_pgm())
+                        .unwrap();
+                    actual.push((name, output.frame.checksum64()));
+                }
+            }
+        }
+    }
+    let expected: &[(&str, u64)] = &[
+        ("puzzles-standard-settings-0", 15015938234012989282),
+        ("puzzles-standard-toolbar-0", 9760894365916440813),
+        ("puzzles-standard-settings-1", 15136196115950374479),
+        ("puzzles-standard-toolbar-1", 5368491620130335297),
+        ("puzzles-standard-settings-2", 8815529355947867728),
+        ("puzzles-standard-toolbar-2", 14164218220769922806),
+        ("puzzles-standard-settings-3", 2333362797031225879),
+        ("puzzles-standard-toolbar-3", 16380937667021888876),
+        ("puzzles-small-settings-0", 1934371648860011403),
+        ("puzzles-small-toolbar-0", 12993960575876375483),
+        ("puzzles-small-settings-1", 12865716518698441506),
+        ("puzzles-small-toolbar-1", 3898325412899183329),
+        ("puzzles-small-settings-2", 9461441995957935514),
+        ("puzzles-small-toolbar-2", 8356509320562856687),
+        ("puzzles-small-settings-3", 17844612672892500155),
+        ("puzzles-small-toolbar-3", 2324479933444545465),
+        ("review-standard-settings-0", 1254089386655541435),
+        ("review-standard-toolbar-0", 11072394659977528714),
+        ("review-standard-settings-1", 14688834136394427084),
+        ("review-standard-toolbar-1", 11225645094069730444),
+        ("review-standard-settings-2", 5941027920095007879),
+        ("review-standard-toolbar-2", 1906972547681482743),
+        ("review-standard-settings-3", 15809082168483943088),
+        ("review-standard-toolbar-3", 12086145632678130161),
+        ("review-small-settings-0", 146955315280021403),
+        ("review-small-toolbar-0", 16894878170182868405),
+        ("review-small-settings-1", 17645953705525726290),
+        ("review-small-toolbar-1", 2460953561994008959),
+        ("review-small-settings-2", 16773773237708738530),
+        ("review-small-toolbar-2", 5058954955722275157),
+        ("review-small-settings-3", 4726954423383144179),
+        ("review-small-toolbar-3", 16514494898803383399),
+    ];
+    let actual: Vec<_> = actual
+        .iter()
+        .map(|(name, checksum)| (name.as_str(), *checksum))
+        .collect();
+    assert_eq!(actual.as_slice(), expected);
 }

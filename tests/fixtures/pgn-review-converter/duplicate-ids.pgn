@@ -1,0 +1,21 @@
+[Event "Duplicate One"]
+[Site "Test"]
+[Date "2026.05.01"]
+[Round "1"]
+[White "Alpha"]
+[Black "Beta"]
+[Result "*"]
+[GameId "duplicate-id"]
+
+1. e4 e5 *
+
+[Event "Duplicate Two"]
+[Site "Test"]
+[Date "2026.05.02"]
+[Round "2"]
+[White "Gamma"]
+[Black "Delta"]
+[Result "*"]
+[GameId "duplicate-id"]
+
+1. d4 d5 *

@@ -11,8 +11,8 @@ use chess_render::{
 };
 use kindle_platform::{
     clean_regions_for_board_change, DeviceEvent, DiscoveredCollection, KindleDisplay,
-    KindleStorage, PowerEvent, PowerEvents, ProgressStore, RefreshPolicy, ScribeInput,
-    StoragePaths, TapPolicy, SCRIBE_DPI,
+    KindleStorage, PowerEvent, PowerEvents, ProgressStore, RefreshPolicy, ReviewResumeStore,
+    ScribeInput, SettingsStore, StoragePaths, TapPolicy, SCRIBE_DPI,
 };
 use std::collections::VecDeque;
 use std::time::Instant;
@@ -35,15 +35,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let force_full = std::env::args().skip(1).any(|arg| arg == "--full-refresh");
     let storage = KindleStorage::new(StoragePaths::from_env());
     let discovered = storage.prepare_collections(BUNDLED_PUZZLES)?;
+    let review_library = storage.discover_review_library()?;
     let (mut progress_store, progress_load) =
         ProgressStore::open(storage.paths().progress_file.clone());
+    let (mut settings_store, settings_load) =
+        SettingsStore::open(storage.paths().settings_file.clone());
+    let (mut review_store, review_load) =
+        ReviewResumeStore::open(&storage.paths().review_resume_file);
     let loaded_progress = progress_load.progress.clone();
 
     let (active_key, collection, persistence_enabled, collection_warning) =
         select_initial_collection(&storage, &discovered, &progress_load.progress)?;
-    let mut app = AppState::new(
+    let mut app = AppState::new_with_settings(
         ActiveCollection::from_collection(active_key, collection),
         progress_load.progress,
+        settings_load.settings,
     );
     app.set_collection_entries(
         discovered
@@ -51,8 +57,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .map(DiscoveredCollection::as_core_entry)
             .collect(),
     );
+    app.set_review_games(review_library.games);
+    app.set_review_file_errors(review_library.errors);
 
     let mut startup_message = progress_load.warning;
+    if let Some(warning) = review_load.warning {
+        append_message(&mut startup_message, warning);
+    }
+    if let Some(resume) = review_load.resume {
+        if let Some(warning) = app.restore_review_resume(&resume) {
+            append_message(&mut startup_message, warning);
+        }
+    }
+    if let Some(warning) = settings_load.warning {
+        append_message(&mut startup_message, warning);
+    }
     if let Some(warning) = collection_warning {
         append_message(&mut startup_message, warning);
     }
@@ -85,10 +104,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!("kindle-chess: exclusive finger input acquired before first frame");
 
     eprintln!(
-        "kindle-chess: puzzles={} progress={} active={} persistent={}",
+        "kindle-chess: puzzles={} reviews={} progress={} active={} review_games={} persistent={}",
         storage.paths().puzzle_dir.display(),
+        storage.paths().review_dir.display(),
         progress_store.path().display(),
         app.active_collection().key(),
+        app.review_games().len(),
         persistence_enabled
     );
     for entry in &discovered {
@@ -102,6 +123,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 entry.filename, entry.label
             ),
         }
+    }
+    for entry in app.review_games() {
+        eprintln!(
+            "kindle-chess: review game {}::{} -> {}",
+            entry.key().collection_id(),
+            entry.key().game_id(),
+            entry.label().replace('\n', " | ")
+        );
+    }
+    for error in app.review_file_errors() {
+        eprintln!(
+            "kindle-chess: review file {} INVALID: {}",
+            error.collection_id(),
+            error.error()
+        );
     }
     eprintln!(
         "kindle-chess: FBInk {} at {}x{} stride={} bpp={} rotation={}",
@@ -201,6 +237,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 &mut app,
                 &storage,
                 &mut progress_store,
+                &mut settings_store,
+                &mut review_store,
                 persistence_enabled,
                 effects,
             ) {
@@ -216,7 +254,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             );
         } else {
             eprintln!("kindle-chess: tap ({x},{y}) -> no target");
-            retry_dirty_progress(&mut app, &mut progress_store, persistence_enabled);
+            retry_dirty_state(
+                &mut app,
+                &mut progress_store,
+                &mut settings_store,
+                &mut review_store,
+                persistence_enabled,
+            );
         }
     }
 }
@@ -289,6 +333,8 @@ fn apply_effects(
     app: &mut AppState,
     storage: &KindleStorage,
     progress_store: &mut ProgressStore,
+    settings_store: &mut SettingsStore,
+    review_store: &mut ReviewResumeStore,
     persistence_enabled: bool,
     effects: Vec<Effect>,
 ) -> bool {
@@ -303,6 +349,7 @@ fn apply_effects(
                     progress_store.mark_dirty();
                 }
             }
+            Effect::SettingsChanged => settings_store.mark_dirty(),
             Effect::CollectionRequested(filename) => match storage.load_collection(&filename) {
                 Ok(collection) => {
                     queue.extend(app.dispatch(Action::ActivateCollection(
@@ -316,36 +363,68 @@ fn apply_effects(
                     ))));
                 }
             },
+            Effect::ReviewGameRequested(key) => match storage.load_review_game(&key) {
+                Ok(game) => {
+                    queue.extend(app.dispatch(Action::ActivateReviewGame(key, Box::new(game))));
+                }
+                Err(error) => {
+                    app.dispatch(Action::CloseReviewGamePicker);
+                    app.dispatch(Action::SetTransientMessage(Some(format!(
+                        "Review game error: {error}"
+                    ))));
+                }
+            },
         }
     }
 
-    retry_dirty_progress(app, progress_store, persistence_enabled);
+    retry_dirty_state(
+        app,
+        progress_store,
+        settings_store,
+        review_store,
+        persistence_enabled,
+    );
     exit_requested
 }
 
-fn retry_dirty_progress(
+fn retry_dirty_state(
     app: &mut AppState,
     progress_store: &mut ProgressStore,
+    settings_store: &mut SettingsStore,
+    review_store: &mut ReviewResumeStore,
     persistence_enabled: bool,
 ) {
-    if !persistence_enabled || !progress_store.dirty() {
-        return;
+    let mut warning = None;
+
+    if app.workspace() == chess_core::Workspace::Review {
+        if let Some(resume) = app.review_resume() {
+            review_store.observe(resume);
+        }
+    }
+    if let Err(error) = review_store.retry_if_dirty() {
+        append_message(&mut warning, format!("Review resume warning: {error}"));
     }
 
-    match progress_store.retry_if_dirty(app.progress()) {
-        Ok(_) => {
-            if app
-                .transient_message()
-                .is_some_and(|message| message.starts_with("Progress warning:"))
-            {
-                app.dispatch(Action::SetTransientMessage(None));
-            }
+    if persistence_enabled && progress_store.dirty() {
+        if let Err(error) = progress_store.retry_if_dirty(app.progress()) {
+            append_message(&mut warning, format!("Progress warning: {error}"));
         }
-        Err(error) => {
-            app.dispatch(Action::SetTransientMessage(Some(format!(
-                "Progress warning: {error}"
-            ))));
+    }
+
+    if settings_store.dirty() {
+        if let Err(error) = settings_store.retry_if_dirty(app.persisted_settings()) {
+            append_message(&mut warning, format!("Settings warning: {error}"));
         }
+    }
+
+    if let Some(warning) = warning {
+        app.dispatch(Action::SetTransientMessage(Some(warning)));
+    } else if app.transient_message().is_some_and(|message| {
+        message.starts_with("Progress warning:")
+            || message.starts_with("Settings warning:")
+            || message.starts_with("Review resume warning:")
+    }) {
+        app.dispatch(Action::SetTransientMessage(None));
     }
 }
 
@@ -388,6 +467,290 @@ mod tests {
     }
 
     #[test]
+    fn review_runtime_keeps_puzzle_progress_bytes_stable() {
+        const REVIEW: &[u8] =
+            include_bytes!("../../../tests/fixtures/game-review/valid-standard.json");
+
+        let root = std::env::temp_dir().join(format!("kcp-review-runtime-{}", std::process::id()));
+        let storage = KindleStorage::new(StoragePaths::new(
+            root.join("puzzles"),
+            root.join("state/progress.json"),
+        ));
+        std::fs::create_dir_all(&storage.paths().review_dir).unwrap();
+        std::fs::write(storage.paths().review_dir.join("games.json"), REVIEW).unwrap();
+
+        let library = storage.discover_review_library().unwrap();
+        assert_eq!(library.games.len(), 1);
+        assert!(library.errors.is_empty());
+
+        let mut app = AppState::new(
+            ActiveCollection::from_collection(
+                "puzzles.json",
+                parse_puzzle_file(BUNDLED_PUZZLES).unwrap(),
+            ),
+            Progress::new(),
+        );
+        app.set_review_games(library.games);
+        app.set_review_file_errors(library.errors);
+
+        let original = app.progress().to_bytes().unwrap();
+        std::fs::create_dir_all(storage.paths().progress_file.parent().unwrap()).unwrap();
+        std::fs::write(&storage.paths().progress_file, &original).unwrap();
+        let (mut progress_store, load) = ProgressStore::open(storage.paths().progress_file.clone());
+        assert_eq!(load.progress, *app.progress());
+        let (mut settings_store, _) = SettingsStore::open(storage.paths().settings_file.clone());
+        let (mut review_store, _) = ReviewResumeStore::open(&storage.paths().review_resume_file);
+
+        assert!(app.dispatch(Action::ToggleWorkspace).is_empty());
+        assert!(app.dispatch(Action::ReviewNext).is_empty());
+        assert!(app.dispatch(Action::OpenReviewGamePicker).is_empty());
+        let effects = app.dispatch(Action::SelectReviewGame(0));
+        assert!(!apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects,
+        ));
+        assert!(app.dispatch(Action::ReviewNext).is_empty());
+        assert!(app.dispatch(Action::ToggleWorkspace).is_empty());
+
+        assert!(!progress_store.dirty());
+        assert_eq!(std::fs::read(progress_store.path()).unwrap(), original);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn runtime_saves_both_profiles_when_settings_change_in_review() {
+        let root =
+            std::env::temp_dir().join(format!("kcp-workspace-settings-{}", std::process::id()));
+        let storage = KindleStorage::new(StoragePaths::new(
+            root.join("puzzles"),
+            root.join("state/progress.json"),
+        ));
+        let (mut progress_store, _) = ProgressStore::open(storage.paths().progress_file.clone());
+        let (mut settings_store, _) = SettingsStore::open(storage.paths().settings_file.clone());
+        let (mut review_store, _) = ReviewResumeStore::open(&storage.paths().review_resume_file);
+        let mut app = AppState::new(
+            ActiveCollection::from_collection(
+                "puzzles.json",
+                parse_puzzle_file(BUNDLED_PUZZLES).unwrap(),
+            ),
+            Progress::new(),
+        );
+        let games = chess_core::parse_review_file(include_bytes!(
+            "../../../tests/fixtures/game-review/valid-standard.json"
+        ))
+        .unwrap();
+        app.set_review_games(vec![chess_core::ReviewGameEntry::new(
+            "games.json",
+            games.games[0].clone(),
+        )]);
+        app.dispatch(Action::ToggleWorkspace);
+        let effects = app.dispatch(Action::ToggleBoardSizeSetting);
+        apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects,
+        );
+        let (_, load) = SettingsStore::open(storage.paths().settings_file.clone());
+        assert!(load.warning.is_none());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .small_board());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .small_board());
+        for action in [Action::ToggleLockSetting, Action::ToggleFlipSetting] {
+            let effects = app.dispatch(action);
+            apply_effects(
+                &mut app,
+                &storage,
+                &mut progress_store,
+                &mut settings_store,
+                &mut review_store,
+                true,
+                effects,
+            );
+        }
+        app.dispatch(Action::ToggleWorkspace);
+        let effects = app.dispatch(Action::ToggleNotesSetting);
+        apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects,
+        );
+        let (_, load) = SettingsStore::open(storage.paths().settings_file.clone());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_notes_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_notes_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .small_board());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_lock_button());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_flip_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_lock_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_flip_button());
+        let effects = app.dispatch(Action::ToggleFlipSetting);
+        apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects,
+        );
+        let (_, load) = SettingsStore::open(storage.paths().settings_file.clone());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_flip_button());
+        assert!(load
+            .settings
+            .for_workspace(chess_core::Workspace::Puzzles)
+            .show_lock_button());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_lock_button());
+        assert!(!load
+            .settings
+            .for_workspace(chess_core::Workspace::Review)
+            .show_flip_button());
+        assert!(!progress_store.dirty());
+        assert!(!storage.paths().progress_file.exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn runtime_restores_review_after_restart_and_flushes_latest_on_exit() {
+        let root = std::env::temp_dir().join(format!("kcp-review-restart-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let storage = KindleStorage::new(StoragePaths::new(
+            root.join("puzzles"),
+            root.join("state/progress.json"),
+        ));
+        std::fs::create_dir_all(&storage.paths().review_dir).unwrap();
+        let source = include_bytes!("../../../tests/fixtures/game-review/valid-standard.json");
+        std::fs::write(storage.paths().review_dir.join("games.json"), source).unwrap();
+        let make_app = || {
+            let mut app = AppState::new(
+                ActiveCollection::from_collection(
+                    "puzzles.json",
+                    parse_puzzle_file(BUNDLED_PUZZLES).unwrap(),
+                ),
+                Progress::new(),
+            );
+            app.set_review_games(storage.discover_review_library().unwrap().games);
+            app
+        };
+        let mut app = make_app();
+        let progress = app.progress().to_bytes().unwrap();
+        std::fs::create_dir_all(storage.paths().progress_file.parent().unwrap()).unwrap();
+        std::fs::write(&storage.paths().progress_file, &progress).unwrap();
+        let (mut progress_store, _) = ProgressStore::open(&storage.paths().progress_file);
+        let (mut settings_store, _) = SettingsStore::open(&storage.paths().settings_file);
+        let (mut review_store, _) =
+            kindle_platform::ReviewResumeStore::open(&storage.paths().review_resume_file);
+        app.dispatch(Action::ToggleWorkspace);
+        app.dispatch(Action::ReviewNext);
+        let effects = app.dispatch(Action::ReviewNext);
+        apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects,
+        );
+        let state_dir = root.join("state");
+        let backup = root.join("state-backup");
+        std::fs::rename(&state_dir, &backup).unwrap();
+        std::fs::write(&state_dir, b"temporarily unavailable").unwrap();
+        let effects = app.dispatch(Action::ReviewNext);
+        apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects,
+        );
+        assert!(review_store.dirty());
+        assert!(app
+            .transient_message()
+            .unwrap()
+            .starts_with("Review resume warning:"));
+        let saved_board = app.board().clone();
+        app.dispatch(Action::ToggleWorkspace);
+        std::fs::remove_file(&state_dir).unwrap();
+        std::fs::rename(&backup, &state_dir).unwrap();
+        let effects = app.dispatch(Action::Exit);
+        assert!(apply_effects(
+            &mut app,
+            &storage,
+            &mut progress_store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects
+        ));
+        assert!(!review_store.dirty());
+        let (_, loaded) =
+            kindle_platform::ReviewResumeStore::open(&storage.paths().review_resume_file);
+        let mut restored = make_app();
+        assert!(restored
+            .restore_review_resume(&loaded.resume.unwrap())
+            .is_none());
+        assert_eq!(restored.workspace(), chess_core::Workspace::Puzzles);
+        restored.dispatch(Action::ToggleWorkspace);
+        assert_eq!(restored.board(), &saved_board);
+        assert_eq!(
+            std::fs::read(&storage.paths().progress_file).unwrap(),
+            progress
+        );
+        assert_eq!(
+            std::fs::read(storage.paths().review_dir.join("games.json")).unwrap(),
+            source
+        );
+        assert!(!storage.paths().settings_file.exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn exit_flushes_dirty_progress_and_requests_normal_return() {
         let root = std::env::temp_dir().join(format!("kcp-exit-{}", std::process::id()));
         let storage = KindleStorage::new(StoragePaths::new(
@@ -395,6 +758,8 @@ mod tests {
             root.join("state/progress.json"),
         ));
         let (mut store, _) = ProgressStore::open(storage.paths().progress_file.clone());
+        let (mut settings_store, _) = SettingsStore::open(storage.paths().settings_file.clone());
+        let (mut review_store, _) = ReviewResumeStore::open(&storage.paths().review_resume_file);
         let mut app = AppState::new(
             ActiveCollection::from_collection(
                 "puzzles.json",
@@ -404,7 +769,15 @@ mod tests {
         );
         store.mark_dirty();
         let effects = app.dispatch(Action::Exit);
-        assert!(apply_effects(&mut app, &storage, &mut store, true, effects));
+        assert!(apply_effects(
+            &mut app,
+            &storage,
+            &mut store,
+            &mut settings_store,
+            &mut review_store,
+            true,
+            effects
+        ));
         assert!(!store.dirty());
         assert_eq!(
             Progress::parse(&std::fs::read(store.path()).unwrap()).unwrap(),
