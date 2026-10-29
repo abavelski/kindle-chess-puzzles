@@ -11,3 +11,6 @@ __pycache__/
 
 # macOS Finder metadata.
 .DS_Store
+
+# Machine-specific Windows build/deploy scripts and artifacts.
+/local-kindle/
