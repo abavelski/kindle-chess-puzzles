@@ -350,3 +350,35 @@ retest. If the reference also fails, that is evidence of a problem shared with
 M2/the system stack, not proof of its precise cause. If it passes, investigate M3
 worker differences before telemetry. A stock radio/service restart or reboot is
 not authorized as an automatic workaround by this diagnostic plan.
+
+
+## M2 reference result and stale-entry evidence — 2026-11-04
+
+At 22:41:28 CET the advertisement-triggered M2-reference attempt opened the
+session and registered BLE/GATT successfully, then connect timed out with -2
+at 22:41:38. Discovery did not run, native writes=0, cleanup API statuses were 0,
+final SSH/session exit was 1, the lock cleared and a read-only /proc check found
+no probe process. The user reported the light becoming steady immediately.
+The listener made no Mac connection. No further connection was attempted.
+
+System evidence narrows the failure beyond a generic callback/ABI issue. During
+the earlier M3 attempt, client interface 5 was registered with session UUID A and
+connection-list node X, but its successful connection event was routed to an
+older UUID. During the M2 reference, the same interface number was registered
+with new UUID B and new node Y; getConnectionByClientIfc returned old node X,
+and the callback lookup used UUID A, not B. The old UUID no longer had a client
+session. Raw UUIDs and pointer values stay in private ignored logs. This observed
+stale connection-list lookup explains the missing probe confirmation despite
+the established physical BLE link; it does not establish why the older entry
+survived or prove there are no other compatibility problems.
+
+The failure occurs with both native workers and the accepted byte-identical
+KindleBT library. Board power cycling alone did not resolve it. Next recovery
+is a human-performed normal Kindle restart to reset the daemon's in-memory
+state, with the board off and no probe process/lock active. No shell reboot,
+Bluetooth daemon restart, cache removal, global configuration or firmware edit
+will be performed. After the user restores SSH, repeat preflight and prepare
+one fresh discovery test before asking for board BLE activation. Recovery and
+post-restart behavior remain NOT TESTED; H3 stays BLOCKED and motor packets
+remain prohibited. If discovery succeeds, verify disconnect/cleanup before
+continuing the M3 telemetry/LED checkpoint.
