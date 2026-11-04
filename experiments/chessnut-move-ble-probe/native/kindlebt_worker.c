@@ -136,12 +136,17 @@ static int preflight(const char *library, const char *required) {
 }
 #endif
 
-int main(int argc, char **argv) {
-    /* Line-buffered fixed-size reports; no address, scan, session or writes exist. */
-    setvbuf(stdout, NULL, _IOLBF, 0);
-    if (argc != 4 || strcmp(argv[1], "--preflight") != 0)
-        return failure("UNSUPPORTED_worker_only_accepts_preflight");
 #ifdef __linux__
+#include "kindlebt_session.h"
+#endif
+
+int main(int argc, char **argv) {
+    /* Only preflight or the discovery-only M2 IPC worker can be selected. */
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    if (argc != 4 || (strcmp(argv[1], "--preflight") != 0 && strcmp(argv[1], "--ipc") != 0))
+        return failure("UNSUPPORTED_worker_mode");
+#ifdef __linux__
+    if (strcmp(argv[1], "--ipc") == 0) return session_worker(argv[2], argv[3]);
     return preflight(argv[2], argv[3]);
 #else
     return failure("UNSUPPORTED_requires_Kindle_Linux");

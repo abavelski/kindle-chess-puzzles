@@ -5,8 +5,9 @@ hard-float, firmware 5.19.6, glibc 2.35. The existing chess application and
 parent workspace are unchanged. **M1 is Implemented; H1 passed on 2026-11-04.**
 The corrected build is deployed and preflight exits 0. The user confirmed the
 original chess app displays, responds and exits normally; its binary and 120
-data files retain their pre-update hashes. No Bluetooth session or board
-connection was opened. See [device results](notes/DEVICE_RESULTS.md) and
+data files retain their pre-update hashes. **M2 is host-ready and awaits H2;
+the M2 bundle has not been deployed.** No live Bluetooth session or board
+connection has been tested. See [device results](notes/DEVICE_RESULTS.md) and
 [the startup diagnosis and fixes](notes/M1_STARTUP_CRASH.md).
 
 ## Progress
@@ -18,7 +19,8 @@ All changes and completion records stay in this experiment.
   expected packet fixtures, bounded/versioned IPC and mocked failures.
 - [x] M1 — Implemented: host gates, ARM build, ELF/dependency checks, scoped
   deployment, H1 preflight and human original-app verification passed.
-- [ ] M2 — GATT connection/discovery; H2 discovery checkpoint.
+- [ ] M2 — Host-ready: discovery-only session, connection diagnostics, cleanup
+  and host tests implemented; deployment and human H2 remain pending.
 - [ ] M3 — Telemetry/LED/MTU evidence; H3 read-only checkpoint.
 - [ ] M4 — Guarded motor control; H4 motors checkpoint.
 - [ ] M5 — Reliability/rollback; H5 independence checkpoint.
@@ -83,7 +85,8 @@ declared public distribution license.
 
 ## Installed bundle and human H1 operation
 
-**Corrected deployment and H1 acceptance completed on 2026-11-04.**
+**The currently installed M1 build passed H1 on 2026-11-04.**
+The new M2 build is local and requires deployment before H2.
 The installed build is from commit `138cc25`, before the documentation-only
 acceptance record. Keep the board disconnected; no board address is needed.
 For a future deployment, run build.sh and stage.sh first, then substitute the
@@ -109,7 +112,7 @@ sh /mnt/us/chessnut-ble-probe/runtime/launch.sh preflight
 echo "exit_status=$?"
 ```
 
-The M1 launcher accepts **preflight only**. It checks checksums and the loader,
+The M2 launcher accepts **preflight** or **session --address <address>**. It checks checksums and the loader,
 sets LD_LIBRARY_PATH to the runtime directory only, and holds an operation lock.
 The Rust controller prints a timestamp and build/protocol versions, spawns its
 sibling C worker and limits execution to 15 seconds. Ctrl+C, HUP, TERM or timeout
@@ -139,6 +142,64 @@ under `/mnt/us/chessnut-ble-probe/logs/` and must never be committed.
 Verify the original Kindle Chess Puzzles still launches and exits normally,
 then fill [DEVICE_RESULTS.md](notes/DEVICE_RESULTS.md) with the actual results.
 Do not proceed to M2 until the human confirms H1 acceptance.
+
+## M2 discovery session and H2 preparation
+
+Host implementation is ready; H2 is **NOT TESTED**. Stop before deployment until
+the user makes the Kindle and board available. The current installed M1 build
+cannot run a session. After deploying the verified M2 stage and checking preflight,
+run over interactive SSH (keep the original chess app closed):
+
+```sh
+# Read the address privately; avoid putting its literal value in shell history.
+printf 'Current board BLE address: '
+read -r board_address
+sh /mnt/us/chessnut-ble-probe/runtime/launch.sh session --address "$board_address"
+unset board_address
+```
+
+The board must be in BLE mode, with the official app and scanner disconnected.
+Use the current address from a trusted scanner; a randomized address may change.
+There is no scan, pairing, address fallback or automatic reconnect. Address
+arguments remain visible to local process inspection, but probe diagnostics
+redact them and suppress upstream stdout/stderr, which may contain addresses.
+No address is saved in configuration. Keep any captures private and uncommitted.
+
+The controller connects and discovers immediately. It prints service/characteristic
+UUIDs, handles and raw property bits, with WithResponse, WithoutResponse and
+Notify indicators. Both services and all three characteristic UUIDs from the
+pinned SDK must match, under their correct parent services. Required notification
+properties and both write modes must be advertised. These are property checks;
+no subscription, read, descriptor write or command write is performed. Full-byte
+forward and reverse 128-bit UUID ordering are checked as consistent alternatives;
+the selected `uuid_byte_order` is reported. Mixed order, ambiguous duplicates,
+missing UUIDs/properties or malformed/oversized databases abort the session.
+
+```text
+probe> services       # show/validate the cached discovery database again
+probe> disconnect     # release database, disconnect, deregister and close session
+probe> connect        # explicit reconnect using the supplied address and a fresh worker
+probe> services
+probe> quit
+```
+
+A clean reconnect must again print `discovery=PASS`. Any other command prints
+UNSUPPORTED and sends no operation to the board. EOF, quit, Ctrl+C, HUP and TERM
+request cleanup. Unexpected link loss is reported even while waiting at the prompt.
+No motor, LED, battery, piece-query, STOP or notification commands are implemented
+in M2; no write is sent on interruption because this milestone never starts motion.
+
+Each IPC request has a 45-second deadline. Pinned KindleBT generally waits up to
+10 seconds for its internal callbacks, but vendor calls may still stall. The
+controller allows up to 55 seconds for a terminated worker to unwind, then forces
+reaping and reports failed cleanup. Failed setup unwinds only acquired resources;
+there are no command retries. If cleanup fails, stop and verify disconnection before
+retrying. Do not change stock services, radio settings or accounts to bypass errors.
+The worker's library loading/privilege checks precede any session API call. See
+[the native boundary](native/README.md), [IPC](IPC.md), and
+[M2 host results and limitations](notes/M2_HOST_RESULTS.md).
+
+**Human checkpoint H2 — Discovery:** Human places the Move in BLE mode, disconnects its official app, obtains its current BLE address using a trusted scanner (phone/PC), passes it privately to the CLI, and confirms the expected Chessnut service and characteristic UUIDs and a clean reconnect after disconnect. Record connection outcome and redacted logs. **STOP** if discovery/permissions fail or the UUIDs do not match.
 
 ## Uninstall and interrupted-update recovery
 
@@ -179,8 +240,8 @@ cargo test --locked --all-features --manifest-path experiments/chessnut-move-ble
 `packet-fen` retains six-field metadata and prints all 35 bytes, Normal mode,
 WithoutResponse and OFFLINE ONLY. It validates syntax and placement, not legal
 chess, physical inventory, current position or motor feasibility. It never
-starts a worker. `session`, `motion-enable`, `set-fen`, telemetry and LED commands
-remain UNSUPPORTED. The SDK also encodes STOP as 35 bytes: delivery of both STOP
+starts a worker. `motion-enable`, `set-fen`, STOP, telemetry and LED commands remain
+UNSUPPORTED. M2 session permits connection/discovery only. The SDK also encodes STOP as 35 bytes: delivery of both STOP
 and auto-move remains UNVERIFIED until the MTU and board checkpoints.
 
 The full gate includes the feature-gated mock-worker subprocess tests, Rust

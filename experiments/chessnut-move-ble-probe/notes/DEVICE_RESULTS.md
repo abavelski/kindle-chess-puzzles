@@ -4,6 +4,7 @@ M0 and M1 are Implemented. H1 preflight and human original-app verification
 passed on 2026-11-04. The assistant ran SSH deployment/preflight at the user's
 request; the user supplied the running Kindle and confirmed physical app behavior.
 No Bluetooth session or board communication was attempted. H2–H5 are NOT TESTED.
+M2 host preparation is ready; its new bundle has not been deployed.
 
 ## H1
 
@@ -52,7 +53,7 @@ Physical behavior, STOP, final observed position (H4 only): NOT TESTED
 Timeouts/errors, redacted log path: NOT TESTED
 Independent main-app check: NOT TESTED
 Human signature / confirmation: NOT TESTED
-Follow-up action and next permitted milestone: human deployment and H1 preflight; no live board work
+Follow-up action and next permitted milestone: deploy the M2 bundle, check preflight, then human H2 discovery with the current private board address; no command writes
 ```
 
 ## H3
@@ -174,3 +175,12 @@ The user confirmed normal original-app operation, and a subsequent checksum
 comparison found all 121 original binary/data hashes unchanged. H1 is accepted.
 The deployed receipt identifies 138cc25; the subsequent acceptance commit only
 updates documentation. No additional device communication is needed for M1.
+
+## M2 host preparation — 2026-11-04
+
+Discovery-only session implementation and automated tests are ready for H2.
+No M2 device deployment or board connection has been attempted. The installed
+M1 build and accepted H1 record above remain unchanged. M2 is not Implemented
+until the human H2 checks pass; see M2_HOST_RESULTS.md and README.md. The next
+boundary requires the Kindle plus the Move in BLE mode, with its official app
+and scanner disconnected, and a current address supplied privately.

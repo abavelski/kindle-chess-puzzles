@@ -1,4 +1,4 @@
-# Worker IPC version 1 (host session scaffold)
+# Worker IPC version 1 (M2 native discovery subset)
 
 UTF-8, one JSON object per LF-terminated frame. Maximum **4096 bytes including
 LF**, notification payload maximum **512 bytes**, command maximum **35 bytes**.
@@ -28,7 +28,9 @@ Response shape:
 Reports: `connected` for connect, `services` for discovery, `ok` for
 subscribe/write/shutdown, `disconnected` for disconnect, `error` with `code`
 for failures. Discovery checks all five SDK UUIDs; actual service membership,
-characteristic properties and native UUID byte order remain M2 work. `ok` on a
+characteristic properties and native UUID byte order are validated by the M2
+controller using the native `database` report below. The legacy flat `services`
+variant remains only for M0 mock transport tests. `ok` on a
 write means worker acceptance only, never physical movement or settled state.
 
 ID **0** is reserved for asynchronous `notification` (`source` is the
@@ -47,11 +49,61 @@ terminal: close pipes, kill/reap child, join reader, discard cached events.
 The mock worker never starts descendants or inherits stdout to another process;
 the future native worker must follow the same ownership contract.
 
-`interrupt()` sends DISCONNECT then SHUTDOWN; Drop forcibly reaps a child if
-this sequence fails or is skipped. No live controller signal handler or native
-STOP cleanup is claimed by this scaffold. The live session CLI remains unavailable. M1 adds a separate one-shot native
-preflight command with supervised text reports, not session IPC; it never opens
-a Bluetooth session. Controller signals/timeouts terminate and reap that child.
-A future live session must add motor authorization, STOP, timeouts for native
-calls, signal handling, privilege validation, and confirmation before exposing
-this generic transport. No automatic writes/retries/reconnect are present.
+`interrupt()` sends DISCONNECT then SHUTDOWN. The M2 CLI wires SIGINT/SIGTERM/HUP
+to cancellation, checks for it during requests, and polls for unsolicited link
+loss while idle. Session requests have a 45-second deadline. Native errors may
+use ID 0 before a request is available; their stage/status codes remain visible.
+On error/Drop, the live client closes input, sends TERM to the owned worker PID,
+allows up to 55 seconds for cleanup, then kills/reaps a stuck child and joins its
+reader. Forced or failed cleanup cannot report success. M0 mock clients retain
+immediate reaping. No motor authorization or STOP support is added at M2.
+
+## Native M2 subset
+
+The C parser accepts only the **canonical serialized request shape** produced by
+Rust serde, with no whitespace, LF termination, exact field order, version 1,
+and increasing nonzero 32-bit IDs. It reconstructs and compares the complete
+frame, rejecting duplicate/unknown fields, alternate/escaped spellings, extra
+bytes, NUL and partial EOF. This is intentionally a strict JSON subset rather
+than a general JSON parser. Input allocation is bounded before parsing.
+Only CONNECT, DISCOVER, DISCONNECT and SHUTDOWN are accepted; native SUBSCRIBE
+and WRITE requests fail and clean up without executing a board operation.
+The M0 typed encoders/decoder mocks still test future transport operations.
+
+Native discovery returns a complete, bounded snapshot of up to 20 characteristic
+records across at most 32 services (larger, cyclic or inconsistent lists fail):
+
+```json
+{"v":1,"id":2,"report":{"type":"database","records":[{"service":"1b7e8271-2877-41c3-b46e-cf057c562023","uuid":"1b7e8272-2877-41c3-b46e-cf057c562023","properties":12,"handle":5}]}}
+```
+
+This example shows one record; acceptance requires all three expected records.
+Each record preserves its parent service, native handle and property bitmask.
+Native 128-bit UUID bytes are formatted in returned array order, using all 16
+bytes; 16/32-bit UUIDs are displayed as 4/8 hex digits and cannot match the
+required 128-bit IDs. Rust tests full forward and full reversed byte order
+consistently across both services and their characteristics, requires unique
+matches and expected properties, and reports the selected order. Hardware H2
+must confirm which ordering the actual firmware returns. No mixed/partial
+UUID or service-less lookup is accepted.
+
+The native worker owns one library/session/connection and cloned database.
+KindleBT deep-copies borrowed database callback data; the worker retains only
+the returned owned clone and frees it before disconnect/deregistration/close.
+Application callbacks use atomics and never retain borrowed values. An unexpected
+notification terminates M2 without decoding or dereferencing its payload.
+Repeated SERVICES uses the cached clone; it never starts overlapping retrieval.
+Explicit reconnect from the CLI starts a fresh worker; there is no automatic retry.
+
+Pinned KindleBT does not forward a public connection-state callback. The adapter
+observes its exported, callback-updated `devices_context` through
+`dca_find_by_handle`, locking the context mutex on the sole API-owning thread.
+The exact pinned header defines these types; no Rust FFI layouts are duplicated.
+This internal observation is version-specific and needs H2 hardware validation.
+
+M1 preflight remains a separate supervised text command that never opens a
+session. In M2, the worker repeats those checks and drops identity before opening
+any session. Protocol output uses a dedicated saved descriptor; upstream
+stdout/stderr are suppressed during session APIs to prevent address leaks and
+protocol corruption. Only our stage/numeric-status diagnostics reach stderr.
+No optional raw vendor logging switch is exposed.

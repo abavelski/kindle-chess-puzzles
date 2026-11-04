@@ -1,4 +1,4 @@
-//! Host-only process/IPC scaffold. No native BLE worker is selected by the CLI.
+//! Bounded process IPC. Native M2 accepts only connect/discover/disconnect/shutdown.
 use chessnut_move::protocol::{self, BoardEvent, Command, WriteKind};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -62,9 +62,19 @@ pub enum Report {
     Ok,
     Connected,
     Disconnected,
-    Services { uuids: Vec<String> },
-    Notification { source: String, bytes: Vec<u8> },
-    Error { code: String },
+    Services {
+        uuids: Vec<String>,
+    },
+    Database {
+        records: Vec<crate::discovery::GattRecord>,
+    },
+    Notification {
+        source: String,
+        bytes: Vec<u8>,
+    },
+    Error {
+        code: String,
+    },
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -84,6 +94,7 @@ pub enum Error {
     WorkerExited,
     Closed,
     Io,
+    Interrupted,
 }
 
 pub fn read_report(reader: &mut impl BufRead) -> Result<Envelope, Error> {
@@ -128,6 +139,8 @@ pub struct Client {
     timeout: Duration,
     id: u32,
     closed: bool,
+    cancelled: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    grace: Duration,
     notifications: std::collections::VecDeque<BoardEvent>,
 }
 impl Client {
@@ -159,6 +172,8 @@ impl Client {
             timeout,
             id: 0,
             closed: false,
+            cancelled: None,
+            grace: Duration::ZERO,
             notifications: Default::default(),
         })
     }
@@ -168,25 +183,92 @@ impl Client {
     pub fn is_closed(&self) -> bool {
         self.closed
     }
+    pub fn supervise_session(
+        &mut self,
+        cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        grace: Duration,
+    ) {
+        self.cancelled = Some(cancelled);
+        self.grace = grace;
+    }
     fn receive(&mut self, deadline: Instant) -> Result<Envelope, Error> {
-        match self
-            .reports
-            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-        {
-            Ok(result) => result,
-            Err(RecvTimeoutError::Timeout) => Err(Error::Timeout),
-            Err(RecvTimeoutError::Disconnected) => Err(Error::WorkerExited),
+        loop {
+            if self
+                .cancelled
+                .as_ref()
+                .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed))
+            {
+                return Err(Error::Interrupted);
+            }
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(Error::Timeout);
+            }
+            match self
+                .reports
+                .recv_timeout(remaining.min(Duration::from_millis(25)))
+            {
+                Ok(result) => return result,
+                Err(RecvTimeoutError::Timeout) => continue,
+                Err(RecvTimeoutError::Disconnected) => return Err(Error::WorkerExited),
+            }
         }
     }
-    fn close(&mut self) {
+    /// M2 idle poll: unexpected traffic or link loss is terminal, including
+    /// while the operator is reading the prompt rather than issuing a request.
+    pub fn poll_session(&mut self) -> Result<(), Error> {
+        match self.reports.try_recv() {
+            Err(mpsc::TryRecvError::Empty) => Ok(()),
+            Ok(Ok(Envelope {
+                id: 0,
+                report: Report::Disconnected,
+                ..
+            })) => Err(Error::Disconnected),
+            Ok(Ok(Envelope {
+                id: 0,
+                report: Report::Error { code },
+                ..
+            })) => Err(Error::Worker(code)),
+            Ok(Err(error)) => Err(error),
+            Err(mpsc::TryRecvError::Disconnected) => Err(Error::WorkerExited),
+            _ => Err(Error::Protocol),
+        }
+    }
+    fn close(&mut self) -> bool {
+        if self.closed {
+            return true;
+        }
         self.closed = true;
         self.input.take();
+        if !self.grace.is_zero() && matches!(self.child.try_wait(), Ok(None)) {
+            // Fixed shell program, numeric PID passed as an argument. The worker
+            // catches TERM and unwinds its owned session; never signal the SSH
+            // process group or change the controller's identity.
+            let _ = ProcessCommand::new("sh")
+                .args([
+                    "-c",
+                    "kill -TERM \"$1\"",
+                    "probe-cleanup",
+                    &self.child.id().to_string(),
+                ])
+                .status();
+            let deadline = Instant::now() + self.grace;
+            while matches!(self.child.try_wait(), Ok(None)) && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(20));
+            }
+        }
+        let clean = self.grace.is_zero()
+            || matches!(self.child.try_wait(), Ok(Some(status)) if status.success());
+        if !clean && !self.grace.is_zero() {
+            eprintln!("phase=M2 cleanup=FAIL worker did not exit successfully within grace; forcing reap; verify board is disconnected before retrying");
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
         if let Some(reader) = self.reader.take() {
             let _ = reader.join();
         }
         self.notifications.clear();
+        clean
     }
     /// Exactly one synchronous request is outstanding. Any error closes the
     /// worker; callers must never retry a motor packet on a replacement worker.
@@ -196,8 +278,8 @@ impl Client {
         }
         let shutdown = matches!(operation, Operation::Shutdown);
         let result = self.exchange(operation);
-        if result.is_err() || shutdown {
-            self.close();
+        if (result.is_err() || shutdown) && !self.close() && result.is_ok() {
+            return Err(Error::Worker("cleanup_failed_or_forced".into()));
         }
         result
     }
@@ -244,6 +326,7 @@ impl Client {
                         .push_back(decode_notification(&source, &bytes)?);
                 }
                 Report::Disconnected if envelope.id == 0 => return Err(Error::Disconnected),
+                Report::Error { code } if envelope.id == 0 => return Err(Error::Worker(code)),
                 report if envelope.id == self.id => {
                     match &report {
                         Report::Error { code } => return Err(Error::Worker(code.clone())),
@@ -259,6 +342,13 @@ impl Client {
                             .all(|uuid| uuids.iter().any(|found| found.eq_ignore_ascii_case(uuid)))
                             {
                                 return Err(Error::WrongUuid);
+                            }
+                        }
+                        Report::Database { records }
+                            if matches!(operation, Operation::Discover) =>
+                        {
+                            if records.len() > 20 {
+                                return Err(Error::Protocol);
                             }
                         }
                         Report::Connected if matches!(operation, Operation::Connect { .. }) => (),

@@ -279,6 +279,12 @@ def build():
     if not includes[2].exists():
         includes[2] = next(sources['darkroot'].rglob('bluetooth_ble_api.h')).parents[1]
     args = [arg for inc in includes for arg in ['-I', inc]]
+    # Exercise the real pinned header layouts on the build host, separately
+    # from portable lifecycle tests. This executable is never staged.
+    adapter_test = ROOT / 'target/native-adapter-test'
+    run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-pthread'] + args
+        + ['-I', ROOT / 'native', ROOT / 'tests/native_adapter_test.c', '-ldl', '-o', adapter_test])
+    run([adapter_test])
     native_sources = ['kindlebt.c', 'kindlebt_log.c', 'compat_ace.c', 'compat_ace_implementations.c',
                       'compat_ace_shims.c', 'compat_ace_utils.c', 'compat_ace_handler.c', 'compat_acealloc.c']
     run(cc + ['-shared', '-fPIC', '-pthread', '-Wl,-soname,libkindlebt.so', '-Wl,--allow-shlib-undefined'] + args
@@ -287,7 +293,7 @@ def build():
     library = OUTPUT / 'libkindlebt.so'
     library.write_bytes(localize_needed(library.read_bytes(), sources['sdk'] / 'libace_bt.so'))
     run(cc + ['-std=c11', '-Wall', '-Wextra', '-Werror', '-fPIC', '-pie'] + args
-        + [ROOT / 'native/kindlebt_worker.c', '-ldl', '-o', OUTPUT / 'kindlebt-worker'])
+        + [ROOT / 'native/kindlebt_worker.c', '-pthread', '-ldl', '-o', OUTPUT / 'kindlebt-worker'])
     linker = ROOT / 'target/toolchains/kindle-cc'
     linker.write_text('#!/bin/sh\nexec ' + shlex.quote(str(zig)) + ' cc -target arm-linux-gnueabihf.2.35 "$@"\n')
     linker.chmod(0o755)
@@ -325,13 +331,13 @@ def build():
                 shutil.copy2(license_file, notices / (package.name + '-' + license_file.name))
     (notices / 'README.txt').write_text('KindleBT/log.c: MIT. Rust dependency license texts included.\nAmazon SDK libraries and vendor headers are build references only and are not distributed.\nProject code has no declared distribution license; this is a local-install experiment.\n')
     if source_digest() != before: raise ValueError('source changed during build; rebuild')
-    receipt = {'milestone': 1, 'source_sha256': before, 'kindlebt_commit': KINDLEBT,
+    receipt = {'milestone': 2, 'source_sha256': before, 'kindlebt_commit': KINDLEBT,
                'target': TARGET, 'rust': '1.85.1', 'zig': '0.13.0', 'glibc_max': '2.35',
                'host': {'system': platform.system(), 'machine': platform.machine()},
                'zig_archive': ZIG[(platform.system(), platform.machine())],
                'native_flags': ['-target arm-linux-gnueabihf.2.35', '-O2', '-fno-omit-frame-pointer'],
                'kindlebt_link': ['-shared', '-fPIC', '-pthread', '-soname=libkindlebt.so', '--allow-shlib-undefined', '-lace_bt', '-ldl'],
-               'worker_flags': ['-std=c11', '-Wall', '-Wextra', '-Werror', '-fPIC', '-pie', '-ldl'],
+               'worker_flags': ['-std=c11', '-Wall', '-Wextra', '-Werror', '-fPIC', '-pie', '-pthread', '-ldl'],
                'cargo': ['build', '--locked', '--release', '--bin', 'chessnut-ble-probe', '--target', TARGET],
                'sources': SOURCES, 'elf': elf, 'device_libraries': runtime_dependencies(elf),
                'sdk_reference_libraries': sorted(required), 'host_checks': 'PASS',
@@ -426,7 +432,7 @@ mkdir {incoming}
             run(ssh + ['sh -s'], input=f'rm -rf -- {incoming}\n', text=True, timeout=60)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             print('Upload cleanup incomplete; inspect the experiment incoming directory through SSH.')
-    print('Installed only; NOT launched. Next: human H1 preflight.')
+    print('Installed only; NOT launched. Run preflight, then stop for human H2 discovery with the board.')
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

@@ -5,7 +5,11 @@ runtime=$root/runtime
 [ ! -L "$root" ] && [ ! -L "$runtime" ] || exit 1
 [ ! -L "$root/.probe-owner" ] && [ "$(cat "$root/.probe-owner")" = chessnut-ble-probe-v1 ] || exit 1
 [ "$#" = 0 ] && set -- preflight
-[ "$#" = 1 ] && [ "$1" = preflight ] || { echo 'UNSUPPORTED: M1 launcher only runs preflight' >&2; exit 1; }
+case "$#:$1" in
+  1:preflight) ;;
+  3:session) [ "$2" = --address ] || exit 1 ;;
+  *) echo 'UNSUPPORTED: use preflight or session --address <private BLE address>' >&2; exit 1 ;;
+esac
 mkdir "$root/.operation-lock" || { echo 'Experiment busy' >&2; exit 1; }
 child=
 cleanup() {
@@ -25,7 +29,7 @@ trap 'exit 143' TERM
 cd "$runtime"
 sha256sum -c SHA256SUMS
 [ "$(uname -m)" = armv7l ] && [ -x /lib/ld-linux-armhf.so.3 ] || { echo 'Unsupported architecture/loader' >&2; exit 1; }
-LD_LIBRARY_PATH="$runtime" "$runtime/chessnut-ble-probe" preflight &
+LD_LIBRARY_PATH="$runtime" "$runtime/chessnut-ble-probe" "$@" <&0 &
 child=$!
 set +e
 wait "$child"

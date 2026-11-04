@@ -226,3 +226,49 @@ and transitive dependency loading, local KindleBT loading and required symbol
 resolution all passed; preflight exited 0 and cleared its lock. The user confirmed
 the original app works normally, with all 121 binary/data hashes unchanged.
 M1 is Implemented. No Bluetooth API was called or board connection attempted.
+
+## M2 discovery-only native adapter (host-ready; H2 pending)
+
+kindlebt_session.h adapts the pinned public C types to the portable, host-tested
+session_core.h lifecycle. Only open/close, registration/deregistration,
+connect/disconnect, discovery/database retrieval/free and connection-state
+observation function pointers exist in the M2 table. No command, characteristic,
+descriptor write or subscription API can be dispatched by session IPC.
+The worker repeats preflight and drops privileges before loading this table.
+
+Discovery and database callbacks use C atomics. KindleBT clones the database
+before notifying the application; we keep only its owned clone. Callback payloads
+are never retained. The database traversal checks type, full UUID width, counts,
+linked-list bounds, record count and final frame size. It rejects unknown UUID
+types and never silently truncates a list. Native UUID bytes are returned without
+assuming an order; Rust validates all required service/characteristic pairs in a
+consistent forward or reverse order and checks property masks. Actual byte order,
+callback compatibility and cleanup on firmware 5.19.6 remain unverified until H2.
+
+KindleBT exposes no application connection-state callback at this pin. The
+adapter resolves exported devices_context/dca_find_by_handle and observes
+callback-updated state under its mutex while idle. This depends on the pinned
+internal context contract, so the build and preflight pin must remain aligned.
+There is one API-owning thread, one connection and no concurrent context-array
+mutation. The CLI starts a fresh worker for each explicit reconnect.
+
+The library's own callback waits are normally 10 seconds. IPC uses a 45-second
+deadline and 55-second cleanup grace; a stuck vendor call ends in a reported
+forced reap, not claimed successful cleanup. Unknown handles on failed/timed-out
+connect cannot be explicitly disconnected: acquired registrations/session are
+closed, and H2 must verify actual link release. Failed deregistration is reported;
+no daemon restart or radio-control workaround is attempted. M2 does not call
+explicit enableRadio/disableRadio APIs; openSession/closeSession retain their
+upstream lifecycle behavior, which still needs physical interference checks.
+
+The build runs native_adapter_test.c against the real downloaded, checksummed
+KindleBT and Darkroot headers on the host, then compiles the actual ARM worker
+against the same headers. The host test renames only the typedef token uuid_t
+to avoid Darwin's unrelated system typedef; the vendor structure stays intact.
+It exercises full-byte UUID formatting, database serialization/count/cycle
+rejection and callback handling without opening BLE. Neither that host executable
+nor any SDK/vendor object is staged. Portable C lifecycle/parser fixtures also
+run in the ordinary independent host gate, without SDK downloads.
+
+No M2 device action has occurred. Stop for deployment and H2; see the experiment
+README for the exact human checkpoint and private-address procedure.

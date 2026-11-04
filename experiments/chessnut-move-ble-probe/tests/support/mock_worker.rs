@@ -9,14 +9,72 @@ fn emit(id: u32, report: Report) {
     io::stdout().flush().unwrap();
 }
 fn main() {
-    let scenario = std::env::args().nth(1).unwrap();
+    let scenario =
+        std::env::var("PROBE_MOCK_SCENARIO").unwrap_or_else(|_| std::env::args().nth(1).unwrap());
+    if let Ok(path) = std::env::var("PROBE_MOCK_PID_FILE") {
+        std::fs::write(path, std::process::id().to_string()).unwrap();
+    }
+    if let Ok(path) = std::env::var("PROBE_MOCK_CLEANUP_FILE") {
+        let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        signal_hook::flag::register(signal_hook::consts::SIGTERM, std::sync::Arc::clone(&flag))
+            .unwrap();
+        std::thread::spawn(move || loop {
+            if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                std::fs::write(&path, "TERM cleanup").unwrap();
+                std::process::exit(0);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        });
+    }
     let mut disconnected = false;
     for line in io::stdin().lock().lines() {
         let request: Request = serde_json::from_str(&line.unwrap()).unwrap();
         assert_eq!(request.v, 1);
         let id = request.id;
         match request.operation {
-            Operation::Connect { .. } => emit(id, Report::Connected),
+            Operation::Connect { .. } => match scenario.as_str() {
+                "connect-timeout" => std::thread::sleep(std::time::Duration::from_secs(10)),
+                "connect-crash" => std::process::exit(19),
+                "startup-error" => emit(
+                    0,
+                    Report::Error {
+                        code: "required_state_symbol_status_-1".into(),
+                    },
+                ),
+                "connect-error" => emit(
+                    id,
+                    Report::Error {
+                        code: "connect_address_stale_or_unavailable_status_1".into(),
+                    },
+                ),
+                _ => emit(id, Report::Connected),
+            },
+            Operation::Discover if scenario.starts_with("database") => {
+                let mut records = [
+                    (POSITION_SERVICE, POSITION_UUID, 0x10),
+                    (COMMAND_SERVICE, WRITE_UUID, 0x0c),
+                    (COMMAND_SERVICE, RESPONSE_UUID, 0x10),
+                ]
+                .map(
+                    |(service, uuid, properties)| chessnut_ble_probe::discovery::GattRecord {
+                        service: service.into(),
+                        uuid: uuid.into(),
+                        properties,
+                        handle: 1,
+                    },
+                )
+                .to_vec();
+                if scenario == "database-wrong" {
+                    records[0].uuid = WRITE_UUID.into();
+                }
+                emit(id, Report::Database { records });
+                if let Ok(path) = std::env::var("PROBE_MOCK_READY_FILE") {
+                    std::fs::write(path, "ready").unwrap();
+                }
+                if scenario == "database-disconnect" {
+                    emit(0, Report::Disconnected);
+                }
+            }
             Operation::Discover => emit(
                 id,
                 Report::Services {
@@ -82,8 +140,22 @@ fn main() {
             Operation::Shutdown => {
                 assert!(disconnected);
                 emit(id, Report::Ok);
+                if scenario == "database-shutdown-hang" {
+                    // Ignore TERM in this deterministic forced-cleanup case.
+                    signal_hook::flag::register(
+                        signal_hook::consts::SIGTERM,
+                        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    )
+                    .unwrap();
+                    std::thread::sleep(std::time::Duration::from_secs(10));
+                }
                 return;
             }
+        }
+    }
+    if scenario == "database-signal" {
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(5));
         }
     }
 }

@@ -39,6 +39,39 @@ fn run() -> Result<(), String> {
             }
             result
         }
+        [command, option, address] if command == "session" && option == "--address" => {
+            use std::{io::{self, BufRead, Read}, sync::{atomic::AtomicBool, mpsc, Arc}, time::Duration};
+            if !chessnut_ble_probe::session::valid_address(address) {
+                return Err("invalid Bluetooth address; expected six hexadecimal octets (address not logged)".into());
+            }
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let mut handlers = Vec::new();
+            for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM, signal_hook::consts::SIGHUP] {
+                handlers.push(signal_hook::flag::register(signal, Arc::clone(&cancelled)).map_err(|e|e.to_string())?);
+            }
+            let executable = std::env::current_exe().map_err(|e|e.to_string())?;
+            let directory = executable.parent().ok_or("missing executable directory")?;
+            let mut worker = std::process::Command::new(directory.join("kindlebt-worker"));
+            worker.arg("--ipc").arg(directory.join("libkindlebt.so")).arg(directory.join("required-libs.txt"));
+            let (sender, input) = mpsc::sync_channel(8);
+            std::thread::spawn(move || {
+                let mut stdin = io::stdin().lock();
+                loop {
+                    let mut line = Vec::new();
+                    match stdin.by_ref().take(257).read_until(b'\n', &mut line) {
+                        Ok(0) => break,
+                        Ok(_) if line.len() <= 256 => {
+                            let line=String::from_utf8(line).map_err(|_|"non-UTF8 command".into());
+                            if sender.send(line).is_err() { break; }
+                        }
+                        _ => { let _=sender.send(Err("command input invalid or exceeds 256 bytes".into())); break; }
+                    }
+                }
+            });
+            let result = chessnut_ble_probe::session::run_session(&mut worker,address,input,&mut io::stdout().lock(),cancelled,Duration::from_secs(45),Duration::from_secs(55));
+            for handler in handlers { signal_hook::low_level::unregister(handler); }
+            result
+        }
         [command, fen] if command == "packet-fen" => {
             let target = TargetFen::parse(fen).map_err(str::to_owned)?;
             let packet = target.packet();
@@ -60,11 +93,11 @@ fn run() -> Result<(), String> {
             Ok(())
         }
         [command] if command == "--help" || command == "help" => {
-            println!("chessnut-ble-probe packet-fen '<six-field FEN>'\nMilestone 1: preflight (no connection) or offline packet-fen. Live session commands are UNSUPPORTED.");
+            println!("chessnut-ble-probe packet-fen '<six-field FEN>'\nMilestone 2: preflight (no connection), packet-fen (offline), session --address XX:XX:XX:XX:XX:XX (discovery only). All board writes are UNSUPPORTED.");
             Ok(())
         }
         _ => Err(
-            "UNSUPPORTED: Milestone 1 provides preflight, packet-fen '<six-field FEN>' and --help"
+            "UNSUPPORTED: Milestone 2 provides preflight, session --address <private BLE address>, packet-fen '<six-field FEN>' and --help"
                 .into(),
         ),
     }
