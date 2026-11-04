@@ -194,3 +194,15 @@ path. Firmware/account/library checks and the original app check are NOT TESTED
 on-device. The worker deliberately requires root SSH so it can prove that only
 the child changes identity. Its read-only probes never restart btmanagerd or
 change stock radio/UI/power state.
+
+## H1 startup correction (offline, 2026-11-04)
+
+The first device run exposed an early native-worker SIGSEGV. The saved worker
+contained a COPY relocation that promoted aliased Zig libc-stub globals into
+the executable. stdout, stderr and the environment incorrectly shared storage.
+The worker now compiles with -fPIC -pie, and the ELF validator rejects ET_EXEC
+executables and R_ARM_COPY entries in REL/RELA tables. New receipts include
+PIE and COPY-relocation checks. The C source and vendor/KindleBT code are
+unchanged. See [the evidence and confidence limits](../notes/M1_STARTUP_CRASH.md).
+The user stopped the Kindle; no redeployment or SSH retest occurred during
+this investigation. H1 remains failed until the corrected candidate is tested.

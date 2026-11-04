@@ -2,10 +2,14 @@
 
 An isolated CLI experiment for a first-generation Kindle Scribe, ARMv7
 hard-float, firmware 5.19.6, glibc 2.35. The existing chess application and
-parent workspace are unchanged. **M1 is deployed; H1 preflight failed with a native-worker SIGSEGV.** No board connection or command is
+parent workspace are unchanged. **M1 is deployed; H1 preflight failed. An offline native-link fix is ready
+for a device retest.** No board connection or command is
 implemented. Deployment and installed-payload checksums passed on 2026-11-04. SSH preflight
 launched the Rust controller, then the native worker crashed before reporting
-checks (exit status 1). Stop at H1 until the startup crash is resolved. The existing chess binary and 120 data files retain their
+checks (exit status 1). Offline analysis found aliased libc globals in the
+non-PIC worker; the new -fPIC -pie build removes them and rejects COPY
+relocations. See [the diagnosis](notes/M1_STARTUP_CRASH.md). The installed build
+has not been updated; H1 remains failed pending a device retest. The existing chess binary and 120 data files retain their
 pre-deployment hashes.
 
 ## Progress
@@ -86,7 +90,8 @@ declared public distribution license.
 with SIGSEGV in the native worker; do not proceed to M2.**
 Keep the board disconnected; no board address is needed. The installed build is
 from commit `dc8d7bc`. To rebuild/redeploy later, run build.sh and stage.sh first,
-then substitute the private SSH hostname:
+then substitute the private SSH hostname. Do not rerun the failed installed
+worker before updating to the corrected build:
 
 ```sh
 experiments/chessnut-move-ble-probe/scripts/deploy.sh --host root@DEVICE_HOST --port 2222

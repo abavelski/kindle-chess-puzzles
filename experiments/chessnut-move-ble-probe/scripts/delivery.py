@@ -63,6 +63,8 @@ def inspect_elf(data, executable, device_reference=False):
     kind, machine, version, _, phoff, _, flags, _, phsize, phnum, _, _, _ = unpack('<HHIIIIIHHHHHH', 16)
     if machine != 40 or version != 1 or kind not in (2, 3) or phsize != 32:
         raise ValueError('expected ARM executable/shared object')
+    if executable and kind != 3:
+        raise ValueError('native executables must use PIE to avoid imported-data copy relocation hazards')
     if flags & 0xff000000 != 0x05000000 or not flags & 0x400 or flags & 0x200:
         raise ValueError('expected EABI5 hard-float')
     headers = [unpack('<IIIIIIII', phoff + i * phsize) for i in range(phnum)]
@@ -100,6 +102,22 @@ def inspect_elf(data, executable, device_reference=False):
     if any(not re.fullmatch(r'[A-Za-z0-9_.+-]+', n) for n in needed):
         raise ValueError('unsafe or absolute NEEDED entry')
     if 15 in dynamic or 29 in dynamic: raise ValueError('unexpected RPATH/RUNPATH')
+    # Zig 0.13 libc object stubs alias distinct globals. A COPY relocation
+    # can promote those aliases into the executable and corrupt libc startup.
+    # Reject COPY in the actual relocation tables, even if the ELF is PIE.
+    for address_tag, size_tag, entry_tag, entry_size in [(17, 18, 19, 8), (7, 8, 9, 12)]:
+        if address_tag not in dynamic and size_tag not in dynamic: continue
+        if address_tag not in dynamic or size_tag not in dynamic:
+            raise ValueError('incomplete ELF relocation table')
+        size = dynamic[size_tag][0]
+        if dynamic.get(entry_tag, [entry_size])[0] != entry_size or size % entry_size:
+            raise ValueError('invalid ELF relocation entry size')
+        if size == 0: continue
+        start = mapped(dynamic[address_tag][0], size)
+        for pos in range(start, start+size, entry_size):
+            _, info = unpack('<II', pos)
+            if info & 0xff == 20:  # R_ARM_COPY
+                raise ValueError('unsafe R_ARM_COPY relocation; compile native code with -fPIC -pie')
     versions = []
     if 0x6ffffffe in dynamic:
         pos = mapped(dynamic[0x6ffffffe][0], 16)
@@ -118,7 +136,8 @@ def inspect_elf(data, executable, device_reference=False):
                 at += following
             pos += nxt
     return {'needed': sorted(needed), 'interpreter': interpreter, 'glibc_versions': sorted(set(versions)),
-            'machine': 'ARM', 'class': 'ELF32', 'abi': 'EABI5 hard-float'}
+            'machine': 'ARM', 'class': 'ELF32', 'abi': 'EABI5 hard-float',
+            'pie': executable and kind == 3, 'copy_relocations': 0}
 
 def localize_needed(data, allowed_file):
     """Point an absolute SDK NEEDED entry at its existing basename suffix.
@@ -261,7 +280,7 @@ def build():
         + [sources['logc'] / 'src/log.c', '-L', sources['sdk'], '-lace_bt', '-ldl', '-o', OUTPUT / 'libkindlebt.so'])
     library = OUTPUT / 'libkindlebt.so'
     library.write_bytes(localize_needed(library.read_bytes(), sources['sdk'] / 'libace_bt.so'))
-    run(cc + ['-std=c11', '-Wall', '-Wextra', '-Werror'] + args
+    run(cc + ['-std=c11', '-Wall', '-Wextra', '-Werror', '-fPIC', '-pie'] + args
         + [ROOT / 'native/kindlebt_worker.c', '-ldl', '-o', OUTPUT / 'kindlebt-worker'])
     linker = ROOT / 'target/toolchains/kindle-cc'
     linker.write_text('#!/bin/sh\nexec ' + shlex.quote(str(zig)) + ' cc -target arm-linux-gnueabihf.2.35 "$@"\n')
@@ -306,7 +325,7 @@ def build():
                'zig_archive': ZIG[(platform.system(), platform.machine())],
                'native_flags': ['-target arm-linux-gnueabihf.2.35', '-O2', '-fno-omit-frame-pointer'],
                'kindlebt_link': ['-shared', '-fPIC', '-pthread', '-soname=libkindlebt.so', '--allow-shlib-undefined', '-lace_bt', '-ldl'],
-               'worker_flags': ['-std=c11', '-Wall', '-Wextra', '-Werror', '-ldl'],
+               'worker_flags': ['-std=c11', '-Wall', '-Wextra', '-Werror', '-fPIC', '-pie', '-ldl'],
                'cargo': ['build', '--locked', '--release', '--bin', 'chessnut-ble-probe', '--target', TARGET],
                'sources': SOURCES, 'elf': elf, 'device_libraries': sorted(required), 'host_checks': 'PASS',
                'artifacts': {n: sha(OUTPUT / n) for n in elf}}

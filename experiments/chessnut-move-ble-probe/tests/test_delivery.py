@@ -180,4 +180,24 @@ class DeployTests(unittest.TestCase):
             upload = next(args for args in calls if args[0] == 'scp')
             self.assertEqual(upload[-4:-1], [str(output/'stage/install.sh'), str(output/'stage/SHA256SUMS'), str(runtime)])
 
+
+class RelocationTests(unittest.TestCase):
+    def test_rejects_arm_copy_relocations_even_for_a_pie(self):
+        data = bytearray(elf_fixture())
+        # Extend PT_DYNAMIC with DT_REL/DT_RELSZ/DT_RELENT and one R_ARM_COPY.
+        struct.pack_into('<II', data, 100, 80, 80)
+        tags = [(5, 0x1200), (10, 22), (1, 1), (0x6ffffffe, 0x1300),
+                (0x6fffffff, 1), (17, 0x1340), (18, 8), (19, 8), (0, 0)]
+        for i, (tag, value) in enumerate(tags):
+            struct.pack_into('<II', data, 256+i*8, tag, value)
+        struct.pack_into('<II', data, 832, 0x1380, (1 << 8) | 20)
+        with self.assertRaisesRegex(ValueError, 'COPY'):
+            delivery.inspect_elf(bytes(data), executable=True)
+
+    def test_rejects_fixed_address_native_executables(self):
+        data = bytearray(elf_fixture())
+        struct.pack_into('<H', data, 16, 2)  # ET_EXEC rather than ET_DYN (PIE)
+        with self.assertRaisesRegex(ValueError, 'PIE'):
+            delivery.inspect_elf(bytes(data), executable=True)
+
 if __name__ == '__main__': unittest.main()

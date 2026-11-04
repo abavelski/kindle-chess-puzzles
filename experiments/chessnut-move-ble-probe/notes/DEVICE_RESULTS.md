@@ -149,3 +149,12 @@ Read-only follow-up confirmed the launcher removed .operation-lock and all
 Stopped at the plan's H1 failure gate; no system service, library, configuration,
 or board action was changed. The native startup crash needs investigation
 before H1 can pass. Human original-app visual acceptance remains unverified.
+
+## Offline follow-up — 2026-11-04
+
+The failed worker has a COPY relocation and incorrectly co-located libc globals
+(stdout/stderr/environment). A -fPIC -pie rebuild removes the defect; new host
+regressions reject both non-PIE executables and ARM COPY relocations. See
+M1_STARTUP_CRASH.md for evidence and limits. The user stopped the Kindle, so
+no SSH connection or corrected-candidate deployment was attempted. H1 stays
+FAIL pending deployment/preflight and human original-app acceptance.
