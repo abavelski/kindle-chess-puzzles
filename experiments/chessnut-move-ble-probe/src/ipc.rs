@@ -1,0 +1,318 @@
+//! Host-only process/IPC scaffold. No native BLE worker is selected by the CLI.
+use chessnut_move::protocol::{self, BoardEvent, Command, WriteKind};
+use serde::{Deserialize, Serialize};
+use std::{
+    io::{BufRead, BufReader, Read, Write},
+    process::{Child, ChildStdin, Command as ProcessCommand, Stdio},
+    sync::mpsc::{self, Receiver, RecvTimeoutError},
+    thread::{self, JoinHandle},
+    time::{Duration, Instant},
+};
+
+pub const MAX_FRAME: usize = 4096;
+pub const MAX_PAYLOAD: usize = 512;
+pub use chessnut_move::transport::gatt::{
+    COMMAND_RESPONSE_UUID as RESPONSE_UUID, COMMAND_SERVICE_UUID as COMMAND_SERVICE,
+    COMMAND_WRITE_UUID as WRITE_UUID, POSITION_NOTIFICATION_UUID as POSITION_UUID,
+    POSITION_SERVICE_UUID as POSITION_SERVICE,
+};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WriteMode {
+    WithResponse,
+    WithoutResponse,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Operation {
+    Connect {
+        address: String,
+    },
+    Discover,
+    Subscribe,
+    Write {
+        bytes: Vec<u8>,
+        write_kind: WriteMode,
+    },
+    Disconnect,
+    Shutdown,
+}
+impl Operation {
+    pub fn from_command(command: &Command) -> Self {
+        Self::Write {
+            bytes: command.bytes().to_vec(),
+            write_kind: match command.write_kind() {
+                WriteKind::WithResponse => WriteMode::WithResponse,
+                WriteKind::WithoutResponse => WriteMode::WithoutResponse,
+            },
+        }
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Request {
+    pub v: u8,
+    pub id: u32,
+    pub operation: Operation,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Report {
+    Ok,
+    Connected,
+    Disconnected,
+    Services { uuids: Vec<String> },
+    Notification { source: String, bytes: Vec<u8> },
+    Error { code: String },
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Envelope {
+    pub v: u8,
+    pub id: u32,
+    pub report: Report,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Error {
+    Protocol,
+    WrongUuid,
+    MalformedNotification,
+    Worker(String),
+    Timeout,
+    Disconnected,
+    WorkerExited,
+    Closed,
+    Io,
+}
+
+pub fn read_report(reader: &mut impl BufRead) -> Result<Envelope, Error> {
+    let mut frame = Vec::new();
+    let size = reader
+        .take((MAX_FRAME + 1) as u64)
+        .read_until(b'\n', &mut frame)
+        .map_err(|_| Error::Io)?;
+    if size == 0 {
+        return Err(Error::WorkerExited);
+    }
+    if size > MAX_FRAME || frame.last() != Some(&b'\n') {
+        return Err(Error::Protocol);
+    }
+    let envelope: Envelope = serde_json::from_slice(&frame).map_err(|_| Error::Protocol)?;
+    if envelope.v != 1 {
+        return Err(Error::Protocol);
+    }
+    Ok(envelope)
+}
+
+fn decode_notification(source: &str, bytes: &[u8]) -> Result<BoardEvent, Error> {
+    if bytes.len() > MAX_PAYLOAD {
+        return Err(Error::MalformedNotification);
+    }
+    match source {
+        POSITION_UUID => protocol::decode_position_notification(bytes)
+            .map(BoardEvent::PositionChanged)
+            .map_err(|_| Error::MalformedNotification),
+        RESPONSE_UUID => {
+            protocol::decode_response_notification(bytes).map_err(|_| Error::MalformedNotification)
+        }
+        _ => Err(Error::MalformedNotification),
+    }
+}
+
+pub struct Client {
+    child: Child,
+    input: Option<ChildStdin>,
+    reports: Receiver<Result<Envelope, Error>>,
+    reader: Option<JoinHandle<()>>,
+    timeout: Duration,
+    id: u32,
+    closed: bool,
+    notifications: std::collections::VecDeque<BoardEvent>,
+}
+impl Client {
+    pub fn spawn(command: &mut ProcessCommand, timeout: Duration) -> Result<Self, Error> {
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .map_err(|_| Error::Io)?;
+        let input = child.stdin.take();
+        let output = child.stdout.take().ok_or(Error::Io)?;
+        let (sender, reports) = mpsc::sync_channel(16);
+        let reader = thread::spawn(move || {
+            let mut output = BufReader::new(output);
+            loop {
+                let report = read_report(&mut output);
+                let terminal = report.is_err();
+                if sender.try_send(report).is_err() || terminal {
+                    break;
+                }
+            }
+        });
+        Ok(Self {
+            child,
+            input,
+            reports,
+            reader: Some(reader),
+            timeout,
+            id: 0,
+            closed: false,
+            notifications: Default::default(),
+        })
+    }
+    pub fn worker_id(&self) -> u32 {
+        self.child.id()
+    }
+    pub fn is_closed(&self) -> bool {
+        self.closed
+    }
+    fn receive(&mut self, deadline: Instant) -> Result<Envelope, Error> {
+        match self
+            .reports
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+        {
+            Ok(result) => result,
+            Err(RecvTimeoutError::Timeout) => Err(Error::Timeout),
+            Err(RecvTimeoutError::Disconnected) => Err(Error::WorkerExited),
+        }
+    }
+    fn close(&mut self) {
+        self.closed = true;
+        self.input.take();
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        if let Some(reader) = self.reader.take() {
+            let _ = reader.join();
+        }
+        self.notifications.clear();
+    }
+    /// Exactly one synchronous request is outstanding. Any error closes the
+    /// worker; callers must never retry a motor packet on a replacement worker.
+    pub fn request(&mut self, operation: Operation) -> Result<Report, Error> {
+        if self.closed {
+            return Err(Error::Closed);
+        }
+        let shutdown = matches!(operation, Operation::Shutdown);
+        let result = self.exchange(operation);
+        if result.is_err() || shutdown {
+            self.close();
+        }
+        result
+    }
+    fn exchange(&mut self, operation: Operation) -> Result<Report, Error> {
+        if let Operation::Connect { address } = &operation {
+            if address.len() != 17
+                || !address
+                    .split(':')
+                    .all(|p| p.len() == 2 && p.bytes().all(|b| b.is_ascii_hexdigit()))
+            {
+                return Err(Error::Protocol);
+            }
+        }
+        if let Operation::Write { bytes, .. } = &operation {
+            if bytes.is_empty() || bytes.len() > protocol::MAX_COMMAND_LEN {
+                return Err(Error::Protocol);
+            }
+        }
+        self.id = self.id.checked_add(1).ok_or(Error::Protocol)?;
+        let request = Request {
+            v: 1,
+            id: self.id,
+            operation: operation.clone(),
+        };
+        let mut bytes = serde_json::to_vec(&request).map_err(|_| Error::Protocol)?;
+        bytes.push(b'\n');
+        if bytes.len() > MAX_FRAME {
+            return Err(Error::Protocol);
+        }
+        self.input
+            .as_mut()
+            .ok_or(Error::Closed)?
+            .write_all(&bytes)
+            .map_err(|_| Error::WorkerExited)?;
+        let deadline = Instant::now() + self.timeout;
+        loop {
+            let envelope = self.receive(deadline)?;
+            match envelope.report {
+                Report::Notification { source, bytes } if envelope.id == 0 => {
+                    if self.notifications.len() >= 16 {
+                        return Err(Error::Protocol);
+                    }
+                    self.notifications
+                        .push_back(decode_notification(&source, &bytes)?);
+                }
+                Report::Disconnected if envelope.id == 0 => return Err(Error::Disconnected),
+                report if envelope.id == self.id => {
+                    match &report {
+                        Report::Error { code } => return Err(Error::Worker(code.clone())),
+                        Report::Services { uuids } if matches!(operation, Operation::Discover) => {
+                            if ![
+                                POSITION_SERVICE,
+                                POSITION_UUID,
+                                COMMAND_SERVICE,
+                                WRITE_UUID,
+                                RESPONSE_UUID,
+                            ]
+                            .iter()
+                            .all(|uuid| uuids.iter().any(|found| found.eq_ignore_ascii_case(uuid)))
+                            {
+                                return Err(Error::WrongUuid);
+                            }
+                        }
+                        Report::Connected if matches!(operation, Operation::Connect { .. }) => (),
+                        Report::Disconnected if matches!(operation, Operation::Disconnect) => (),
+                        Report::Ok
+                            if matches!(
+                                operation,
+                                Operation::Subscribe
+                                    | Operation::Write { .. }
+                                    | Operation::Shutdown
+                            ) => {}
+                        _ => return Err(Error::Protocol),
+                    }
+                    return Ok(report);
+                }
+                _ => return Err(Error::Protocol),
+            }
+        }
+    }
+    pub fn next_notification(&mut self, timeout: Duration) -> Result<BoardEvent, Error> {
+        if self.closed {
+            return Err(Error::Closed);
+        }
+        if let Some(event) = self.notifications.pop_front() {
+            return Ok(event);
+        }
+        let result = (|| {
+            let envelope = self.receive(Instant::now() + timeout)?;
+            match envelope.report {
+                Report::Notification { source, bytes } if envelope.id == 0 => {
+                    decode_notification(&source, &bytes)
+                }
+                Report::Disconnected if envelope.id == 0 => Err(Error::Disconnected),
+                _ => Err(Error::Protocol),
+            }
+        })();
+        if result.is_err() {
+            self.close();
+        }
+        result
+    }
+    /// Host-testable interruption path; live signal wiring belongs to the
+    /// native session milestone. Never sends an auto-move or replays a write.
+    pub fn interrupt(&mut self) -> Result<(), Error> {
+        if self.closed {
+            return Ok(());
+        }
+        self.request(Operation::Disconnect)?;
+        self.request(Operation::Shutdown)?;
+        Ok(())
+    }
+}
+impl Drop for Client {
+    fn drop(&mut self) {
+        self.close();
+    }
+}

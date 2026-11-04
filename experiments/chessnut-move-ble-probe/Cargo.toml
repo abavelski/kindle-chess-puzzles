@@ -1,0 +1,26 @@
+[package]
+name = "chessnut-ble-probe"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85.1"
+publish = false
+
+[workspace]
+resolver = "2"
+
+[dependencies]
+chessnut-move = { version = "=1.0.2", default-features = false }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+
+[features]
+mock-worker = []
+
+[[bin]]
+name = "mock-worker"
+path = "tests/support/mock_worker.rs"
+required-features = ["mock-worker"]
+test = false
+
+[lints.rust]
+unsafe_code = "forbid"

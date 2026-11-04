@@ -1,0 +1,6 @@
+/target/
+/stage/
+/downloads/
+/logs/
+*.tar.gz
+*.so
