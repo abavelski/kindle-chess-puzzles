@@ -382,3 +382,16 @@ one fresh discovery test before asking for board BLE activation. Recovery and
 post-restart behavior remain NOT TESTED; H3 stays BLOCKED and motor packets
 remain prohibited. If discovery succeeds, verify disconnect/cleanup before
 continuing the M3 telemetry/LED checkpoint.
+
+
+## Human Kindle restart and renewed preflight — 2026-11-04
+
+The user restarted the Kindle normally and then started SSH. The initial SSH
+check was refused on ports 22/2222; after the launcher was started, port 2222
+accepted the existing authentication. Uptime was approximately 625 seconds and
+btmanagerd had a new PID (4260 rather than 2205), confirming a fresh daemon
+process. Read-only checks found no probe process or operation lock. Installed
+M3 source b6ca863 still matches the verified receipt, and preflight/privilege/
+loader/dependency checks PASS with exit 0 and lock cleared. No board connection
+or command ran during this check. Stale-entry recovery remains unverified until
+the next single, human-triggered connection/discovery attempt.
