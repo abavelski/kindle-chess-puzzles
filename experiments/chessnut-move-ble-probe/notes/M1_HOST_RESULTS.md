@@ -1,11 +1,10 @@
 # Milestone 1 host preparation — 2026-11-04
 
-Initial preparation status: **Host-ready; awaiting H1**, not Implemented.
-No SSH connection or deployment occurred during initial preparation; see the
-deployment follow-up below. No Kindle preflight, board operation or stock-system
-change occurred.
+Final status: **M1 Implemented; H1 PASS** on 2026-11-04. Build 138cc25 is
+installed; preflight exits 0 and the user confirmed normal original-app operation.
 All changes remain on experiment/chessnut-move-kindlebt-probe under this
-experiment directory. H1–H5 remain NOT TESTED.
+experiment directory. H2–H5 remain NOT TESTED. Initial preparation and deployment
+sections below record historical results; the final verification is at the end.
 
 ## Automated acceptance
 
@@ -89,3 +88,22 @@ launch or Bluetooth session was performed. DEVICE_RESULTS.md records the
 partial H1 evidence; human preflight and original-app launch are still pending.
 The installed receipt refers to dc8d7bc, before this documentation-only record;
 future source-bound deployments require the documented rebuild/restage steps.
+
+## Final startup-fix gates and H1 acceptance — 2026-11-04
+
+Final independent check/build/stage/verify gates passed: fmt, clippy with warnings
+denied, 18 Rust integration tests and 15 Python tests (including host-compiled
+C identity fixtures). New red-to-green regressions require PIE executables,
+reject ARM COPY relocations, validate daemon identities and distinguish shipped
+direct imports from SDK reference transitives. The corrected ARM worker has
+zero COPY relocations; its staged dependencies contain four direct device imports.
+The parent fmt/clippy gate and all 237 workspace tests also passed.
+
+Deployed source commit 138cc25 passed remote checksums and H1 preflight,
+including privileges and KindleBT loading/symbol resolution, with exit status 0
+and lock cleanup. The user confirmed normal original-app display, response and
+exit; all 121 original binary/data hashes remain unchanged. DEVICE_RESULTS.md
+records exact artifact hashes and hardware evidence. No Bluetooth session,
+board operation or system configuration change was performed. M1 is Implemented;
+M2 remains unstarted. The later acceptance commit is documentation only and
+does not change the installed build identified by its receipt.

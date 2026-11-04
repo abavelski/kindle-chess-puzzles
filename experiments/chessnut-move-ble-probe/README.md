@@ -2,15 +2,12 @@
 
 An isolated CLI experiment for a first-generation Kindle Scribe, ARMv7
 hard-float, firmware 5.19.6, glibc 2.35. The existing chess application and
-parent workspace are unchanged. **M1 is deployed; H1 preflight failed. An offline native-link fix is ready
-for a device retest.** No board connection or command is
-implemented. Deployment and installed-payload checksums passed on 2026-11-04. SSH preflight
-launched the Rust controller, then the native worker crashed before reporting
-checks (exit status 1). Offline analysis found aliased libc globals in the
-non-PIC worker; the new -fPIC -pie build removes them and rejects COPY
-relocations. See [the diagnosis](notes/M1_STARTUP_CRASH.md). The installed build
-has not been updated; H1 remains failed pending a device retest. The existing chess binary and 120 data files retain their
-pre-deployment hashes.
+parent workspace are unchanged. **M1 is Implemented; H1 passed on 2026-11-04.**
+The corrected build is deployed and preflight exits 0. The user confirmed the
+original chess app displays, responds and exits normally; its binary and 120
+data files retain their pre-update hashes. No Bluetooth session or board
+connection was opened. See [device results](notes/DEVICE_RESULTS.md) and
+[the startup diagnosis and fixes](notes/M1_STARTUP_CRASH.md).
 
 ## Progress
 
@@ -19,17 +16,16 @@ All changes and completion records stay in this experiment.
 
 - [x] M0 — Implemented: pinned independent Rust workspace, FEN/SDK encoding,
   expected packet fixtures, bounded/versioned IPC and mocked failures.
-- [ ] M1 — Host-ready, deployed; **H1 failed** before marking Implemented.
-  Host checks, native preflight, ARM build, ELF/dependency validation, stage,
-  and initial scoped deployment are complete. Human preflight, main-app launch
-  and device uninstall checks remain pending.
+- [x] M1 — Implemented: host gates, ARM build, ELF/dependency checks, scoped
+  deployment, H1 preflight and human original-app verification passed.
 - [ ] M2 — GATT connection/discovery; H2 discovery checkpoint.
 - [ ] M3 — Telemetry/LED/MTU evidence; H3 read-only checkpoint.
 - [ ] M4 — Guarded motor control; H4 motors checkpoint.
 - [ ] M5 — Reliability/rollback; H5 independence checkpoint.
 
-H1 preflight: **FAIL**. Physical board checkpoints H2–H5: **NOT TESTED**. A cross-build cannot establish
-KindleBT compatibility, library loading, privilege success, or board behavior.
+H1 preflight: **PASS**. Physical board checkpoints H2–H5: **NOT TESTED**.
+Library loading and worker privilege transition are verified; Bluetooth API
+behavior and board communication remain unverified.
 
 ## Host build and inspect
 
@@ -87,12 +83,11 @@ declared public distribution license.
 
 ## Installed bundle and human H1 operation
 
-**Initial deployment completed on 2026-11-04. Subsequent SSH preflight failed
-with SIGSEGV in the native worker; do not proceed to M2.**
-Keep the board disconnected; no board address is needed. The installed build is
-from commit `dc8d7bc`. To rebuild/redeploy later, run build.sh and stage.sh first,
-then substitute the private SSH hostname. Do not rerun the failed installed
-worker before updating to the corrected build:
+**Corrected deployment and H1 acceptance completed on 2026-11-04.**
+The installed build is from commit `138cc25`, before the documentation-only
+acceptance record. Keep the board disconnected; no board address is needed.
+For a future deployment, run build.sh and stage.sh first, then substitute the
+private SSH hostname:
 
 ```sh
 experiments/chessnut-move-ble-probe/scripts/deploy.sh --host root@DEVICE_HOST --port 2222
@@ -170,8 +165,9 @@ With no experiment process running, restore `runtime.old` as `runtime` if needed
 remove an abandoned `runtime.new`/lock/incoming directory **inside the experiment
 root only**, and redeploy. If runtime is missing, the old uninstall script is
 also available in `runtime.old`. No stock UI/Bluetooth service recovery commands
-are part of this experiment. Host tests cover rollback; real power-loss recovery,
-loadability and uninstall remain human checks.
+are part of this experiment. Host tests cover rollback; real power-loss recovery
+and device uninstall remain untested. Library loadability and original-app
+operation passed H1; scoped removal is covered by host tests.
 
 ## Offline command and host tests
 

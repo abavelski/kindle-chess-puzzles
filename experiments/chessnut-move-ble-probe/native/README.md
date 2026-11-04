@@ -1,8 +1,8 @@
 # Native boundary research and M1 build — 2026-11-04
 
 M1 adds a one-shot native preflight worker; it never calls Bluetooth APIs.
-The M0 findings below still constrain M2. No runtime compatibility on the target
-Scribe is established. SDK, vendor headers, libraries and binaries are ignored
+The M0 findings below still constrain M2. H1 now verifies loading and worker
+privileges on the target Scribe; Bluetooth API behavior remains unverified. SDK, vendor headers, libraries and binaries are ignored
 build inputs, never committed or bundled as device dependencies.
 
 Machine-readable commits and SHA-256 are in
@@ -32,8 +32,8 @@ M1 must download, check the digest, and inspect ELF before use.
   [`59e1d8e69a52e3cd58cee6fcc416d1774ad55791`](https://github.com/Sighery/kindlebt/tree/59e1d8e69a52e3cd58cee6fcc416d1774ad55791),
   which contains an explicit MIT LICENSE. It also contains the public headers,
   docs and example referenced by the plan. Build source and worker against this
-  same commit; never pair those headers with the v0.1.0 binary. No native
-  compatibility or binary hash is established yet. Building from a pinned
+  same commit; never pair those headers with the v0.1.0 binary. The final library hash and H1 loading result are recorded in
+  notes/DEVICE_RESULTS.md; Bluetooth API compatibility remains unverified. Building from a pinned
   post-release commit is an ABI correction, not an assumption of a newer release.
 - [Sighery SDK build-20250905](https://github.com/Sighery/kindle-sdk/releases/tag/build-20250905),
   commit `f02be98a95d428196af6c3617cac178d85e5ed69`, is the KindleBT release's
@@ -119,8 +119,8 @@ bleCleanupGattService with the returned count. Unsubscribe/disconnect,
 deregister GATT/BLE, close the session, free owned buffers on every exit;
 which operations actually succeeded must control cleanup. Worker-only
 setgid/setuid must use the **verified** Bluetooth account/group, check both
-calls and resulting IDs, before openSession. The example's 1003 is not a
-verified value on this target. Never change the Rust controller identity.
+calls and resulting IDs, before openSession. The example's 1003 must not be assumed; H1 independently verified
+the named account/group and running daemon use these IDs on this target. Never change the Rust controller identity.
 
 ## Build and hardware gates
 
@@ -192,12 +192,12 @@ binary receipt; deployment verifies the stage before opening SSH.
 M1 uses fixed line-sized text reports, not the future session IPC. Production
 arguments accept only --preflight plus the controller's sibling library/list
 paths. There is no scan, address, registration, session, subscription or write
-path. Firmware/account/library checks and the original app check are NOT TESTED
-on-device. The worker deliberately requires root SSH so it can prove that only
+path. Firmware/account/library checks passed H1 on-device, and the user
+confirmed normal original-app display, response and exit. The worker deliberately requires root SSH so it can prove that only
 the child changes identity. Its read-only probes never restart btmanagerd or
 change stock radio/UI/power state.
 
-## H1 startup correction (offline, 2026-11-04)
+## H1 startup correction and device verification (2026-11-04)
 
 The first device run exposed an early native-worker SIGSEGV. The saved worker
 contained a COPY relocation that promoted aliased Zig libc-stub globals into
@@ -206,8 +206,8 @@ The worker now compiles with -fPIC -pie, and the ELF validator rejects ET_EXEC
 executables and R_ARM_COPY entries in REL/RELA tables. New receipts include
 PIE and COPY-relocation checks. The C source and vendor/KindleBT code are
 unchanged. See [the evidence and confidence limits](../notes/M1_STARTUP_CRASH.md).
-The user stopped the Kindle; no redeployment or SSH retest occurred during
-this investigation. H1 remains failed until the corrected candidate is tested.
+Initial analysis was offline while the Kindle was stopped. The user later
+made it available and authorized deployment; corrected worker startup passed.
 
 Preflight identity verification was also corrected after observing that the
 passwd primary GID is 150 while btmanagerd runs as UID/GID 1003. It now validates
@@ -220,3 +220,9 @@ reference. Requiring the SDK-only libcrypto.so.1.0.0 produced a false failure
 after the real libace_bt had already loaded successfully. The preflight list
 now comes only from shipped artifacts; the device loader validates current
 transitives. No obsolete SDK library is installed to satisfy a reference name.
+
+Final build 138cc25 passes H1: daemon identity, worker privilege drop, direct
+and transitive dependency loading, local KindleBT loading and required symbol
+resolution all passed; preflight exited 0 and cleared its lock. The user confirmed
+the original app works normally, with all 121 binary/data hashes unchanged.
+M1 is Implemented. No Bluetooth API was called or board connection attempted.

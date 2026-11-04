@@ -1,9 +1,10 @@
-# H1 native startup crash: offline diagnosis and candidate fix
+# H1 native startup crash: diagnosis and verified fixes
 
 Date: 2026-11-04. Branch: experiment/chessnut-move-kindlebt-probe.
-Status: defective binary layout identified and corrected in the host build;
-**device confirmation pending**. The Kindle was stopped by the user, and no SSH
-or device commands were attempted during this investigation.
+Status: **fixed, deployed and H1 passed**. Final source build 138cc25 passed
+preflight on the Kindle; the user confirmed normal original-app operation.
+The initial investigation below was offline while the Kindle was stopped;
+subsequent device runs are recorded in the later sections.
 
 ## Evidence from the exact failed artifact
 
@@ -40,9 +41,9 @@ and do not exhibit this exported alias group.
 assigns the environment pointer to __environ. With the defective exported
 aliases, an environment assignment can overwrite stdout. A subsequent setvbuf
 would then receive an invalid FILE pointer. This is a concrete binary defect
-and a strong explanation for the observed early SIGSEGV. Without a device
-backtrace or successful retest, the exact faulting instruction and complete
-resolution remain unconfirmed.
+and a strong explanation for the observed early SIGSEGV. No device backtrace was collected, so the exact original faulting instruction
+remains unconfirmed. Subsequent device runs verify successful worker startup
+with the corrected link flags.
 
 ## Correction and regression gates
 
@@ -66,7 +67,7 @@ status, copy-relocation count, exact new hashes and source digest. The candidate
 must pass build.sh, stage.sh and verify-stage.sh before deployment. No binary
 or SDK artifact is committed.
 
-## Next device boundary
+## Initial device retest plan (historical)
 
 The currently installed dc8d7bc worker is still the failed version. A host
 candidate is not proof of H1 success. When the user makes the Kindle available
@@ -121,3 +122,21 @@ imports libace_aipc.so, libace_log.so, libace_osal.so,
 libace_utils_linkedlist.so and libc.so.6. This differs from the older SDK's
 ACE import list. The inspected device library remains in ignored diagnostics;
 it is not staged or committed.
+
+## Final device verification and acceptance
+
+Build 138cc25 was deployed after all host gates, ARM build and stage checks
+passed. Installed checksums passed. At 2026-11-04 21:08:45 CET the controller
+reported armv7l, kernel 4.9.77-lab126, glibc 2.35 and firmware 5.19.6. Daemon
+identity verification and worker privilege drop passed. The loader, libace_bt,
+libc and libpthread loaded successfully, followed by local KindleBT and all
+required symbols. Preflight reported session=NOT_OPENED,
+connection=NOT_ATTEMPTED, result=PASS and exit status 0. The operation lock cleared.
+
+The user subsequently confirmed the original chess app displays, responds and
+exits normally. Its binary and 120 puzzle/game/state files have unchanged hashes.
+H1 is accepted and M1 is Implemented. No Bluetooth session or board connection
+was opened, and no system services or libraries were changed. M2 remains unstarted.
+See DEVICE_RESULTS.md for exact deployed artifact identities. Final host gates
+include 18 Rust integration tests, 15 Python tests with compiled C identity
+fixtures, and all 237 parent workspace tests; fmt and clippy also passed.
