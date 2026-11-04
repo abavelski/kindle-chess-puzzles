@@ -16,6 +16,13 @@ _Static_assert(ACE_STATUS_OK == 0, "portable lifecycle expects zero success");
  X(bleDiscoverAllServices) X(bleGetDatabase) X(bleCleanupGattService) X(dca_find_by_handle) \
  X(bleSetNotification) X(bleWriteCharacteristic)
 #define PROBE_FIELD(name) __typeof__(&name) name;
+typedef struct { int state, status; bool handle_present; } probe_connection_event;
+typedef struct {
+    probe_connection_event events[8];
+    size_t count;
+    unsigned int unmatched;
+    bool overflow;
+} probe_connection_debug;
 struct probe_native {
     PROBE_FUNCTIONS(PROBE_FIELD)
     device_context_array_t *contexts;
@@ -24,6 +31,9 @@ struct probe_native {
     bleGattsService_t *database;
     uint32_t count;
     size_t write_api_calls;
+    unsigned char target_address[6];
+    bool target_set;
+    probe_connection_debug connection_debug;
     FILE *wire;
     pthread_mutex_t state_lock;
     probe_notifications notifications;
@@ -43,6 +53,7 @@ static atomic_int discovery_status;
 static atomic_bool discovery_callback;
 static atomic_bool database_callback;
 static FILE *session_diagnostics;
+#include "connection_diagnostics.h"
 static void session_signal(int signal_number) { (void)signal_number; session_cancelled=1; }
 static void discovered(bleConnHandle connection, status_t status) {
     (void)connection;
@@ -84,7 +95,15 @@ static int native_gatt(void *p) { struct probe_native *n=p; return session_cance
 static int native_connect(void *p, const unsigned char address[6]) {
     struct probe_native *n=p; bdAddr_t target={0}; memcpy(target.address,address,6);
     if (session_cancelled) return -1;
+    pthread_mutex_lock(&n->state_lock);
+    memcpy(n->target_address,address,6);n->target_set=true;
+    memset(&n->connection_debug,0,sizeof(n->connection_debug));
+    pthread_mutex_unlock(&n->state_lock);
+    struct timespec started,ended;clock_gettime(CLOCK_MONOTONIC,&started);
     int status=native_status("connect",n->bleConnect(n->session,&n->connection,&target,ACE_BT_BLE_CONN_PARAM_BALANCED,ACEBT_BLE_GATT_CLIENT_ROLE,ACE_BT_BLE_CONN_PRIO_MEDIUM));
+    clock_gettime(CLOCK_MONOTONIC,&ended);
+    long long elapsed=(ended.tv_sec-started.tv_sec)*1000000000LL+ended.tv_nsec-started.tv_nsec;
+    connection_diagnostics_report(n,status,(unsigned long long)(elapsed<0?0:elapsed/1000000LL));
     if (status==0 && n->connection==NULL) return -1;
     return status;
 }
@@ -200,7 +219,7 @@ static int session_worker(const char *library, const char *required) {
     PROBE_FUNCTIONS(PROBE_LOAD)
 #undef PROBE_LOAD
     __typeof__(&log_add_callback) observe=(__typeof__(&log_add_callback))dlsym(handle,"log_add_callback");
-    if(observe!=NULL && observe(mtu_observer,NULL,LOG_DEBUG)==0)fprintf(session_diagnostics,"phase=M3 mtu_observer=registered source=pinned_KindleBT_callback_log\n");
+    if(observe!=NULL && observe(mtu_observer,NULL,LOG_DEBUG)==0)fprintf(session_diagnostics,"phase=M3 mtu_observer=registered source=pinned_KindleBT_callback_log connection_observer=registered\n");
     n.contexts=dlsym(handle,"devices_context");
     if (n.contexts==NULL) { ipc_error(wire,0,"required_state_symbol",-1); return 1; }
     const probe_api api={native_open,native_register,native_gatt,native_connect,native_discover,native_database,native_free,native_disconnect,native_ungatt,native_unregister,native_close};

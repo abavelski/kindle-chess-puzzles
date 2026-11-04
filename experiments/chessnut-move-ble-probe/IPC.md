@@ -140,3 +140,10 @@ requires initial realtime position and bounded response deadlines. Native cleanu
 attempts LEDs off, unsubscribes acquired subscriptions, frees the owned database,
 disconnects and releases registrations/session, reporting failures at each stage.
 No realtime-disable packet exists in the pinned SDK; disconnect ends streaming.
+
+
+Connection errors now use the neutral native stage `connect` and retain the
+public numeric status in the existing error code. Sanitized `connect_evidence`
+and `connect_callback` lines are stderr diagnostics, not protocol frames. They
+report actual bounded callback/context observations; they do not acknowledge a
+connection or change any request/cleanup behavior.

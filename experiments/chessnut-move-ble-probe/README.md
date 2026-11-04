@@ -223,6 +223,24 @@ The worker's library loading/privilege checks precede any session API call. See
 
 **Human checkpoint H2 — Discovery:** Human places the Move in BLE mode, disconnects its official app, obtains its current BLE address using a trusted scanner (phone/PC), passes it privately to the CLI, and confirms the expected Chessnut service and characteristic UUIDs and a clean reconnect after disconnect. Record connection outcome and redacted logs. **STOP** if discovery/permissions fail or the UUIDs do not match.
 
+## Connection debugging build
+
+The next prepared build adds bounded connection evidence; it does not claim a
+BLE fix. `stage=connect_evidence` records the actual public API status/duration,
+whether the exact pinned library callback was observed for the supplied target,
+and a bounded snapshot of matching KindleBT context flags. At most eight numeric
+callback events are retained; overflow, absent callback and unavailable/invalid
+context are explicit. No address or pointer is printed, and unrelated callback
+formats/targets cannot masquerade as the target's failure.
+
+A timeout is now reported as neutral `connect_status_-2`, rather than claiming
+the address is stale. A failed API cannot be promoted to success from diagnostic
+flags. Parameters, radio behavior, retries and cleanup are unchanged. See
+[the focused investigation](notes/CONNECTION_DEBUG.md) and the latest
+[device evidence](notes/DEVICE_RESULTS.md). The new diagnostics require their own
+build/deployment/preflight and one coordinated discovery-only test before any
+telemetry. No stock daemon, radio setting or firmware file is changed.
+
 ## M3 telemetry and LED session (deployed; H3 blocked)
 
 Host implementation/deployment are complete. H3 is **BLOCKED** by a connection

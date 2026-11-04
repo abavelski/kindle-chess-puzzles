@@ -46,7 +46,7 @@ fn connect(
     let mut client = Client::spawn(worker, timeout)
         .map_err(|e| format!("session worker launch failed: {e:?}"))?;
     client.supervise_session(Arc::clone(cancelled), grace);
-    client.request(Operation::Connect { address: address.into() }).map_err(|e|format!("connect failed: {e:?}; check current private address, BLE mode and official-app disconnection; no retry performed"))?;
+    client.request(Operation::Connect { address: address.into() }).map_err(|e|format!("connect failed: {e:?}; connection not confirmed; inspect native connection diagnostics; no retry performed"))?;
     writeln!(output, "connection=CONNECTED address=[REDACTED]").map_err(|e| e.to_string())?;
     services(&mut client, output)?;
     Ok(client)

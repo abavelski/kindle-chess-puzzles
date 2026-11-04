@@ -53,7 +53,7 @@ static int probe_connect(probe_session *s, const unsigned char address[6]) {
     s->registered=true;
     if (probe_step(s,"gatt_register",s->api->gatt(s->context))!=0) return s->status;
     s->gatt=true;
-    if (probe_step(s,"connect_address_stale_or_unavailable",s->api->connect(s->context,address))!=0) return s->status;
+    if (probe_step(s,"connect",s->api->connect(s->context,address))!=0) return s->status;
     s->connected=true;
     return 0;
 }

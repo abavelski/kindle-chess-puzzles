@@ -31,6 +31,7 @@ static void wrote(bleConnHandle connection,bleGattCharacteristicsValue_t value,s
 /* This observer reads only the exact pinned callback's numeric arguments. It
  * never forwards raw log messages, addresses, or other vendor diagnostics. */
 static void mtu_observer(log_Event *event) {
+    if(observe_connection(event))return;
     if(event->fmt==NULL || strcmp(event->fmt,"Callback %s(): status %d, mtu %d, conn_handle %p")!=0)return;
     va_list args;va_copy(args,event->ap);
     const char *name=va_arg(args,const char *);

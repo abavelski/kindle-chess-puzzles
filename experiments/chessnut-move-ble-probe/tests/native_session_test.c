@@ -28,6 +28,7 @@ int main(void) {
         calls[0]=0; step=0; fail_at=failure;
         probe_session s = {.api=&api};
         if (probe_connect(&s, addr)==0) (void)probe_discover(&s);
+        if (failure==4) { assert(strcmp(s.stage,"connect")==0); assert(s.status==-7); }
         (void)probe_cleanup(&s);
         assert(strcmp(calls,expected[failure])==0);
         size_t n = strlen(calls); assert(probe_cleanup(&s)==0); assert(strlen(calls)==n);

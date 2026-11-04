@@ -310,3 +310,22 @@ best-effort cleanup write and cleanup remains failed. The database is freed only
 after subscription cleanup. No motor/STOP packet is permitted, no payload is
 split or truncated, and no command is replayed on reconnect. Hardware notification
 sizes, actual MTU, callback availability and physical LED behavior need H3.
+
+
+## Connection diagnostic follow-up
+
+connection_diagnostics.h extends the existing pinned log.c observer to the exact
+bleConnStateChangedCallback format. It copies only eight numeric state/status/
+handle-presence events for the matching supplied address, with an overflow flag;
+raw addresses/handles are never retained in events or emitted. The owner thread
+reports API status/duration and reads at most 32 pinned library contexts under
+their mutexes. This process has one array-mutating API thread, and callback
+threads update context flags only. Invalid array bounds are not traversed.
+
+No callback is explicitly different from a callback error. A context with its
+connected flag set cannot override a failed public API or missing public handle.
+The neutral connect error stage replaces an unjustified stale-address diagnosis.
+The observer never retries, changes parameters, recovers a handle or calls an API.
+This does not fix the observed controller establishment failure. Native header
+fixtures cover incorrect target/function/format, bound/overflow, absent callback,
+failed API with connected context, missing handle, malformed context and redaction.
