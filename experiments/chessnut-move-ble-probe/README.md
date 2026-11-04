@@ -2,9 +2,10 @@
 
 An isolated CLI experiment for a first-generation Kindle Scribe, ARMv7
 hard-float, firmware 5.19.6, glibc 2.35. The existing chess application and
-parent workspace are unchanged. **M1 is deployed; H1 preflight acceptance is pending.** No board connection or command is
-implemented. Deployment and installed-payload checksums passed on 2026-11-04; preflight has
-not been launched. The existing chess binary and 120 data files retain their
+parent workspace are unchanged. **M1 is deployed; H1 preflight failed with a native-worker SIGSEGV.** No board connection or command is
+implemented. Deployment and installed-payload checksums passed on 2026-11-04. SSH preflight
+launched the Rust controller, then the native worker crashed before reporting
+checks (exit status 1). Stop at H1 until the startup crash is resolved. The existing chess binary and 120 data files retain their
 pre-deployment hashes.
 
 ## Progress
@@ -14,7 +15,7 @@ All changes and completion records stay in this experiment.
 
 - [x] M0 — Implemented: pinned independent Rust workspace, FEN/SDK encoding,
   expected packet fixtures, bounded/versioned IPC and mocked failures.
-- [ ] M1 — Host-ready; **awaiting H1** before marking Implemented.
+- [ ] M1 — Host-ready, deployed; **H1 failed** before marking Implemented.
   Host checks, native preflight, ARM build, ELF/dependency validation, stage,
   and initial scoped deployment are complete. Human preflight, main-app launch
   and device uninstall checks remain pending.
@@ -23,7 +24,7 @@ All changes and completion records stay in this experiment.
 - [ ] M4 — Guarded motor control; H4 motors checkpoint.
 - [ ] M5 — Reliability/rollback; H5 independence checkpoint.
 
-All physical checkpoints H1–H5: **NOT TESTED**. A cross-build cannot establish
+H1 preflight: **FAIL**. Physical board checkpoints H2–H5: **NOT TESTED**. A cross-build cannot establish
 KindleBT compatibility, library loading, privilege success, or board behavior.
 
 ## Host build and inspect
@@ -81,7 +82,8 @@ declared public distribution license.
 
 ## Installed bundle and human H1 operation
 
-**Initial deployment completed on 2026-11-04 without launching the probe.**
+**Initial deployment completed on 2026-11-04. Subsequent SSH preflight failed
+with SIGSEGV in the native worker; do not proceed to M2.**
 Keep the board disconnected; no board address is needed. The installed build is
 from commit `dc8d7bc`. To rebuild/redeploy later, run build.sh and stage.sh first,
 then substitute the private SSH hostname:
