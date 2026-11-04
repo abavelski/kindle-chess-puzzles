@@ -448,3 +448,22 @@ MTU or the cause of the Kindle's 0x3e establishment failure. Requested confirmat
 that the Kindle is awake beside the board before considering another targeted
 Kindle test. No automatic retry or stock-Bluetooth configuration change occurred.
 H3 remains BLOCKED before telemetry; Mac discovery is not an H3 pass.
+
+
+The human confirmed the Kindle was already awake beside the board on the same
+table. Thus sleep/proximity cannot be assumed to explain the failed attempt.
+Read-only inspection of archived client history found additional client-interface
+callbacks, but did not establish a competing application connection; no stock
+process was stopped. The probe's session type, registration order, connection
+parameters, role and priority match the pinned upstream basic_usage.c example.
+Upstream documentation and issue search yielded no verified fix for this exact
+failure; no dependency pin or API arguments were changed on that basis.
+
+Physical tests are stopped. No further button press, power cycle or unchanged
+connection retry is requested. The next engineering investigation must identify
+a supported connection-path correction or establish lower-level controller
+failure evidence, with a concrete hypothesis before another hardware test.
+Any diagnostic requiring global logging/radio/service/firmware changes falls
+outside the current isolation rules and must be reviewed separately. Mac
+success, close placement and a restarted Kindle do not make H3 PASS: real
+Kindle telemetry, status, MTU, LED on/off and human acceptance remain untested.
