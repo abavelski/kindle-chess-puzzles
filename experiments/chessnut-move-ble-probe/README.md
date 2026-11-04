@@ -5,9 +5,9 @@ hard-float, firmware 5.19.6, glibc 2.35. The existing chess application and
 parent workspace are unchanged. **M1 is Implemented; H1 passed on 2026-11-04.**
 The corrected build is deployed and preflight exits 0. The user confirmed the
 original chess app displays, responds and exits normally; its binary and 120
-data files retain their pre-update hashes. **M2 is host-ready and awaits H2;
-the M2 bundle has not been deployed.** No live Bluetooth session or board
-connection has been tested. See [device results](notes/DEVICE_RESULTS.md) and
+data files retain their pre-update hashes. **M2 is deployed and passes Kindle preflight; H2 is pending.**
+Mac-side discovery matched the expected board UUIDs/properties without writes.
+The Kindle session is untested pending the board’s physical BLE address. See [device results](notes/DEVICE_RESULTS.md) and
 [the startup diagnosis and fixes](notes/M1_STARTUP_CRASH.md).
 
 ## Progress
@@ -20,7 +20,7 @@ All changes and completion records stay in this experiment.
 - [x] M1 — Implemented: host gates, ARM build, ELF/dependency checks, scoped
   deployment, H1 preflight and human original-app verification passed.
 - [ ] M2 — Host-ready: discovery-only session, connection diagnostics, cleanup
-  and host tests implemented; deployment and human H2 remain pending.
+  and host tests implemented; deployed preflight passed. Human H2 remains pending.
 - [ ] M3 — Telemetry/LED/MTU evidence; H3 read-only checkpoint.
 - [ ] M4 — Guarded motor control; H4 motors checkpoint.
 - [ ] M5 — Reliability/rollback; H5 independence checkpoint.
@@ -86,9 +86,9 @@ declared public distribution license.
 ## Installed bundle and human H1 operation
 
 **The currently installed M1 build passed H1 on 2026-11-04.**
-The new M2 build is local and requires deployment before H2.
-The installed build is from commit `138cc25`, before the documentation-only
-acceptance record. Keep the board disconnected; no board address is needed.
+The installed M2 build is from commit `a6005cb`; its preflight passed on
+2026-11-04. M1 build `138cc25` previously passed H1. Preflight alone needs no
+board address. H2 needs the current physical BLE address.
 For a future deployment, run build.sh and stage.sh first, then substitute the
 private SSH hostname:
 
@@ -145,9 +145,10 @@ Do not proceed to M2 until the human confirms H1 acceptance.
 
 ## M2 discovery session and H2 preparation
 
-Host implementation is ready; H2 is **NOT TESTED**. Stop before deployment until
-the user makes the Kindle and board available. The current installed M1 build
-cannot run a session. After deploying the verified M2 stage and checking preflight,
+M2 is deployed; Kindle preflight passed. H2 is **BLOCKED** pending a current
+physical BLE address and confirmation that the board is awake in BLE mode.
+Mac-side discovery succeeded, but a subsequent Mac reconnect timed out.
+After resolving those prerequisites,
 run over interactive SSH (keep the original chess app closed):
 
 ```sh

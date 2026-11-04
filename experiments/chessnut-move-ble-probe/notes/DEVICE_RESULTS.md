@@ -4,7 +4,8 @@ M0 and M1 are Implemented. H1 preflight and human original-app verification
 passed on 2026-11-04. The assistant ran SSH deployment/preflight at the user's
 request; the user supplied the running Kindle and confirmed physical app behavior.
 No Bluetooth session or board communication was attempted. H2–H5 are NOT TESTED.
-M2 host preparation is ready; its new bundle has not been deployed.
+M2 source a6005cb is deployed and passes Kindle preflight. H2 is blocked
+pending the board’s physical BLE address; Mac-side discovery passed without writes.
 
 ## H1
 
@@ -36,23 +37,23 @@ Follow-up action and next permitted milestone: M1 complete; stop here. M2 is the
 
 ```text
 Checkpoint: H2
-Date/time (local): NOT TESTED
-Result: NOT TESTED
+Date/time (local): 2026-11-04; deployed preflight 21:37:55 CET
+Result: BLOCKED — physical BLE address unavailable; Kindle session NOT TESTED
 Kindle model, firmware, uname -m, libc: NOT TESTED
 KindleBT version/commit + library hash: NOT TESTED
 Chessnut protocol crate version: host pin 1.0.2; device NOT TESTED
 Chessnut Move firmware (if known): NOT TESTED
-CLI/C-worker build receipt and ELF checks: NOT TESTED
+CLI/C-worker build receipt and ELF checks: a6005cb; source_sha256 6a5975b690ca3210a32bc94f06dc3829cf12eda5289fc76723653abc229ba7a5; deployed SHA256SUMS and Kindle preflight PASS; exit 0; lock cleared
 Bluetooth address: [REDACTED; identify only whether fixed/random]
 BT privileges and session status: NOT TESTED
-Discovered UUIDs + write properties: NOT TESTED
+Discovered UUIDs + write properties: Kindle NOT TESTED; Mac matched required position/command services and three characteristics; properties 0x10 / 0x0c / 0x10; zero writes
 ATT MTU (measured / unknown), max tested write length, write kind: unknown; NOT TESTED
 Notifications and decoded position: NOT TESTED
 Auto-move source FEN -> target FEN (H4 only): NOT TESTED
 Physical behavior, STOP, final observed position (H4 only): NOT TESTED
 Timeouts/errors, redacted log path: NOT TESTED
-Independent main-app check: NOT TESTED
-Human signature / confirmation: NOT TESTED
+Independent main-app check: original binary plus 120 puzzle/game/state hashes unchanged after M2 deployment/preflight; no new visual app check
+Human signature / confirmation: user confirmed board powered with blinking Bluetooth icon; H2 matching UUID/reconnect acceptance NOT CONFIRMED
 Follow-up action and next permitted milestone: deploy the M2 bundle, check preflight, then human H2 discovery with the current private board address; no command writes
 ```
 
@@ -184,3 +185,27 @@ M1 build and accepted H1 record above remain unchanged. M2 is not Implemented
 until the human H2 checks pass; see M2_HOST_RESULTS.md and README.md. The next
 boundary requires the Kindle plus the Move in BLE mode, with its official app
 and scanner disconnected, and a current address supplied privately.
+
+## M2 deployment and Mac discovery — 2026-11-04
+
+At the user’s request, deployed source a6005cb and ran Kindle preflight over SSH.
+Installed checksums passed, preflight exited 0, and the operation lock cleared.
+Architecture/firmware/libc, daemon identity, worker privilege transition and all
+library/symbol checks passed. All 121 original app/data hashes match the fresh
+pre-deployment baseline. No Kindle Bluetooth session has been opened.
+
+An isolated Mac diagnostic connected once to the sole advertised Chessnut Move,
+discovered its GATT database, then disconnected. The required services and
+characteristics match the pinned SDK exactly, with Notify / both write modes /
+Notify properties respectively. Four services/eight characteristics were observed.
+No read, notification subscription, descriptor write or command write was sent.
+A later scan found no board and one explicit reconnect attempt timed out; further
+board connections stopped. The board must be confirmed awake in BLE mode again.
+
+The physical BLE address is unavailable through the CoreBluetooth UUID alone.
+Direct and administrator-helper reads of the macOS Bluetooth cache were denied.
+The user reported enabling Full Disk Access; logs identify Visual Studio Code
+as the shell’s responsible app and Apple authtrampoline as the privileged reader.
+No ACL, ownership or service changes were made. Manual Terminal export or another
+scanner is needed to supply a current address. H2 stays BLOCKED; Mac discovery
+alone does not establish Kindle session compatibility or a clean reconnect.

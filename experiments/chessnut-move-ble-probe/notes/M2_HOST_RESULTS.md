@@ -1,8 +1,9 @@
 # Milestone 2 preparation — 2026-11-04
 
-Status: **Host-ready; awaiting deployment and H2. Not Implemented.**
-H1 remains accepted for the installed M1 source build 138cc25. No M2 SSH,
-deployment, Bluetooth session or board operation has been performed. All changes
+Status: **Deployed; Kindle preflight PASS; H2 BLOCKED. Not Implemented.**
+H1 remains accepted for M1 source build 138cc25. M2 source a6005cb was deployed
+at the user’s request. Mac discovery passed without writes; the Kindle session
+is not tested because the physical BLE address is unavailable. All changes
 remain under this experiment on experiment/chessnut-move-kindlebt-probe.
 M3–M5 remain untouched.
 
@@ -70,10 +71,34 @@ No board command, LED, telemetry or motor testing belongs to M2.
 - [x] Callback handling, bounded IPC, cancellation, timeouts and partial cleanup.
 - [x] Interactive services/connection diagnostics with writes disabled.
 - [x] Host regression gates and ARM cross-build/ELF gates.
-- [ ] Deploy M2 to the Kindle and repeat preflight.
+- [x] Deploy M2 to the Kindle and repeat preflight.
 - [ ] Human H2: board connection, matching UUIDs/properties, clean reconnect.
 
-M2 remains host-ready until the remaining hardware checks pass. The assistant
-stops before deployment or board communication, as requested. The generated
+M2 remains pending until the remaining H2 hardware checks pass. The user later
+authorized Mac Bluetooth discovery and Kindle deployment; see DEVICE_RESULTS.md. The generated
 build receipt and checksummed local stage identify the prepared payload;
 neither generated artifacts nor raw logs are committed.
+
+## Hardware preparation follow-up — 2026-11-04
+
+The user supplied a powered Move with a blinking Bluetooth icon and authorized
+Mac Bluetooth access. A temporary, ignored Swift/CoreBluetooth diagnostic found
+one Chessnut Move, connected, discovered four services/eight characteristics,
+and disconnected without any characteristic read, subscription or write.
+The required position and response characteristics advertise Notify (0x10),
+and command characteristic advertises both write modes (0x0c). Mac-side
+connect/discovery PASS is corroborating evidence, not acceptance of Kindle H2.
+A later Mac scan found no candidate and a single explicit reconnect timed out;
+further board attempts stopped pending physical BLE-mode confirmation.
+
+The verified a6005cb bundle deployed successfully, passed all installed checksums
+and Kindle preflight, exited 0 and cleared its lock. All 121 original chess
+binary/data hashes remain unchanged. No Kindle Bluetooth session was opened.
+The missing physical BLE address blocks it: CoreBluetooth supplies a UUID,
+not a usable six-octet address. macOS denied direct and privileged cache reads,
+even after the user reported enabling Full Disk Access for Codex/osascript.
+Permission logs attribute the shell to Visual Studio Code and the privileged
+reader to Apple authtrampoline. No file permissions, system services or Bluetooth
+configuration were changed to bypass this. The next proposed step is a manual
+read-only cache export from Terminal with its own Full Disk Access, or a current
+address supplied by another scanner. Private identities/raw logs remain ignored.
