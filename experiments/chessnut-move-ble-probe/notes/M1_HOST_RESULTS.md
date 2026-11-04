@@ -1,7 +1,9 @@
 # Milestone 1 host preparation — 2026-11-04
 
-Status: **Host-ready; awaiting H1**, not Implemented. No SSH connection,
-deployment, Kindle preflight, board operation or stock-system change occurred.
+Initial preparation status: **Host-ready; awaiting H1**, not Implemented.
+No SSH connection or deployment occurred during initial preparation; see the
+deployment follow-up below. No Kindle preflight, board operation or stock-system
+change occurred.
 All changes remain on experiment/chessnut-move-kindlebt-probe under this
 experiment directory. H1–H5 remain NOT TESTED.
 
@@ -77,3 +79,13 @@ restriction before changing the uploader to name install.sh, SHA256SUMS and
 runtime explicitly. The delivery suite now has 11 Python tests. Retry uses the
 same checksums, scoped installer and cleanup; no Bluetooth preflight/session
 was run as part of this transport correction.
+
+## Deployment follow-up — 2026-11-04
+
+The corrected uploader installed the verified bundle from commit dc8d7bc.
+Remote runtime checksums passed; all 121 hashes covering the original chess
+binary, puzzle/game files and state were identical before/after. No probe
+launch or Bluetooth session was performed. DEVICE_RESULTS.md records the
+partial H1 evidence; human preflight and original-app launch are still pending.
+The installed receipt refers to dc8d7bc, before this documentation-only record;
+future source-bound deployments require the documented rebuild/restage steps.

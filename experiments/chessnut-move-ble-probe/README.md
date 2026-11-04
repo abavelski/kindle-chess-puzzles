@@ -2,9 +2,10 @@
 
 An isolated CLI experiment for a first-generation Kindle Scribe, ARMv7
 hard-float, firmware 5.19.6, glibc 2.35. The existing chess application and
-parent workspace are unchanged. **M1 host implementation is ready; deployment
-and H1 device acceptance are pending.** No board connection or command is
-implemented. No device was contacted while preparing these artifacts.
+parent workspace are unchanged. **M1 is deployed; H1 preflight acceptance is pending.** No board connection or command is
+implemented. Deployment and installed-payload checksums passed on 2026-11-04; preflight has
+not been launched. The existing chess binary and 120 data files retain their
+pre-deployment hashes.
 
 ## Progress
 
@@ -15,7 +16,8 @@ All changes and completion records stay in this experiment.
   expected packet fixtures, bounded/versioned IPC and mocked failures.
 - [ ] M1 — Host-ready; **awaiting H1** before marking Implemented.
   Host checks, native preflight, ARM build, ELF/dependency validation, stage,
-  scoped deploy/update/rollback and uninstall are prepared and tested.
+  and initial scoped deployment are complete. Human preflight, main-app launch
+  and device uninstall checks remain pending.
 - [ ] M2 — GATT connection/discovery; H2 discovery checkpoint.
 - [ ] M3 — Telemetry/LED/MTU evidence; H3 read-only checkpoint.
 - [ ] M4 — Guarded motor control; H4 motors checkpoint.
@@ -77,10 +79,12 @@ library directories are used. Notices include upstream and Rust dependency
 license texts. This remains a local-install experiment; project code has no
 declared public distribution license.
 
-## Deployment boundary — stop here until human H1 operation
+## Installed bundle and human H1 operation
 
-**Deployment has not been performed.** Keep the board disconnected; no address
-is needed. When ready to operate the Kindle, substitute its private SSH hostname:
+**Initial deployment completed on 2026-11-04 without launching the probe.**
+Keep the board disconnected; no board address is needed. The installed build is
+from commit `dc8d7bc`. To rebuild/redeploy later, run build.sh and stage.sh first,
+then substitute the private SSH hostname:
 
 ```sh
 experiments/chessnut-move-ble-probe/scripts/deploy.sh --host root@DEVICE_HOST --port 2222
