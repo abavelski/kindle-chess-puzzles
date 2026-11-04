@@ -46,3 +46,19 @@ single discovery-only test asks: does a matching callback reach KindleBT, and do
 its context flags agree with the public API result? A successful connection must
 still pass UUID/property discovery and cleanup before any telemetry. On failure,
 retain immediate private daemon logs and stop; do not automatically retry.
+
+
+Verification PASS: independent fmt/clippy, 36 Rust integration tests, 19 Python
+tests, native adapter against the real pinned headers, ARM/PIE/GLIBC inspection,
+stage verification, parent fmt/clippy and all 237 parent tests. Source b4ce485
+was deployed with matching installed receipt/checksums; preflight exit 0, lock
+cleared and all 121 original app/data hashes unchanged. No connection ran during
+deployment. Installed source_sha256:
+c94bb0a216b6dd93e69530ebbf67f088dc4dca0aae8ed80a10278fda325fa23b.
+
+No existing controller packet trace was found in the inspected normal log
+locations. No global trace setting was enabled. The next coordinated diagnostic
+will additionally capture the existing system message stream privately while
+the probe runs, to preserve daemon evidence before log rotation. The capture
+is a supervised read-only SSH tail, bounded on the host, with no Bluetooth API.
+Physical validation of the new diagnostics and H3 remain NOT TESTED/BLOCKED.

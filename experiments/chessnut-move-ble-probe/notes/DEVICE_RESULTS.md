@@ -467,3 +467,19 @@ Any diagnostic requiring global logging/radio/service/firmware changes falls
 outside the current isolation rules and must be reviewed separately. Mac
 success, close placement and a restarted Kindle do not make H3 PASS: real
 Kindle telemetry, status, MTU, LED on/off and human acceptance remain untested.
+
+
+## Connection diagnostics prepared and deployed — 2026-11-04
+
+At the user's explicit request to debug, added a bounded exact-pinned connection
+callback observer and read-only KindleBT context snapshot. Neutral connect error
+labels replace the unjustified presumed-address diagnosis. This is diagnostic
+instrumentation, not a claimed BLE fix; API calls, arguments, retry policy and
+cleanup behavior are unchanged. See CONNECTION_DEBUG.md for red/green evidence.
+Source b4ce485 passes all host/native/ARM/stage gates and is installed, with
+source_sha256 c94bb0a216b6dd93e69530ebbf67f088dc4dca0aae8ed80a10278fda325fa23b.
+Installed checksums/receipt and preflight PASS, exit 0 and lock cleared; all 121
+original app/data hashes match the fresh deployment baseline. No connection,
+subscription or board write occurred during this preparation. Next hardware
+boundary: one coordinated discovery-only attempt with numeric callback/context
+evidence and private read-only system-log capture, then stop on failure.

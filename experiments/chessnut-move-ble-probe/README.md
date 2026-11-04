@@ -8,7 +8,7 @@ original chess app displays, responds and exits normally; its binary and 120
 data files retain their pre-update hashes. **M2 is Implemented; H2 passed on
 2026-11-04.** Kindle connection, required UUID/property discovery, clean disconnect,
 reconnect and exit passed, with human acceptance. The installed build is now
-`b6ca863` (M3); deployment and preflight passed. **H3 is BLOCKED before telemetry**:
+`b4ce485` (M3 connection diagnostics); deployment and preflight passed. **H3 is BLOCKED before telemetry**:
 a single connection attempt reached the physical link, but Kindle Bluetooth
 session/UUID mapping failed and the probe timed out. Further attempts are stopped;
 no board writes ran. See
@@ -225,7 +225,7 @@ The worker's library loading/privilege checks precede any session API call. See
 
 ## Connection debugging build
 
-The next prepared build adds bounded connection evidence; it does not claim a
+The deployed diagnostic build adds bounded connection evidence; it does not claim a
 BLE fix. `stage=connect_evidence` records the actual public API status/duration,
 whether the exact pinned library callback was observed for the supplied target,
 and a bounded snapshot of matching KindleBT context flags. At most eight numeric
@@ -237,9 +237,8 @@ A timeout is now reported as neutral `connect_status_-2`, rather than claiming
 the address is stale. A failed API cannot be promoted to success from diagnostic
 flags. Parameters, radio behavior, retries and cleanup are unchanged. See
 [the focused investigation](notes/CONNECTION_DEBUG.md) and the latest
-[device evidence](notes/DEVICE_RESULTS.md). The new diagnostics require their own
-build/deployment/preflight and one coordinated discovery-only test before any
-telemetry. No stock daemon, radio setting or firmware file is changed.
+[device evidence](notes/DEVICE_RESULTS.md). The new build/deployment/preflight passed. One coordinated discovery-only
+test is pending before telemetry. No stock daemon, radio setting or firmware file is changed.
 
 ## M3 telemetry and LED session (deployed; H3 blocked)
 
