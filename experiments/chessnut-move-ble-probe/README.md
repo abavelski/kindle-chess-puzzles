@@ -5,10 +5,11 @@ hard-float, firmware 5.19.6, glibc 2.35. The existing chess application and
 parent workspace are unchanged. **M1 is Implemented; H1 passed on 2026-11-04.**
 The corrected build is deployed and preflight exits 0. The user confirmed the
 original chess app displays, responds and exits normally; its binary and 120
-data files retain their pre-update hashes. **M2 is deployed and passes Kindle preflight; H2 is pending.**
-Mac-side discovery matched the expected board UUIDs/properties without writes.
-The first Kindle connection and discovery passed with reverse UUID byte order.
-Clean reconnect and human H2 acceptance remain pending. See [device results](notes/DEVICE_RESULTS.md) and
+data files retain their pre-update hashes. **M2 is Implemented; H2 passed on
+2026-11-04.** Kindle connection, required UUID/property discovery, clean disconnect,
+reconnect and exit passed, with human acceptance. The installed build is
+`f19ecfb`. All board writes remain disabled. See
+[device results](notes/DEVICE_RESULTS.md) and
 [the startup diagnosis and fixes](notes/M1_STARTUP_CRASH.md).
 
 ## Progress
@@ -20,15 +21,15 @@ All changes and completion records stay in this experiment.
   expected packet fixtures, bounded/versioned IPC and mocked failures.
 - [x] M1 — Implemented: host gates, ARM build, ELF/dependency checks, scoped
   deployment, H1 preflight and human original-app verification passed.
-- [ ] M2 — Host-ready: discovery-only session, connection diagnostics, cleanup
-  and host tests implemented; deployed preflight passed. Human H2 remains pending.
+- [x] M2 — Implemented: discovery-only session, connection diagnostics, cleanup,
+  host gates, deployment and human H2 connection/discovery/reconnect passed.
 - [ ] M3 — Telemetry/LED/MTU evidence; H3 read-only checkpoint.
 - [ ] M4 — Guarded motor control; H4 motors checkpoint.
 - [ ] M5 — Reliability/rollback; H5 independence checkpoint.
 
-H1 preflight: **PASS**. Physical board checkpoints H2–H5: **NOT TESTED**.
-Library loading and worker privilege transition are verified; Bluetooth API
-behavior and board communication remain unverified.
+H1 and H2: **PASS**. H3–H5: **NOT TESTED**. Kindle session, connection and
+GATT discovery are verified. Notification delivery, writes, MTU and motor
+behavior remain unverified.
 
 ## Host build and inspect
 
@@ -86,9 +87,9 @@ declared public distribution license.
 
 ## Installed bundle and human H1 operation
 
-**The currently installed M1 build passed H1 on 2026-11-04.**
-The installed M2 build is from commit `a6005cb`; its preflight passed on
-2026-11-04. M1 build `138cc25` previously passed H1. Preflight alone needs no
+**M1 passed H1 on 2026-11-04; the M2 build is now installed.**
+The installed M2 build is from commit `f19ecfb`; preflight, discovery and
+reconnect passed on 2026-11-04. The later acceptance commit is documentation only. M1 build `138cc25` previously passed H1. Preflight alone needs no
 board address. H2 needs the current physical BLE address.
 For a future deployment, run build.sh and stage.sh first, then substitute the
 private SSH hostname:
@@ -144,13 +145,22 @@ Verify the original Kindle Chess Puzzles still launches and exits normally,
 then fill [DEVICE_RESULTS.md](notes/DEVICE_RESULTS.md) with the actual results.
 Do not proceed to M2 until the human confirms H1 acceptance.
 
-## M2 discovery session and H2 preparation
+## M2 discovery session (H2 accepted)
 
-M2 is deployed; Kindle preflight and initial connection/discovery passed.
-The user supplied a public BLE address and confirmed both devices ready.
-H2 awaits a launcher input fix, clean reconnect and human acceptance.
-Mac-side discovery succeeded, but a subsequent Mac reconnect timed out.
-After resolving those prerequisites,
+H2 passed with installed build `f19ecfb`. The user supplied the board’s public
+BLE address privately and enabled BLE mode at the test. Kindle session setup,
+connection/discovery, disconnect, explicit reconnect/discovery and quit passed.
+128-bit UUID bytes arrive in reverse order on this target; all required matches
+were consistent. The database contained six services and 11 characteristics.
+No notification subscription, characteristic read or board write was sent.
+
+The board leaves BLE availability quickly; no precise window was measured.
+Prepare SSH first, then press its Bluetooth button immediately before connecting.
+One attempt timed out before a later advertisement-timed attempt passed.
+For that test only, an ignored Mac CoreBluetooth listener waited for the same
+board to advertise, stopped scanning and triggered one already-prepared Kindle
+session. The Mac did not connect, and the CLI gained no automatic scan/retry path.
+No further device interaction is needed for M2. For later manual sessions,
 run over interactive SSH (keep the original chess app closed):
 
 ```sh

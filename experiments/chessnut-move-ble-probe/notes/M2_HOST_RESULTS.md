@@ -1,11 +1,11 @@
 # Milestone 2 preparation — 2026-11-04
 
-Status: **Deployed; Kindle preflight PASS; H2 BLOCKED. Not Implemented.**
-H1 remains accepted for M1 source build 138cc25. M2 source a6005cb was deployed
-at the user’s request. Mac discovery passed without writes; the Kindle session
-is not tested because the physical BLE address is unavailable. All changes
-remain under this experiment on experiment/chessnut-move-kindlebt-probe.
-M3–M5 remain untouched.
+Status: **M2 Implemented; H2 PASS**, accepted by the user on 2026-11-04.
+Installed source `f19ecfb` passed preflight and the complete Kindle discovery/
+disconnect/reconnect sequence. The original app binary and 120 data files retain
+their before/after hashes. All work remains under this experiment on
+experiment/chessnut-move-kindlebt-probe. M3–M5 remain unstarted. Earlier preparation,
+blocked and failed-attempt sections below are historical; final evidence is last.
 
 ## Scope and implementation
 
@@ -38,7 +38,7 @@ A later test showed forced cleanup incorrectly acknowledged success; the client
 now reports cleanup_failed_or_forced. Another demonstrated lost startup stage
 codes from ID-0 errors; those diagnostics are now retained.
 
-Final gates: independent fmt/clippy, 28 Rust integration tests, 17 Python tests,
+Final gates: independent fmt/clippy, 28 Rust integration tests, 18 Python tests,
 including compiled portable C identity and lifecycle/parser fixtures. The ARM
 build also compiles/runs a host adapter contract against the real pinned headers,
 then verifies ARMv7 hard-float PIE executables, zero COPY relocations, the loader,
@@ -47,7 +47,7 @@ private logs, host test executables and vendor libraries. Parent fmt/clippy and
 all 237 workspace tests passed separately. The ARM build and native header
 adapter contracts passed. No parent application source or dependency changed.
 
-## Hardware limits and next checkpoint
+## Initial hardware limits and next checkpoint (historical)
 
 No native session compatibility, real byte order, actual characteristic
 properties, physical link release/reconnect or stock-Bluetooth coexistence is
@@ -72,10 +72,10 @@ No board command, LED, telemetry or motor testing belongs to M2.
 - [x] Interactive services/connection diagnostics with writes disabled.
 - [x] Host regression gates and ARM cross-build/ELF gates.
 - [x] Deploy M2 to the Kindle and repeat preflight.
-- [ ] Human H2: board connection, matching UUIDs/properties, clean reconnect.
+- [x] Human H2: board connection, matching UUIDs/properties, clean reconnect.
 
-M2 remains pending until the remaining H2 hardware checks pass. The user later
-authorized Mac Bluetooth discovery and Kindle deployment; see DEVICE_RESULTS.md. The generated
+M2 is complete with human H2 acceptance. The user authorized Mac Bluetooth
+discovery, Kindle deployment and the final button-timed test; see DEVICE_RESULTS.md. The generated
 build receipt and checksummed local stage identify the prepared payload;
 neither generated artifacts nor raw logs are committed.
 
@@ -127,3 +127,37 @@ the existing host argument/input/lock test also passes. The independent Python
 suite now has 18 tests. This fixes the shell boundary without changing native
 BLE or Rust behavior. A corrected build/deployment and real reconnect retest
 are required before H2 acceptance; no later milestone work is started.
+
+## Final H2 acceptance — 2026-11-04
+
+Corrected source f19ecfb passed the independent gate (28 Rust integration tests,
+18 Python tests), native adapter contracts against the real pinned headers,
+ARM build, ELF/GLIBC inspection, stage verification and deployment. Installed
+source_sha256 is 7ae950d1cd7c12eda9619082ca3ea82584616b08c7f5cdff6bcdd63db12c626c.
+The three native artifacts are unchanged from a6005cb; only the launcher,
+regression and supporting documentation changed. Repeated preflight passed.
+
+An initial corrected-build connection timed out after the library’s 10-second
+wait with status -2; acquired registrations/session cleanup returned 0. The user
+reported the board icon was off and explained its short BLE availability window.
+No exact duration or definitive cause of that timeout is claimed. After stopping
+and reporting it, prepared one new test tied to a real advertisement: an ignored
+Mac listener recognized the same cached peripheral UUID, stopped its scan and
+triggered the SSH command already waiting on the Kindle. The user pressed the
+Bluetooth button only after the listener and Kindle were ready. The Mac did not
+connect. This was temporary checkpoint orchestration, not a runtime scan/retry
+feature, and no board write was introduced.
+
+At 22:04:41–22:04:43 CET the Kindle completed connect -> discover -> services ->
+disconnect -> connect -> discover -> services -> quit. Two connections, four
+successful UUID/property validations and two complete cleanups were recorded.
+Every native setup/discovery/cleanup stage returned 0; final exit was 0 and the
+operation lock cleared. All required UUIDs matched in reverse byte order,
+including records mixed with 16-bit services. The user confirmed:
+"Yes, normal behavior; H2 accepted". A final check found no probe process and
+all 121 original app/data hashes unchanged. No subscription, characteristic read,
+telemetry, LED, STOP or motor command ran. MTU and all write delivery remain
+unverified. M2 is Implemented; stop before M3.
+
+The acceptance commit updates documentation only. The installed receipt continues
+to identify f19ecfb; future source-bound deployments need rebuild/restage.

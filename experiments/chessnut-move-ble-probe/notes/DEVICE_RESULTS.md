@@ -1,11 +1,9 @@
 # Device results
 
-M0 and M1 are Implemented. H1 preflight and human original-app verification
-passed on 2026-11-04. The assistant ran SSH deployment/preflight at the user's
-request; the user supplied the running Kindle and confirmed physical app behavior.
-No Bluetooth session or board communication was attempted. H2–H5 are NOT TESTED.
-M2 source a6005cb is deployed and passes Kindle preflight. H2 is blocked
-pending the board’s physical BLE address; Mac-side discovery passed without writes.
+M0–M2 are Implemented. H1 and H2 passed with human acceptance on 2026-11-04.
+The assistant ran SSH deployment and probe commands at the user’s request; the
+user supplied the Kindle, board address and fresh BLE-button activation, and
+confirmed normal behavior. H3–H5 remain NOT TESTED. No board commands were sent.
 
 ## H1
 
@@ -37,25 +35,33 @@ Follow-up action and next permitted milestone: M1 complete; stop here. M2 is the
 
 ```text
 Checkpoint: H2
-Date/time (local): 2026-11-04; deployed preflight 21:37:55 CET
-Result: NOT TESTED to completion — first Kindle connection/discovery PASS; reconnect and human acceptance pending
-Kindle model, firmware, uname -m, libc: NOT TESTED
-KindleBT version/commit + library hash: NOT TESTED
-Chessnut protocol crate version: host pin 1.0.2; device NOT TESTED
-Chessnut Move firmware (if known): NOT TESTED
-CLI/C-worker build receipt and ELF checks: a6005cb; source_sha256 6a5975b690ca3210a32bc94f06dc3829cf12eda5289fc76723653abc229ba7a5; deployed SHA256SUMS and Kindle preflight PASS; exit 0; lock cleared
+Date/time (local): 2026-11-04 22:04:41–22:04:43 CET; subsequent human acceptance
+Result: PASS
+Kindle model, firmware, uname -m, libc: first-generation Scribe; 5.19.6; armv7l; kernel 4.9.77-lab126; glibc 2.35
+KindleBT version/commit + library hash: 59e1d8e69a52e3cd58cee6fcc416d1774ad55791; sha256 8b5d3bbe417831e9040b922d6db2969e0cfa9ecc5d8790f1af826bb85f96b485
+Chessnut protocol crate version: 1.0.2; no command protocol exchange in M2
+Chessnut Move firmware (if known): NOT QUERIED
+CLI/C-worker build receipt and ELF checks: installed source f19ecfb; source_sha256 7ae950d1cd7c12eda9619082ca3ea82584616b08c7f5cdff6bcdd63db12c626c; host ELF PASS; installed SHA256SUMS PASS; preflight PASS
 Bluetooth address: [REDACTED]; public address supplied by user; cache UUID matched the Mac-discovered board
-BT privileges and session status: verified worker identity; session open, BLE/GATT registration and first connection status 0; cleanup status 0
-Discovered UUIDs + write properties: Kindle PASS, reverse 128-bit byte order; required service/characteristic pairs and 0x10 / 0x0c / 0x10 matched; 11 characteristics / six services; zero writes
-ATT MTU (measured / unknown), max tested write length, write kind: unknown; NOT TESTED
-Notifications and decoded position: NOT TESTED
+BT privileges and session status: worker UID/GID verified; session/BLE/GATT/connect returned 0 on two fresh workers; both disconnected, deregistered and closed with status 0
+Discovered UUIDs + write properties: PASS; six services / 11 characteristics; consistent reverse 128-bit byte order; required parent services and all three characteristics matched; position Notify=0x10, command write=0x0c, response Notify=0x10
+ATT MTU (measured / unknown), max tested write length, write kind: unknown; NOT TESTED; advertised write properties are not proof of payload delivery
+Notifications and decoded position: NOT TESTED; no subscription
 Auto-move source FEN -> target FEN (H4 only): NOT TESTED
-Physical behavior, STOP, final observed position (H4 only): NOT TESTED
-Timeouts/errors, redacted log path: first session exited 0 and cleared lock; BusyBox background stdin caused early EOF before queued reconnect commands; launcher correction pending retest
-Independent main-app check: original binary plus 120 puzzle/game/state hashes unchanged after M2 deployment/preflight; no new visual app check
-Human signature / confirmation: user confirmed board powered with blinking Bluetooth icon; H2 matching UUID/reconnect acceptance NOT CONFIRMED
-Follow-up action and next permitted milestone: deploy launcher stdin correction, verify services/disconnect/connect/services/quit, obtain human H2 acceptance; no command writes
+Physical behavior, STOP, final observed position (H4 only): NOT TESTED; zero command writes
+Timeouts/errors, redacted log path: earlier isolated status -2 connection timeout with icon subsequently off; final timed test PASS, two connects/four validations/two cleanups, session_exit_status=0, operation_lock=cleared; raw logs private under ignored target
+Independent main-app check: original binary plus 120 puzzle/game/state files have unchanged hashes after final H2; no probe processes remain; H1 visual acceptance retained, no additional visual check claimed
+Human signature / confirmation: user pressed Bluetooth button when listener/Kindle ready and replied "Yes, normal behavior; H2 accepted"
+Follow-up action and next permitted milestone: M2 Implemented. Stop here; M3 is next and has not started.
 ```
+
+Required UUIDs after normalization:
+
+| Parent service | Characteristic | Properties |
+| --- | --- | --- |
+| 1b7e8261-2877-41c3-b46e-cf057c562023 | 1b7e8262-2877-41c3-b46e-cf057c562023 | 0x10 Notify |
+| 1b7e8271-2877-41c3-b46e-cf057c562023 | 1b7e8272-2877-41c3-b46e-cf057c562023 | 0x0c Write / WithoutResponse |
+| 1b7e8271-2877-41c3-b46e-cf057c562023 | 1b7e8273-2877-41c3-b46e-cf057c562023 | 0x10 Notify |
 
 ## H3
 
@@ -223,3 +229,31 @@ queued reconnect commands were not executed. A separate read-only shell probe
 confirmed the old redirect loses input and a saved descriptor preserves it.
 The host-tested launcher correction needs deployment and retest before H2 can
 pass. Raw address and logs remain private and uncommitted.
+
+## H2 reconnect and acceptance — 2026-11-04
+
+After the launcher input correction, deployed f19ecfb and verified installed
+receipt/checksums and preflight. One attempt timed out with status -2 before a
+connection handle was returned; all acquired registration/session cleanup calls
+returned 0, exit was 1 and the operation lock cleared. The user reported the icon
+was off and that the board exits BLE availability quickly. No precise window or
+definitive cause of the timeout was established, and no automatic retry occurred.
+
+Prepared one new attempt after reporting the failure: SSH waited for a start
+marker while a temporary Mac listener watched only the already-identified board’s
+advertisement UUID. The user pressed the Bluetooth button when both were ready.
+The listener stopped scanning on a match, without connecting, and triggered the
+prepared Kindle command. At 22:04:41–22:04:43 CET, connect/discover/services,
+disconnect, explicit reconnect/discover/services, then quit all succeeded.
+Two connections, four successful validations and two cleanups were recorded;
+every native stage returned status 0, the final session exit was 0 and its lock
+cleared. This checkpoint helper is ignored diagnostic code; no runtime scanning
+or automatic retry feature was added.
+
+The Kindle returned six services and 11 characteristics, with 128-bit UUID bytes
+reversed relative to canonical text. All three required characteristics belonged
+to their expected services and advertised the expected properties. No telemetry,
+notification subscription, characteristic read, LED, STOP or motor command ran.
+The final process check found no probe left running, and all 121 original app/data
+hashes remained unchanged. The user explicitly confirmed normal behavior and
+accepted H2. M2 is Implemented. H3–H5 remain NOT TESTED; stop before M3.

@@ -1,8 +1,9 @@
 # Native boundary research and M1 build — 2026-11-04
 
 M1 adds a one-shot native preflight worker; it never calls Bluetooth APIs.
-The M0 findings below still constrain M2. H1 now verifies loading and worker
-privileges on the target Scribe; Bluetooth API behavior remains unverified. SDK, vendor headers, libraries and binaries are ignored
+H1 verified loading and worker privileges on the target Scribe. H2 subsequently
+verified session setup, GATT discovery and clean reconnect. Notification/write
+behavior remains unverified; earlier M0/M1 research is retained below. SDK, vendor headers, libraries and binaries are ignored
 build inputs, never committed or bundled as device dependencies.
 
 Machine-readable commits and SHA-256 are in
@@ -33,7 +34,8 @@ M1 must download, check the digest, and inspect ELF before use.
   which contains an explicit MIT LICENSE. It also contains the public headers,
   docs and example referenced by the plan. Build source and worker against this
   same commit; never pair those headers with the v0.1.0 binary. The final library hash and H1 loading result are recorded in
-  notes/DEVICE_RESULTS.md; Bluetooth API compatibility remains unverified. Building from a pinned
+  notes/DEVICE_RESULTS.md; session/discovery passed H2, while read/write behavior
+  remains unverified. Building from a pinned
   post-release commit is an ABI correction, not an assumption of a newer release.
 - [Sighery SDK build-20250905](https://github.com/Sighery/kindle-sdk/releases/tag/build-20250905),
   commit `f02be98a95d428196af6c3617cac178d85e5ed69`, is the KindleBT release's
@@ -174,7 +176,8 @@ pointer is invoked. The Rust controller supervises the child with a 15-second
 deadline and SIGINT/SIGTERM/SIGHUP cancellation. Only the worker clears groups
 and drops to verified Bluetooth IDs; failure aborts. Runtime symbol loading
 cannot establish that callback layouts or vendor ABI behavior work on 5.19.6;
-M2 must exercise those behind H1 acceptance.
+H2 subsequently exercised session/discovery callbacks; notification/write
+callback behavior remains untested.
 
 ELF inspection reads program headers, PT_INTERP, DT_NEEDED and the real
 DT_VERNEED records. All three staged native artifacts are ELF32 ARM EABI5
@@ -227,7 +230,7 @@ resolution all passed; preflight exited 0 and cleared its lock. The user confirm
 the original app works normally, with all 121 binary/data hashes unchanged.
 M1 is Implemented. No Bluetooth API was called or board connection attempted.
 
-## M2 discovery-only native adapter (host-ready; H2 pending)
+## M2 discovery-only native adapter (H2 accepted 2026-11-04)
 
 kindlebt_session.h adapts the pinned public C types to the portable, host-tested
 session_core.h lifecycle. Only open/close, registration/deregistration,
@@ -242,8 +245,8 @@ are never retained. The database traversal checks type, full UUID width, counts,
 linked-list bounds, record count and final frame size. It rejects unknown UUID
 types and never silently truncates a list. Native UUID bytes are returned without
 assuming an order; Rust validates all required service/characteristic pairs in a
-consistent forward or reverse order and checks property masks. Actual byte order,
-callback compatibility and cleanup on firmware 5.19.6 remain unverified until H2.
+consistent forward or reverse order and checks property masks. H2 verified reverse 128-bit byte order, discovery callbacks, database ownership
+and cleanup on firmware 5.19.6. Notification/write callbacks remain untested.
 
 KindleBT exposes no application connection-state callback at this pin. The
 adapter resolves exported devices_context/dca_find_by_handle and observes
@@ -270,5 +273,10 @@ rejection and callback handling without opening BLE. Neither that host executabl
 nor any SDK/vendor object is staged. Portable C lifecycle/parser fixtures also
 run in the ordinary independent host gate, without SDK downloads.
 
-No M2 device action has occurred. Stop for deployment and H2; see the experiment
-README for the exact human checkpoint and private-address procedure.
+H2 passed on installed source f19ecfb with two fresh-worker connections and
+clean disconnect/reconnect. The user accepted normal physical behavior. No
+subscription or board write ran. BusyBox ash required the launcher to save input
+on fd 3 before spawning in the background; a regression and on-device input
+probe verify that boundary. The board’s BLE availability is short, with no exact
+window measured; prepare the command before human button activation. See
+DEVICE_RESULTS.md for final evidence. M2 is Implemented; stop before M3.
