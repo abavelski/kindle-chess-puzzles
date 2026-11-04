@@ -66,3 +66,14 @@ BLE compatibility. No numeric Bluetooth UID/GID or MTU is assumed. The launcher
 accepts only preflight, which never opens a session. M2 is not authorized by a
 host build: stop for human deployment and H1, record results, and leave the
 original chess app and Bluetooth services unchanged.
+
+## Deployment transport correction — 2026-11-04
+
+The real Kindle SSH connection confirmed armv7l and firmware 5.19.6. Its legacy
+SCP server rejects a recursive source ending in `/.` with `unexpected filename:
+.`. The failed upload was cleaned up, leaving only the experiment ownership
+marker and no installed runtime. A failing regression test reproduced the
+restriction before changing the uploader to name install.sh, SHA256SUMS and
+runtime explicitly. The delivery suite now has 11 Python tests. Retry uses the
+same checksums, scoped installer and cleanup; no Bluetooth preflight/session
+was run as part of this transport correction.

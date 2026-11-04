@@ -391,7 +391,8 @@ mkdir {incoming}
     run(ssh + ['sh -s'], input=setup, text=True, timeout=90)
     try:
         # Individual payload upload avoids remote extraction of an unverified tar.
-        run(['scp', '-O'] + remote_options(args) + ['-P', str(args.port), '-r', str(folder) + '/.', args.host + ':' + incoming + '/'], timeout=180)
+        payload = [str(folder / name) for name in ['install.sh', 'SHA256SUMS', 'runtime']]
+        run(['scp', '-O'] + remote_options(args) + ['-P', str(args.port), '-r'] + payload + [args.host + ':' + incoming + '/'], timeout=180)
         script = f'cd {incoming}\nsha256sum -c SHA256SUMS\nsh ./install.sh\n'
         run(ssh + ['sh -se'], input=script, text=True, timeout=120)
     finally:

@@ -159,4 +159,25 @@ class RemoteTests(unittest.TestCase):
         for host, port in [('root@host;bad',2222), ('-F@host',2222), ('host',0), ('host',65536), ('',2222)]:
             with self.assertRaises(ValueError): delivery.remote_options(SimpleNamespace(host=host, port=port))
 
+
+class DeployTests(unittest.TestCase):
+    def test_legacy_scp_uploads_named_entries_not_dot_directory(self):
+        import json
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            runtime = output / 'stage/runtime'
+            runtime.mkdir(parents=True)
+            (runtime / 'build.json').write_text(json.dumps({'source_sha256':'current'}))
+            calls = []
+            def fake_run(args, **kwargs):
+                calls.append(args)
+                if args[0] == 'scp':
+                    self.assertFalse(any(str(arg).endswith('/.') for arg in args), 'Kindle legacy SCP rejects filename dot')
+            with patch.object(delivery, 'OUTPUT', output), patch.object(delivery, 'verify_stage'), patch.object(delivery, 'source_digest', return_value='current'), patch.object(delivery, 'run', side_effect=fake_run):
+                delivery.deploy(SimpleNamespace(host='root@device', port=2222))
+            upload = next(args for args in calls if args[0] == 'scp')
+            self.assertEqual(upload[-4:-1], [str(output/'stage/install.sh'), str(output/'stage/SHA256SUMS'), str(runtime)])
+
 if __name__ == '__main__': unittest.main()
