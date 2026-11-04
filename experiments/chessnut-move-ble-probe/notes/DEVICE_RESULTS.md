@@ -38,23 +38,23 @@ Follow-up action and next permitted milestone: M1 complete; stop here. M2 is the
 ```text
 Checkpoint: H2
 Date/time (local): 2026-11-04; deployed preflight 21:37:55 CET
-Result: BLOCKED — physical BLE address unavailable; Kindle session NOT TESTED
+Result: NOT TESTED to completion — first Kindle connection/discovery PASS; reconnect and human acceptance pending
 Kindle model, firmware, uname -m, libc: NOT TESTED
 KindleBT version/commit + library hash: NOT TESTED
 Chessnut protocol crate version: host pin 1.0.2; device NOT TESTED
 Chessnut Move firmware (if known): NOT TESTED
 CLI/C-worker build receipt and ELF checks: a6005cb; source_sha256 6a5975b690ca3210a32bc94f06dc3829cf12eda5289fc76723653abc229ba7a5; deployed SHA256SUMS and Kindle preflight PASS; exit 0; lock cleared
-Bluetooth address: [REDACTED; identify only whether fixed/random]
-BT privileges and session status: NOT TESTED
-Discovered UUIDs + write properties: Kindle NOT TESTED; Mac matched required position/command services and three characteristics; properties 0x10 / 0x0c / 0x10; zero writes
+Bluetooth address: [REDACTED]; public address supplied by user; cache UUID matched the Mac-discovered board
+BT privileges and session status: verified worker identity; session open, BLE/GATT registration and first connection status 0; cleanup status 0
+Discovered UUIDs + write properties: Kindle PASS, reverse 128-bit byte order; required service/characteristic pairs and 0x10 / 0x0c / 0x10 matched; 11 characteristics / six services; zero writes
 ATT MTU (measured / unknown), max tested write length, write kind: unknown; NOT TESTED
 Notifications and decoded position: NOT TESTED
 Auto-move source FEN -> target FEN (H4 only): NOT TESTED
 Physical behavior, STOP, final observed position (H4 only): NOT TESTED
-Timeouts/errors, redacted log path: NOT TESTED
+Timeouts/errors, redacted log path: first session exited 0 and cleared lock; BusyBox background stdin caused early EOF before queued reconnect commands; launcher correction pending retest
 Independent main-app check: original binary plus 120 puzzle/game/state hashes unchanged after M2 deployment/preflight; no new visual app check
 Human signature / confirmation: user confirmed board powered with blinking Bluetooth icon; H2 matching UUID/reconnect acceptance NOT CONFIRMED
-Follow-up action and next permitted milestone: deploy the M2 bundle, check preflight, then human H2 discovery with the current private board address; no command writes
+Follow-up action and next permitted milestone: deploy launcher stdin correction, verify services/disconnect/connect/services/quit, obtain human H2 acceptance; no command writes
 ```
 
 ## H3
@@ -209,3 +209,17 @@ as the shell’s responsible app and Apple authtrampoline as the privileged read
 No ACL, ownership or service changes were made. Manual Terminal export or another
 scanner is needed to supply a current address. H2 stays BLOCKED; Mac discovery
 alone does not establish Kindle session compatibility or a clean reconnect.
+
+## First Kindle connection — 2026-11-04
+
+The user supplied a public board address from the Mac cache, whose peripheral
+UUID matches the previously discovered board, then confirmed Kindle and Move
+ready with the official app closed. The installed a6005cb worker connected and
+discovered the correct required UUIDs/properties, using reverse 128-bit ordering.
+Every setup/discovery and cleanup stage returned status 0; session exit was 0
+and the operation lock cleared. No notification subscription or board write ran.
+The controller saw early EOF from BusyBox ash’s background-input behavior, so
+queued reconnect commands were not executed. A separate read-only shell probe
+confirmed the old redirect loses input and a saved descriptor preserves it.
+The host-tested launcher correction needs deployment and retest before H2 can
+pass. Raw address and logs remain private and uncommitted.

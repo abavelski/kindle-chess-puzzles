@@ -102,3 +102,28 @@ reader to Apple authtrampoline. No file permissions, system services or Bluetoot
 configuration were changed to bypass this. The next proposed step is a manual
 read-only cache export from Terminal with its own Full Disk Access, or a current
 address supplied by another scanner. Private identities/raw logs remain ignored.
+
+## First Kindle H2 attempt and BusyBox input correction — 2026-11-04
+
+The user supplied the public BLE address from a macOS OtherDevices row; its
+peripheral UUID matches the sole board previously discovered by the Mac.
+After waking the Kindle and confirming both devices ready, the assistant ran
+the installed a6005cb discovery-only session. Session open, BLE/GATT registration,
+connect, discovery and database retrieval all returned status 0. All required
+UUIDs and properties matched with consistent reverse 128-bit byte ordering.
+The Kindle returned 11 characteristics across six services, including standard
+16-bit Generic Access/Attribute entries omitted by the Mac’s high-level listing.
+The database, link, registrations and session cleaned up with status 0, the
+launcher exited 0 and its lock cleared. No board command was sent.
+
+The intended services/disconnect/connect/services/quit input was not consumed:
+the controller saw immediate EOF. A harmless two-case shell probe on the real
+Scribe reproduced BusyBox ash replacing a background job’s fd 0 before <&0
+could preserve it. The original form read an empty line; saving fd 0 to fd 3
+before spawning and restoring from fd 3 read the supplied marker correctly.
+The launcher now does that and closes the extra descriptor in child and parent.
+A new host contract first failed for the missing saved descriptor, then passed;
+the existing host argument/input/lock test also passes. The independent Python
+suite now has 18 tests. This fixes the shell boundary without changing native
+BLE or Rust behavior. A corrected build/deployment and real reconnect retest
+are required before H2 acceptance; no later milestone work is started.

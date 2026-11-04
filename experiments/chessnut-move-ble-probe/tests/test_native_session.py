@@ -14,6 +14,16 @@ class NativeSessionTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
 
 class LauncherTests(unittest.TestCase):
+    def test_busybox_background_input_uses_a_saved_descriptor(self):
+        # On the Scribe's ash, a noninteractive background job receives null
+        # stdin before <&0 is applied. A separate saved descriptor survives.
+        script = (ROOT / 'scripts/launch.sh').read_text()
+        saved = script.index('exec 3<&0') if 'exec 3<&0' in script else -1
+        invocation = next(line for line in script.splitlines() if line.startswith('LD_LIBRARY_PATH='))
+        self.assertGreaterEqual(saved, 0, 'preserve SSH input before ash starts a background process')
+        self.assertLess(saved, script.index(invocation))
+        self.assertIn('<&3 3<&- &', invocation, 'restore stdin and close the extra descriptor in the child')
+
     def test_session_forwards_arguments_and_stdin_and_releases_operation_lock(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / 'chessnut-ble-probe'

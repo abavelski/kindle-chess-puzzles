@@ -29,8 +29,11 @@ trap 'exit 143' TERM
 cd "$runtime"
 sha256sum -c SHA256SUMS
 [ "$(uname -m)" = armv7l ] && [ -x /lib/ld-linux-armhf.so.3 ] || { echo 'Unsupported architecture/loader' >&2; exit 1; }
-LD_LIBRARY_PATH="$runtime" "$runtime/chessnut-ble-probe" "$@" <&0 &
+# Preserve input before BusyBox ash redirects a background job’s fd 0.
+exec 3<&0
+LD_LIBRARY_PATH="$runtime" "$runtime/chessnut-ble-probe" "$@" <&3 3<&- &
 child=$!
+exec 3<&-
 set +e
 wait "$child"
 result=$?

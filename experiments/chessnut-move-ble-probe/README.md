@@ -7,7 +7,8 @@ The corrected build is deployed and preflight exits 0. The user confirmed the
 original chess app displays, responds and exits normally; its binary and 120
 data files retain their pre-update hashes. **M2 is deployed and passes Kindle preflight; H2 is pending.**
 Mac-side discovery matched the expected board UUIDs/properties without writes.
-The Kindle session is untested pending the board’s physical BLE address. See [device results](notes/DEVICE_RESULTS.md) and
+The first Kindle connection and discovery passed with reverse UUID byte order.
+Clean reconnect and human H2 acceptance remain pending. See [device results](notes/DEVICE_RESULTS.md) and
 [the startup diagnosis and fixes](notes/M1_STARTUP_CRASH.md).
 
 ## Progress
@@ -145,8 +146,9 @@ Do not proceed to M2 until the human confirms H1 acceptance.
 
 ## M2 discovery session and H2 preparation
 
-M2 is deployed; Kindle preflight passed. H2 is **BLOCKED** pending a current
-physical BLE address and confirmation that the board is awake in BLE mode.
+M2 is deployed; Kindle preflight and initial connection/discovery passed.
+The user supplied a public BLE address and confirmed both devices ready.
+H2 awaits a launcher input fix, clean reconnect and human acceptance.
 Mac-side discovery succeeded, but a subsequent Mac reconnect timed out.
 After resolving those prerequisites,
 run over interactive SSH (keep the original chess app closed):
