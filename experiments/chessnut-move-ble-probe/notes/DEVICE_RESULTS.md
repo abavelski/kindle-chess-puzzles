@@ -429,3 +429,22 @@ timeout/failure is terminal. This cross-check tests current board availability
 on another host rather than blindly repeating the failed Kindle attempt. No
 further board button press or connection has occurred yet; human interaction
 is needed once the listener is ready. No firmware/service changes are proposed.
+
+
+## Mac-only current-board cross-check — 2026-11-04
+
+The user enabled BLE after the Mac-only listener was ready. The exact private
+known peripheral advertised at RSSI -56 dBm as measured at the Mac. The listener
+stopped scanning and connected once, discovered four services/eight
+characteristics, validated both required services and three characteristic
+UUIDs with Notify / both write modes / Notify properties (16 / 12 / 16), and
+received clean disconnection with no error. Diagnostic exit was 0. No read,
+subscription, descriptor write or board command ran (writes=0); the Kindle
+remained idle throughout. Private raw identities/logs remain ignored.
+
+This demonstrates that the board currently accepts Mac BLE/GATT discovery and
+releases the link. It does not prove Kindle radio proximity, connection quality,
+MTU or the cause of the Kindle's 0x3e establishment failure. Requested confirmation
+that the Kindle is awake beside the board before considering another targeted
+Kindle test. No automatic retry or stock-Bluetooth configuration change occurred.
+H3 remains BLOCKED before telemetry; Mac discovery is not an H3 pass.
