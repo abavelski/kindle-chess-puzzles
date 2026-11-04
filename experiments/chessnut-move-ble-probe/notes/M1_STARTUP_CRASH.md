@@ -99,3 +99,25 @@ and verify its resulting IDs. Never edit passwd/group or system services.
 This replaces the invalid equality assumption with evidence from the actual
 Bluetooth process. Host fixtures must cover the observed mapping, mismatched
 UID/GID rows, partial/malformed rows and repeated identity records before code.
+
+## Runtime dependency correction after identity verification
+
+Build 9429c3e passed daemon identity checks and the worker privilege transition.
+The loader successfully opened the device's libace_bt.so, but preflight later
+rejected absent libcrypto.so.1.0.0 from the SDK-derived reference closure.
+The Scribe SDK is 5.17.3; the device is 5.19.6. Treating the old SDK's complete
+transitive closure as mandatory on the new firmware was a preflight error.
+
+Revised plan before implementation: required-libs.txt must contain the union
+of direct DT_NEEDED names from the shipped binaries, excluding the shipped
+KindleBT library. Keep the SDK transitive closure in the build receipt as
+reference evidence only. RTLD_NOW loading the actual device library and the
+local KindleBT library validates the current device's complete dependency chain;
+any real missing dependency still fails dlopen. Do not install an obsolete
+library, copy SDK libraries, or alter the system loader to satisfy this test.
+
+Read-only ELF inspection of the actual 5.19.6 vendor library confirmed direct
+imports libace_aipc.so, libace_log.so, libace_osal.so,
+libace_utils_linkedlist.so and libc.so.6. This differs from the older SDK's
+ACE import list. The inspected device library remains in ignored diagnostics;
+it is not staged or committed.

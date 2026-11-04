@@ -210,4 +210,17 @@ class NativeIdentityTests(unittest.TestCase):
             self.assertEqual(compiled.returncode, 0, compiled.stderr.decode())
             subprocess.run([str(binary)], check=True, timeout=5)
 
+
+class RuntimeDependencyTests(unittest.TestCase):
+    def test_runtime_needs_come_from_shipped_artifacts_not_old_sdk_transitives(self):
+        artifacts = {
+            'controller': {'needed': ['ld-linux-armhf.so.3', 'libc.so.6']},
+            'worker': {'needed': ['libc.so.6']},
+            'libkindlebt.so': {'needed': ['libace_bt.so', 'libpthread.so.0', 'libc.so.6']},
+        }
+        self.assertEqual(delivery.runtime_dependencies(artifacts), ['ld-linux-armhf.so.3', 'libace_bt.so', 'libc.so.6', 'libpthread.so.0'])
+        # A future genuinely linked dependency must still be checked.
+        artifacts['worker']['needed'].append('libcrypto.so.3')
+        self.assertIn('libcrypto.so.3', delivery.runtime_dependencies(artifacts))
+
 if __name__ == '__main__': unittest.main()

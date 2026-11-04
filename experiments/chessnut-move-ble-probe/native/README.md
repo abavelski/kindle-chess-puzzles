@@ -180,9 +180,11 @@ ELF inspection reads program headers, PT_INTERP, DT_NEEDED and the real
 DT_VERNEED records. All three staged native artifacts are ELF32 ARM EABI5
 hard-float; both executables name /lib/ld-linux-armhf.so.3. Their maximum GLIBC
 requirement is 2.34, below the measured device's 2.35. The complete SDK-derived
-dependency closure (24 library names, including the loader) is stored in
-required-libs.txt and build.json. Preflight loads these from the device; they
-are not copied into the bundle. The exact final hashes, input hashes, flags,
+reference dependency closure (24 library names, including the loader) is
+stored in build.json as sdk_reference_libraries. required-libs.txt lists only
+the four direct device imports of the shipped binaries. Preflight loads these
+and the local KindleBT library with RTLD_NOW, allowing the loader to validate
+the actual firmware's transitive chain. No device libraries are bundled. The exact final hashes, input hashes, flags,
 source digest and validation reports are generated in target/kindle/build.json
 and copied into the staged runtime. Stage creation refuses a stale source or
 binary receipt; deployment verifies the stage before opening SSH.
@@ -212,3 +214,9 @@ passwd primary GID is 150 while btmanagerd runs as UID/GID 1003. It now validate
 all four kernel process UID/GID fields against the named account/group instead
 of assuming primary-GID equality; host C fixtures cover malformed and mismatched
 records. No system accounts or services are changed.
+
+The device's 5.19.6 libace_bt has a different NEEDED list than the 5.17.3 SDK
+reference. Requiring the SDK-only libcrypto.so.1.0.0 produced a false failure
+after the real libace_bt had already loaded successfully. The preflight list
+now comes only from shipped artifacts; the device loader validates current
+transitives. No obsolete SDK library is installed to satisfy a reference name.

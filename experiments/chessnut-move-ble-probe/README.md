@@ -68,7 +68,7 @@ Outputs (ignored, never committed):
 
 ```text
 target/kindle/build.json                source, inputs, flags, binary hashes, ELF reports
-target/kindle/required-libs.txt         complete SDK-derived device dependency closure
+target/kindle/required-libs.txt         direct device dependencies of shipped binaries
 target/kindle/stage/                    verified upload directory
 target/kindle/chessnut-ble-probe.tar     inspectable convenience archive
 ```
@@ -128,8 +128,10 @@ kill/reap the worker; the launcher releases its lock on exit. The worker:
 3. Drops the worker's supplementary groups and root privileges to those verified
    IDs, then checks its resulting real/effective UID/GID. The controller and SSH
    stay root.
-4. Loads each required device library and the local KindleBT library with
-   RTLD_NOW, checks required symbols, and closes handles. It does not call
+4. Loads each direct device dependency and the local KindleBT library with
+   RTLD_NOW, checks required symbols, and closes handles. The loader resolves
+   the current firmware's transitive dependencies; the old SDK's transitive
+   library names are reference metadata, not mandatory device filenames. It does not call
    openSession, registration, radio, connection or write APIs.
 
 A final `result=PASS session=NOT_OPENED connection=NOT_ATTEMPTED` and exit 0

@@ -261,6 +261,12 @@ def prepare():
     sources['zig'] = next(extract(archive, ROOT / 'target/toolchains/zig').iterdir()) / 'zig'
     return sources
 
+def runtime_dependencies(elf_reports):
+    # The device loader validates the transitive closure of its own vendor
+    # library. An older SDK's transitive library names are not runtime facts.
+    return sorted({name for report in elf_reports.values() for name in report['needed']}
+                  - {'libkindlebt.so'})
+
 def build():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     (OUTPUT / 'build.json').unlink(missing_ok=True)
@@ -293,7 +299,7 @@ def build():
     elf = {}
     for name in ['chessnut-ble-probe', 'kindlebt-worker', 'libkindlebt.so']:
         elf[name] = inspect_elf((OUTPUT / name).read_bytes(), name != 'libkindlebt.so')
-    # Build-only SDK closure; every dependency remains a required DEVICE library.
+    # Build-only SDK closure for reference; runtime checks use actual artifact imports.
     required = set()
     pending = set(n for report in elf.values() for n in report['needed']) - {'libkindlebt.so'}
     while pending:
@@ -304,7 +310,7 @@ def build():
         if not library.exists(): raise ValueError(f'SDK lacks required library {name}')
         report = inspect_elf(library.read_bytes(), False, device_reference=True)
         pending.update(set(report['needed']) - required)
-    (OUTPUT / 'required-libs.txt').write_text(''.join(n+'\n' for n in sorted(required)))
+    (OUTPUT / 'required-libs.txt').write_text(''.join(n+'\n' for n in runtime_dependencies(elf)))
     notices = OUTPUT / 'notices'
     notices.mkdir(exist_ok=True)
     shutil.copy2(sources['kindlebt'] / 'LICENSE', notices / 'KindleBT-MIT.txt')
@@ -327,7 +333,8 @@ def build():
                'kindlebt_link': ['-shared', '-fPIC', '-pthread', '-soname=libkindlebt.so', '--allow-shlib-undefined', '-lace_bt', '-ldl'],
                'worker_flags': ['-std=c11', '-Wall', '-Wextra', '-Werror', '-fPIC', '-pie', '-ldl'],
                'cargo': ['build', '--locked', '--release', '--bin', 'chessnut-ble-probe', '--target', TARGET],
-               'sources': SOURCES, 'elf': elf, 'device_libraries': sorted(required), 'host_checks': 'PASS',
+               'sources': SOURCES, 'elf': elf, 'device_libraries': runtime_dependencies(elf),
+               'sdk_reference_libraries': sorted(required), 'host_checks': 'PASS',
                'artifacts': {n: sha(OUTPUT / n) for n in elf}}
     (OUTPUT / 'build.json').write_text(json.dumps(receipt, indent=2)+'\n')
     print('Build verified:', OUTPUT)
