@@ -7,9 +7,11 @@ The corrected build is deployed and preflight exits 0. The user confirmed the
 original chess app displays, responds and exits normally; its binary and 120
 data files retain their pre-update hashes. **M2 is Implemented; H2 passed on
 2026-11-04.** Kindle connection, required UUID/property discovery, clean disconnect,
-reconnect and exit passed, with human acceptance. The installed build is
-`f19ecfb`. The M3 implementation is host-ready and staged, **not deployed**;
-H3 remains NOT TESTED. The installed M2 build still has all board writes disabled. See
+reconnect and exit passed, with human acceptance. The installed build is now
+`b6ca863` (M3); deployment and preflight passed. **H3 is BLOCKED before telemetry**:
+a single connection attempt reached the physical link, but Kindle Bluetooth
+session/UUID mapping failed and the probe timed out. Further attempts are stopped;
+no board writes ran. See
 [device results](notes/DEVICE_RESULTS.md) and
 [the startup diagnosis and fixes](notes/M1_STARTUP_CRASH.md).
 
@@ -24,16 +26,17 @@ All changes and completion records stay in this experiment.
   deployment, H1 preflight and human original-app verification passed.
 - [x] M2 — Implemented: discovery-only session, connection diagnostics, cleanup,
   host gates, deployment and human H2 connection/discovery/reconnect passed.
-- [ ] M3 — Host implementation complete; deployment and H3 pending.
+- [ ] M3 — Host implementation/deployment complete; H3 blocked at connection.
   - [x] Both notification subscriptions, SDK realtime, battery and piece queries.
   - [x] Bounded raw/decoded observations, terminal query deadlines, watch mode.
   - [x] One-square LED/on-off policy, MTU evidence and cleanup; motor packets blocked.
   - [x] Host tests, pinned-header adapter checks, ARM build and stage validation.
-  - [ ] Deploy and pass physical H3; compare real placement, hand move and LEDs.
+  - [x] Deploy M3 and pass Kindle preflight; original app/data hashes unchanged.
+  - [ ] Resolve connection/session mapping failure, then perform physical H3.
 - [ ] M4 — Guarded motor control; H4 motors checkpoint.
 - [ ] M5 — Reliability/rollback; H5 independence checkpoint.
 
-H1 and H2: **PASS**. H3–H5: **NOT TESTED**. Kindle session, connection and
+H1 and H2: **PASS**. H3: **BLOCKED before telemetry**. H4–H5: **NOT TESTED**. Kindle session, connection and
 GATT discovery are verified. Notification delivery, writes, MTU and motor
 behavior remain unverified.
 
@@ -220,9 +223,11 @@ The worker's library loading/privilege checks precede any session API call. See
 
 **Human checkpoint H2 — Discovery:** Human places the Move in BLE mode, disconnects its official app, obtains its current BLE address using a trusted scanner (phone/PC), passes it privately to the CLI, and confirms the expected Chessnut service and characteristic UUIDs and a clean reconnect after disconnect. Record connection outcome and redacted logs. **STOP** if discovery/permissions fail or the UUIDs do not match.
 
-## M3 telemetry and LED session (deployment/H3 pending)
+## M3 telemetry and LED session (deployed; H3 blocked)
 
-Host implementation and staging are complete; physical behavior is **NOT TESTED**.
+Host implementation/deployment are complete. H3 is **BLOCKED** by a connection
+confirmation failure; telemetry/LED behavior is **NOT TESTED**. See the latest
+[device record](notes/DEVICE_RESULTS.md) before attempting another connection.
 See [M3 evidence and limits](notes/M3_HOST_RESULTS.md). Keep the original app,
 official board app and other BLE clients closed. Prepare deployment/preflight and
 the connection first; press the board Bluetooth button only when prompted.

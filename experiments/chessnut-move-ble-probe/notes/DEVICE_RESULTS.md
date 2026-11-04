@@ -271,3 +271,37 @@ motor/STOP packets are blocked. The next boundary is deployment and preflight,
 then a human-timed board connection and H3. See M3_HOST_RESULTS.md for the host
 evidence and README for the exact checkpoint and CLI commands. Do not mark M3
 Implemented before actual H3 results and human acceptance are recorded.
+
+
+## M3 deployment and stopped connection attempt — 2026-11-04
+
+Installed source b6ca863, source_sha256
+b0b38215dcce4a5cd2a0c36d1467fe7cd7989f49b2f5e6eb42147b42ab0330bb.
+Deployment/runtime checksums, installed receipt equality and preflight PASS;
+exit 0 and operation lock cleared. All 121 original app/data hashes match the
+fresh pre-deployment baseline. No stock services or Bluetooth configuration changed.
+
+After the user enabled BLE, an advertisement-triggered, single Kindle attempt
+began at 22:31:28 CET. The Mac listener stopped scanning without connecting.
+Session/BLE/GATT registration returned 0, but connect returned -2 after ten
+seconds. No command subscription or board write ran (write_api_calls=0), and no
+MTU value was obtained. GATT/BLE/session cleanup APIs returned 0; overall session
+exit was 1, lock cleared and a read-only process check found no probe worker or
+controller. There was no automatic retry.
+
+The user reported a steady/on board icon after the timeout. Read-only Kindle
+system logs show controller link and GATT connection success, followed by
+get_client_session_from_gatt_uuid / gatt_client_conn_ind failing to find the
+client session for the connection UUID. Thus this attempt reached a physical
+link but failed to deliver connection confirmation to the probe; it cannot be
+attributed simply to a missed advertising window. Root cause of the daemon's
+session/UUID mapping mismatch is not yet established. Session close attempted
+native disconnection, but physical link release is not proved by API return
+codes. No daemon restart, cache deletion, radio toggle, alternate address or
+unverified ABI change was attempted. Raw system logs remain private/ignored.
+
+H3 is **BLOCKED before telemetry**. Requested that the human power the board off
+using its normal control to release a possible lingering link, then confirm its
+icon is off. Further connections are stopped. Next work is offline investigation
+of the connection/session mapping evidence and a reviewed recovery/retest plan;
+no telemetry/LED test or later milestone may proceed on this failed connection.

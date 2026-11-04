@@ -1,9 +1,11 @@
 # Milestone 3 preparation — 2026-11-04
 
-Status: **Host-ready; deployment/H3 NOT TESTED; M3 not yet Implemented.**
+Status: **Host-ready and deployed; H3 BLOCKED before telemetry; M3 not yet Implemented.**
 All changes remain in the isolated experiment on
-experiment/chessnut-move-kindlebt-probe. Installed M2 source f19ecfb remains
-unchanged. No device communication took place during this implementation.
+experiment/chessnut-move-kindlebt-probe. Implementation preparation involved no device communication. Subsequently b6ca863
+was deployed, passed preflight, then failed connection confirmation after the
+system established a link. DEVICE_RESULTS.md records the daemon session/UUID
+mapping failure and required stop; no telemetry or LED write ran.
 
 ## Scope and evidence
 
