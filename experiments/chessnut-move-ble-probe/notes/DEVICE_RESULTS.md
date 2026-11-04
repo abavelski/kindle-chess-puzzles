@@ -305,3 +305,14 @@ using its normal control to release a possible lingering link, then confirm its
 icon is off. Further connections are stopped. Next work is offline investigation
 of the connection/session mapping evidence and a reviewed recovery/retest plan;
 no telemetry/LED test or later milestone may proceed on this failed connection.
+
+
+The user subsequently confirmed powering the board off and back on; its icon
+was blinking again. Physical power-cycle confirmation is recorded, and no
+further icon-off confirmation is needed. No new connection was attempted.
+Read-only SSH copied the device's libace_bt privately under ignored target for
+offline inspection; no firmware binary or proprietary code is committed.
+Inspection of the device's connection and GATT-registration entry points is
+consistent with the argument placement used by pinned KindleBT; this limited
+check does not establish complete ABI compatibility or explain the daemon's
+session/UUID mapping failure. No speculative ABI change is justified yet.
