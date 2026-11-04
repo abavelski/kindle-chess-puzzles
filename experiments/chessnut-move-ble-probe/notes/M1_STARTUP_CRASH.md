@@ -76,3 +76,26 @@ and the human confirms the original chess app still displays/operates normally.
 No board address, BLE session, motor or M2 work is required or permitted for
 this check. The assistant can perform the SSH deployment/preflight directly;
 the user need only make the Kindle available and observe the physical app.
+
+## First corrected-device run and revised identity verification
+
+The user made the Kindle available again and authorized deployment. Build
+3851829 was installed and ran past startup: armv7l, kernel 4.9.77-lab126,
+glibc 2.35 and firmware 5.19.6 were reported. The SIGSEGV did not recur.
+Preflight then rejected its own assumption that the bluetooth passwd primary
+GID must equal the named bluetooth group GID. Read-only observations showed:
+
+- bluetooth account UID 1003, passwd primary GID 150;
+- named bluetooth group GID 1003;
+- running btmanagerd real/effective/saved/filesystem UID and GID all 1003;
+  its supplementary groups are 150 and 1003.
+
+Updated preflight plan before changing identity code: resolve the named account
+and named group, reject zero target IDs, and verify all four daemon UID/GID
+fields against those IDs using /proc status. The account primary GID is
+reported but need not equal the daemon's effective group. Only after this proof
+may the worker clear supplementary groups, setgid/setuid to the verified target,
+and verify its resulting IDs. Never edit passwd/group or system services.
+This replaces the invalid equality assumption with evidence from the actual
+Bluetooth process. Host fixtures must cover the observed mapping, mismatched
+UID/GID rows, partial/malformed rows and repeated identity records before code.

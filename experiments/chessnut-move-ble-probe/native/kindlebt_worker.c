@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+#include "bluetooth_identity.h"
 #ifdef __linux__
 #include <gnu/libc-version.h>
 #include <kindlebt/kindlebt.h>
@@ -28,7 +29,7 @@ static int failure(const char *reason) {
 }
 
 #ifdef __linux__
-static bool manager_present(void) {
+static bool manager_identity_matches(uid_t uid, gid_t gid) {
     DIR *directory = opendir("/proc");
     if (directory == NULL) return false;
     struct dirent *entry;
@@ -39,7 +40,13 @@ static bool manager_present(void) {
         if (snprintf(path, sizeof(path), "/proc/%s/comm", entry->d_name) >= (int)sizeof(path)) continue;
         FILE *file = fopen(path, "r");
         if (file == NULL) continue;
-        if (fgets(name, sizeof(name), file) != NULL && strcmp(name, "btmanagerd\n") == 0) found = true;
+        bool manager = fgets(name, sizeof(name), file) != NULL && strcmp(name, "btmanagerd\n") == 0;
+        fclose(file);
+        if (!manager) continue;
+        if (snprintf(path, sizeof(path), "/proc/%s/status", entry->d_name) >= (int)sizeof(path)) continue;
+        file = fopen(path, "r");
+        if (file == NULL) continue;
+        found = bluetooth_status_matches(file, (unsigned long)uid, (unsigned long)gid);
         fclose(file);
         if (found) break;
     }
@@ -66,17 +73,17 @@ static int preflight(const char *library, const char *required) {
     fclose(firmware);
     text[strcspn(text, "\r\n")] = '\0';
     printf("firmware=%s\n", text);
-    if (!manager_present()) return failure("btmanagerd_not_observed_no_services_changed");
-    puts("btmanagerd=present");
     struct passwd *account = getpwnam("bluetooth");
     if (account == NULL) return failure("bluetooth_account_missing");
     uid_t uid = account->pw_uid;
     gid_t primary = account->pw_gid;
     struct group *group = getgrnam("bluetooth");
-    if (group == NULL || uid == 0 || group->gr_gid == 0 || primary != group->gr_gid)
+    if (group == NULL || uid == 0 || group->gr_gid == 0)
         return failure("bluetooth_mapping_invalid_or_ambiguous");
     gid_t gid = group->gr_gid;
-    printf("bluetooth_uid=%lu bluetooth_gid=%lu\n", (unsigned long)uid, (unsigned long)gid);
+    printf("bluetooth_uid=%lu bluetooth_gid=%lu account_primary_gid=%lu\n", (unsigned long)uid, (unsigned long)gid, (unsigned long)primary);
+    if (!manager_identity_matches(uid, gid)) return failure("btmanagerd_identity_not_verified_no_services_changed");
+    puts("btmanagerd=present identity=verified");
     /* Only this worker changes identity; the controller/SSH process is untouched. */
     if (geteuid() != 0) return failure("run_preflight_from_root_ssh_to_verify_worker_privileges");
     if (setgroups(0, NULL) != 0 || setgid(gid) != 0 || setuid(uid) != 0)

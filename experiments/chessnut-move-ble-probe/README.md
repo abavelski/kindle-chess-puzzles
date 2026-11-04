@@ -34,7 +34,8 @@ KindleBT compatibility, library loading, privilege success, or board behavior.
 ## Host build and inspect
 
 Requirements: rustup with **Rust 1.85.1**, rustfmt, clippy and target
-`armv7-unknown-linux-gnueabihf`; Python **3.12+**, POSIX shell, and SSH/scp for
+`armv7-unknown-linux-gnueabihf`; Python **3.12+**, a host C compiler (Xcode command-line tools or cc), POSIX
+shell, and SSH/scp for
 later deployment. macOS ARM64 is the validated build host; checksummed Zig
 archives also cover macOS x86-64 and Linux x86-64/ARM64. Initial downloads need
 network access (SDK ~159 MiB, vendor headers ~88 MiB, Zig ~44 MiB). Allow a few
@@ -120,10 +121,13 @@ sibling C worker and limits execution to 15 seconds. Ctrl+C, HUP, TERM or timeou
 kill/reap the worker; the launcher releases its lock on exit. The worker:
 
 1. Reads architecture/kernel, firmware, glibc and loader presence.
-2. Observes whether btmanagerd is present without altering it.
-3. Resolves the actual `bluetooth` account/group, verifies a nonzero matching
-   primary GID, drops supplementary groups and its own root privileges, and
-   checks resulting real/effective UID/GID. The controller and SSH stay root.
+2. Resolves the named `bluetooth` account/group and verifies all real/effective/
+   saved/filesystem IDs of btmanagerd against those nonzero target IDs, without
+   altering the process. The passwd primary GID may differ (150 on this device;
+   the verified daemon and named Bluetooth group use GID 1003).
+3. Drops the worker's supplementary groups and root privileges to those verified
+   IDs, then checks its resulting real/effective UID/GID. The controller and SSH
+   stay root.
 4. Loads each required device library and the local KindleBT library with
    RTLD_NOW, checks required symbols, and closes handles. It does not call
    openSession, registration, radio, connection or write APIs.

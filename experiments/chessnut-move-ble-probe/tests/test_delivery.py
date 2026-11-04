@@ -200,4 +200,14 @@ class RelocationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'PIE'):
             delivery.inspect_elf(bytes(data), executable=True)
 
+
+class NativeIdentityTests(unittest.TestCase):
+    def test_daemon_identity_matches_observed_ids_not_passwd_primary_group(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = Path(tmp) / 'identity-test'
+            compiled = subprocess.run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-I', str(ROOT / 'native'), str(ROOT / 'tests/native_identity_test.c'), '-o', str(binary)], capture_output=True)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr.decode())
+            subprocess.run([str(binary)], check=True, timeout=5)
+
 if __name__ == '__main__': unittest.main()

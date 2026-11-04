@@ -206,3 +206,9 @@ PIE and COPY-relocation checks. The C source and vendor/KindleBT code are
 unchanged. See [the evidence and confidence limits](../notes/M1_STARTUP_CRASH.md).
 The user stopped the Kindle; no redeployment or SSH retest occurred during
 this investigation. H1 remains failed until the corrected candidate is tested.
+
+Preflight identity verification was also corrected after observing that the
+passwd primary GID is 150 while btmanagerd runs as UID/GID 1003. It now validates
+all four kernel process UID/GID fields against the named account/group instead
+of assuming primary-GID equality; host C fixtures cover malformed and mismatched
+records. No system accounts or services are changed.
