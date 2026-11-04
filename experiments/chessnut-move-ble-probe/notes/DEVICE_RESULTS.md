@@ -395,3 +395,37 @@ M3 source b6ca863 still matches the verified receipt, and preflight/privilege/
 loader/dependency checks PASS with exit 0 and lock cleared. No board connection
 or command ran during this check. Stale-entry recovery remains unverified until
 the next single, human-triggered connection/discovery attempt.
+
+
+## Post-restart connection failure differs — 2026-11-04
+
+At 22:59:39 CET one advertisement-triggered M3 connection attempt started on the
+fresh daemon (PID 4260). Public connect again returned -2 after ten seconds;
+no discovery, subscription or board write ran (write_api_calls=0). Cleanup APIs
+returned 0, final exit was 1, lock cleared and the subsequent read-only process
+check found no probe process. No automatic retry occurred.
+
+The current system log had rotated; read-only retrieval of existing compressed
+logs preserved the 22:59 evidence privately. Unlike the previous attempts, both
+client registration and connection lookup used the same fresh session UUID and
+node. The earlier stale-node routing failure did not recur in this attempt.
+The controller briefly reported a link, followed at 22:59:40 by GATT disconnect
+reason 62 (0x3e, failed establishment in the pinned vendor headers), xStatus 133
+and BLE connection failure status 10. No MTU evidence was obtained. This is a
+new establishment failure; the restart did not restore successful discovery,
+and no specific cause (range, interference, peer state or stack issue) is proved.
+
+A read-only CoreBluetooth retrieveConnectedPeripherals query for the board's
+two known services returned zero matches for the known board UUID. It requested
+no scan, connection, read, subscription or write. This does not prove absence
+of every other possible BLE client; it found no current Mac connection.
+
+H3 remains BLOCKED. Next reviewed diagnostic: a single Mac-only, advertisement-
+triggered connection to the exact already-identified board, bounded service/
+characteristic discovery, then disconnection, with no subscription or write.
+The Kindle must remain idle throughout. The helper selects only the private
+known UUID, stops scanning before connecting, logs RSSI and waits for callbacks;
+timeout/failure is terminal. This cross-check tests current board availability
+on another host rather than blindly repeating the failed Kindle attempt. No
+further board button press or connection has occurred yet; human interaction
+is needed once the listener is ready. No firmware/service changes are proposed.
