@@ -31,8 +31,6 @@ fn discovery_session_disconnect_reconnect_and_unsupported_writes() {
         "database",
         &[
             "services",
-            "battery",
-            "leds e4 green",
             "set-fen bad",
             "motion-enable",
             "stop",

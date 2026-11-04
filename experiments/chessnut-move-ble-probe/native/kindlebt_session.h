@@ -6,12 +6,15 @@
 #include <stdatomic.h>
 #include <time.h>
 #include "session_core.h"
+#include "m3_wire.h"
+#include "log.h"
 /* Exact pinned header types; no guessed layouts or direct ACE calls. */
 _Static_assert(ACE_STATUS_OK == 0, "portable lifecycle expects zero success");
 #define PROBE_FUNCTIONS(X) \
  X(openSession) X(closeSession) X(bleRegister) X(bleDeregister) \
  X(bleRegisterGattClient) X(bleDeregisterGattClient) X(bleConnect) X(bleDisconnect) \
- X(bleDiscoverAllServices) X(bleGetDatabase) X(bleCleanupGattService) X(dca_find_by_handle)
+ X(bleDiscoverAllServices) X(bleGetDatabase) X(bleCleanupGattService) X(dca_find_by_handle) \
+ X(bleSetNotification) X(bleWriteCharacteristic)
 #define PROBE_FIELD(name) __typeof__(&name) name;
 struct probe_native {
     PROBE_FUNCTIONS(PROBE_FIELD)
@@ -20,8 +23,20 @@ struct probe_native {
     bleConnHandle connection;
     bleGattsService_t *database;
     uint32_t count;
+    size_t write_api_calls;
+    FILE *wire;
+    pthread_mutex_t state_lock;
+    probe_notifications notifications;
+    struct aceBT_gattCharRec_t *position_record,*command_record,*response_record;
+    bool subscribed[2],leds_maybe,write_pending,write_done,mtu_seen;
+    int write_status,mtu_status,observed_mtu;
+    bleConnHandle mtu_connection;
+    unsigned char write_bytes[34],clear_bytes[34];
+    bleGattCharacteristicsValue_t write_value,clear_value;
 };
 #undef PROBE_FIELD
+static _Atomic(struct probe_native *) active_native;
+static int native_m3_cleanup(struct probe_native *n);
 static volatile sig_atomic_t session_cancelled;
 static atomic_bool unexpected_callback;
 static atomic_int discovery_status;
@@ -39,19 +54,17 @@ static void got_database(bleConnHandle connection, bleGattsService_t *database, 
     /* Library deep-copies before this callback. Never retain the borrowed DB. */
     atomic_store(&database_callback,true);
 }
-static void unexpected_notification(bleConnHandle connection, bleGattCharacteristicsValue_t value) {
-    (void)connection; (void)value;
-    /* M2 does not subscribe or accept board data. Do not dereference payloads. */
-    atomic_store(&unexpected_callback,true);
-}
+static void unexpected_notification(bleConnHandle connection,bleGattCharacteristicsValue_t value);
+static void wrote(bleConnHandle connection,bleGattCharacteristicsValue_t value,status_t status);
 static bleGattClientCallbacks_t session_callbacks = {
     .size=sizeof(bleGattClientCallbacks_t),
     .on_ble_gattc_service_discovered_cb=discovered,
     .on_ble_gattc_get_gatt_db_cb=got_database,
     .notify_characteristics_cb=unexpected_notification,
+    .on_ble_gattc_write_characteristics_cb=wrote,
 };
 static int native_status(const char *stage, status_t status) {
-    fprintf(session_diagnostics,"timestamp_unix=%ld phase=M2 stage=%s status=%d\n",(long)time(NULL),stage,(int)status);
+    fprintf(session_diagnostics,"timestamp_unix=%ld phase=M3 stage=%s status=%d\n",(long)time(NULL),stage,(int)status);
     fflush(session_diagnostics);
     return (int)status;
 }
@@ -93,9 +106,10 @@ static int native_database(void *p) {
 }
 static int native_free(void *p) {
     struct probe_native *n=p;
-    int status=0;
+    int status=native_m3_cleanup(n);
+    pthread_mutex_lock(&n->state_lock);n->position_record=NULL;n->command_record=NULL;n->response_record=NULL;pthread_mutex_unlock(&n->state_lock);
     if (n->count>32) { n->database=NULL; n->count=0; return -1; }
-    if (n->database!=NULL) status=native_status("cleanup_database",n->bleCleanupGattService(n->database,(int)n->count));
+    if (n->database!=NULL) { int freed=native_status("cleanup_database",n->bleCleanupGattService(n->database,(int)n->count));if(freed!=0)status=freed; }
     n->database=NULL; n->count=0; return status;
 }
 static int native_disconnect(void *p) { struct probe_native *n=p; return native_status("cleanup_disconnect",n->bleDisconnect(n->connection)); }
@@ -157,6 +171,8 @@ static void ipc_error(FILE *wire, unsigned int id, const char *stage, int status
     /* stage is a program constant; no vendor diagnostics or addresses cross IPC. */
     fprintf(wire,"{\"v\":1,\"id\":%u,\"report\":{\"type\":\"error\",\"code\":\"%s_status_%d\"}}\n",id,stage,status); fflush(wire);
 }
+#include "kindlebt_m3.h"
+
 static int session_worker(const char *library, const char *required) {
     FILE *wire=fdopen(dup(STDOUT_FILENO),"w");
     session_diagnostics=fdopen(dup(STDERR_FILENO),"w");
@@ -174,10 +190,17 @@ static int session_worker(const char *library, const char *required) {
     signal(SIGPIPE,SIG_IGN);
     void *handle=dlopen(library,RTLD_NOW|RTLD_LOCAL);
     if (handle==NULL) { ipc_error(wire,0,"kindlebt_load",-1); return 1; }
-    struct probe_native n={0};
+    /* Callbacks may already have loaded active_native during final teardown.
+     * This one-session process keeps the context/mutex alive until OS exit. */
+    static struct probe_native n;
+    n.wire=wire;
+    if(pthread_mutex_init(&n.state_lock,NULL)!=0)return 1;
+    active_native=&n;
 #define PROBE_LOAD(name) n.name=(__typeof__(n.name))dlsym(handle,#name); if (n.name==NULL) { ipc_error(wire,0,"required_symbol",-1); return 1; }
     PROBE_FUNCTIONS(PROBE_LOAD)
 #undef PROBE_LOAD
+    __typeof__(&log_add_callback) observe=(__typeof__(&log_add_callback))dlsym(handle,"log_add_callback");
+    if(observe!=NULL && observe(mtu_observer,NULL,LOG_DEBUG)==0)fprintf(session_diagnostics,"phase=M3 mtu_observer=registered source=pinned_KindleBT_callback_log\n");
     n.contexts=dlsym(handle,"devices_context");
     if (n.contexts==NULL) { ipc_error(wire,0,"required_state_symbol",-1); return 1; }
     const probe_api api={native_open,native_register,native_gatt,native_connect,native_discover,native_database,native_free,native_disconnect,native_ungatt,native_unregister,native_close};
@@ -185,7 +208,8 @@ static int session_worker(const char *library, const char *required) {
     char input[4097], operation[16], address[18], snapshot[4097];
     size_t used=0; unsigned int previous=0, id=0; bool quit=false; int result=0;
     while (!quit && !session_cancelled) {
-        if (atomic_load(&unexpected_callback)) { ipc_error(wire,0,"unexpected_callback",-1); result=1; break; }
+        flush_notifications(&n);
+        if (atomic_load(&unexpected_callback)) { ipc_error(wire,0,"invalid_callback_or_notification_overflow",-1); result=1; break; }
         if (session.connected && !native_connected(&n)) { ipc_report(wire,0,"disconnected"); result=1; break; }
         struct pollfd fd={.fd=STDIN_FILENO,.events=POLLIN};
         int ready=poll(&fd,1,50);
@@ -198,9 +222,19 @@ static int session_worker(const char *library, const char *required) {
         input[used++]=byte;
         if (byte!='\n') continue;
         input[used]=0; used=0;
-        if (!probe_request(input,&id,operation,address) || id<=previous) { ipc_error(wire,0,"invalid_request",-1); result=1; break; }
+        probe_packet packet;bool write_request=probe_write_request(input,&id,&packet);
+        bool simple_request=write_request ? false : probe_request(input,&id,operation,address);
+        if ((!write_request && !simple_request) || id<=previous) { ipc_error(wire,0,"invalid_or_forbidden_request",-1); result=1; break; }
         previous=id;
-        if (strcmp(operation,"connect")==0) {
+        if(write_request) {
+            if(!session.connected || native_write_packet(&n,&packet)!=0) {ipc_error(wire,id,"write_rejected_or_callback_failed",-1);result=1;break;}
+            ipc_report(wire,id,"ok");
+        } else if(strcmp(operation,"subscribe")==0) {
+            if(!session.connected || native_subscribe(&n)!=0) {ipc_error(wire,id,"subscribe_failed",-1);result=1;break;}
+            ipc_report(wire,id,"ok");
+        } else if(strcmp(operation,"capabilities")==0) {
+            capabilities_report(&n,id);
+        } else if (strcmp(operation,"connect")==0) {
             unsigned char bytes[6];
             if (!probe_address(address,bytes) || probe_connect(&session,bytes)!=0) { ipc_error(wire,id,session.stage?session.stage:"address",session.status); result=1; break; }
             ipc_report(wire,id,"connected");
@@ -217,9 +251,10 @@ static int session_worker(const char *library, const char *required) {
     }
     if (used!=0 && !session_cancelled) { ipc_error(wire,0,"partial_frame",-1); result=1; }
     if (probe_cleanup(&session)!=0) result=1;
-    fprintf(session_diagnostics,"timestamp_unix=%ld phase=M2 stage=cleanup result=%s writes=0\n",(long)time(NULL),result?"FAIL":"PASS"); fflush(session_diagnostics);
+    fprintf(session_diagnostics,"timestamp_unix=%ld phase=M3 stage=cleanup result=%s write_api_calls=%zu\n",(long)time(NULL),result?"FAIL":"PASS",n.write_api_calls); fflush(session_diagnostics);
     /* Do not dlclose callback code while upstream threads might still unwind.
      * This one-session process exits immediately; OS releases library mappings. */
+    active_native=NULL;
     fclose(wire); fclose(session_diagnostics); return result;
 }
 #endif

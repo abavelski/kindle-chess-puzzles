@@ -1,4 +1,4 @@
-//! M2 discovery-only controller. No path from shell input to a board write.
+//! M3 controller. Only explicit SDK telemetry and guarded LED commands can write.
 use crate::{
     discovery::validate_database,
     ipc::{Client, Operation, Report},
@@ -79,20 +79,22 @@ pub fn run_session(
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_secs();
-    writeln!(output,"timestamp_unix={timestamp} phase=M2 build={} protocol=1.0.2 address=[REDACTED] writes=DISABLED",env!("CARGO_PKG_VERSION")).map_err(|e|e.to_string())?;
+    writeln!(output,"timestamp_unix={timestamp} phase=M3 build={} protocol=1.0.2 address=[REDACTED] motor_packets=BLOCKED",env!("CARGO_PKG_VERSION")).map_err(|e|e.to_string())?;
     let mut client = Some(connect(
         worker, address, output, &cancelled, timeout, grace,
     )?);
-    writeln!(output,"Commands: services, disconnect, connect (explicit reconnect), quit. Board writes are UNSUPPORTED.").map_err(|e|e.to_string())?;
+    writeln!(output,"Commands: services, telemetry, battery, pieces, watch 20, mtu, leds e4 green, leds-clear, disconnect, connect, quit. Motor commands are UNSUPPORTED.").map_err(|e|e.to_string())?;
     let mut prompt = true;
+    let mut streaming = false;
+    let mut deferred = None;
     loop {
         if cancelled.load(Ordering::Relaxed) {
-            return Err("session interrupted; worker cleanup requested; no writes sent".into());
+            return Err(
+                "session interrupted; worker cleanup requested; no automatic retries".into(),
+            );
         }
         if let Some(current) = &mut client {
-            current
-                .poll_session()
-                .map_err(|e| format!("session lost: {e:?}; no automatic reconnect"))?;
+            crate::m3_session::drain(current, output)?;
         }
         if prompt {
             write!(output, "probe> ")
@@ -100,22 +102,41 @@ pub fn run_session(
                 .map_err(|e| e.to_string())?;
             prompt = false;
         }
-        let line = match input.recv_timeout(Duration::from_millis(25)) {
-            Ok(line) => line?,
-            Err(RecvTimeoutError::Timeout) => continue,
-            Err(RecvTimeoutError::Disconnected) => {
-                disconnect(&mut client, output)?;
-                return Ok(());
+        let line = if let Some(line) = deferred.take() {
+            line
+        } else {
+            match input.recv_timeout(Duration::from_millis(25)) {
+                Ok(line) => line?,
+                Err(RecvTimeoutError::Timeout) => continue,
+                Err(RecvTimeoutError::Disconnected) => {
+                    disconnect(&mut client, output)?;
+                    return Ok(());
+                }
             }
         };
         prompt = true;
+        if let Some(current) = &mut client {
+            let (handled, next) = crate::m3_session::execute(
+                line.trim(),
+                current,
+                &mut streaming,
+                &input,
+                output,
+                timeout,
+            )?;
+            if handled {
+                deferred = next;
+                continue;
+            }
+        }
         match line.trim() {
             "quit" | "exit" => {
                 disconnect(&mut client, output)?;
                 return Ok(());
             }
-            "disconnect" => disconnect(&mut client, output)?,
+            "disconnect" => {disconnect(&mut client, output)?;streaming=false;},
             "connect" if client.is_none() => {
+                streaming=false;
                 client = Some(connect(
                     worker, address, output, &cancelled, timeout, grace,
                 )?)
@@ -132,12 +153,12 @@ pub fn run_session(
             }
             "" | "help" => writeln!(
                 output,
-                "services | disconnect | connect | quit; writes UNSUPPORTED in M2"
+                "services | telemetry | battery | pieces | watch 20 | mtu | leds <square> <color> | leds-clear | disconnect | connect | quit; motor commands UNSUPPORTED"
             )
             .map_err(|e| e.to_string())?,
             _ => writeln!(
                 output,
-                "UNSUPPORTED: M2 permits discovery only; no board writes sent"
+                "UNSUPPORTED: no command write sent; motion-enable, set-fen and STOP remain unavailable in M3"
             )
             .map_err(|e| e.to_string())?,
         }

@@ -1,7 +1,9 @@
 pub mod discovery;
 pub mod ipc;
+pub mod m3_session;
 pub mod preflight;
 pub mod session;
+pub mod telemetry;
 
 use chessnut_move::protocol::{AutoMoveMode, Color, Command, Piece, PieceKind, Position};
 

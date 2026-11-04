@@ -49,7 +49,9 @@ fn main() {
                 ),
                 _ => emit(id, Report::Connected),
             },
-            Operation::Discover if scenario.starts_with("database") => {
+            Operation::Discover
+                if (scenario.starts_with("database") || scenario.starts_with("m3")) =>
+            {
                 let mut records = [
                     (POSITION_SERVICE, POSITION_UUID, 0x10),
                     (COMMAND_SERVICE, WRITE_UUID, 0x0c),
@@ -93,6 +95,24 @@ fn main() {
                     },
                 },
             ),
+            Operation::Capabilities => emit(
+                id,
+                Report::Capabilities {
+                    mtu: if scenario == "m3-mtu-unknown" {
+                        None
+                    } else if scenario == "m3-mtu-small" {
+                        Some(23)
+                    } else {
+                        Some(64)
+                    },
+                    callback_status: if scenario == "m3-mtu-unknown" {
+                        None
+                    } else {
+                        Some(0)
+                    },
+                },
+            ),
+            Operation::Subscribe if scenario.starts_with("m3") => emit(id, Report::Ok),
             Operation::Subscribe => {
                 emit(id, Report::Ok);
                 emit(
@@ -111,6 +131,67 @@ fn main() {
                         },
                     },
                 );
+            }
+            Operation::Write { bytes, write_kind } if scenario.starts_with("m3") => {
+                let allowed = (write_kind == WriteMode::WithResponse
+                    && [vec![0x21, 1, 0], vec![0x41, 1, 0x0c], vec![0x41, 1, 0x0b]]
+                        .contains(&bytes))
+                    || (write_kind == WriteMode::WithoutResponse
+                        && bytes.len() == 34
+                        && bytes[..2] == [0x43, 0x20]);
+                assert!(allowed, "M3 must never dispatch a motor/unknown packet");
+                if scenario == "m3-write-failed" {
+                    emit(
+                        id,
+                        Report::Error {
+                            code: "write_callback_failed".into(),
+                        },
+                    );
+                    continue;
+                }
+                if scenario == "m3-disconnect" {
+                    emit(0, Report::Disconnected);
+                    continue;
+                }
+                emit(id, Report::Ok);
+                if bytes == [0x21, 1, 0] && scenario != "m3-no-position" {
+                    emit(
+                        0,
+                        Report::Notification {
+                            source: POSITION_UUID.into(),
+                            bytes: if scenario == "m3-malformed" {
+                                vec![0; 20]
+                            } else {
+                                vec![0; 34]
+                            },
+                        },
+                    );
+                } else if bytes == [0x41, 1, 0x0c] && scenario != "m3-battery-timeout" {
+                    emit(
+                        0,
+                        Report::Notification {
+                            source: RESPONSE_UUID.into(),
+                            bytes: vec![0x41, 3, 0x0c, 1, 72],
+                        },
+                    );
+                } else if bytes == [0x41, 1, 0x0b] {
+                    let identities = [
+                        1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 0x07, 0x07, 0x07, 0x07,
+                        0x07, 0x07, 0x07, 0x07, 0x08, 0x08, 0x09, 0x09, 0x0a, 0x0a, 0x0b, 0x0b,
+                        0x0c,
+                    ];
+                    let mut bytes = vec![0x41, 0x89, 0x0b];
+                    for identity in identities {
+                        bytes.extend([identity, 0, 0, 50]);
+                    }
+                    emit(
+                        0,
+                        Report::Notification {
+                            source: RESPONSE_UUID.into(),
+                            bytes,
+                        },
+                    );
+                }
             }
             Operation::Write { .. } => match scenario.as_str() {
                 "write-failure" => emit(

@@ -1,4 +1,4 @@
-# Worker IPC version 1 (M2 native discovery subset)
+# Worker IPC version 1 (M3 non-motor subset)
 
 UTF-8, one JSON object per LF-terminated frame. Maximum **4096 bytes including
 LF**, notification payload maximum **512 bytes**, command maximum **35 bytes**.
@@ -15,7 +15,7 @@ Request shape (ID starts at 1 and increases, no concurrent requests):
 
 Operations: `connect` with `address`, `discover`, `subscribe` (both position and
 response), `write` with integer-array `bytes` and explicit `write_kind`
-(`with_response` or `without_response`), `disconnect`, `shutdown`.
+(`with_response` or `without_response`), `capabilities`, `disconnect`, `shutdown`.
 `Operation::from_command` copies the SDK's complete bytes and write kind;
 there is no truncation, fragmentation, or write-mode substitution.
 
@@ -31,7 +31,8 @@ for failures. Discovery checks all five SDK UUIDs; actual service membership,
 characteristic properties and native UUID byte order are validated by the M2
 controller using the native `database` report below. The legacy flat `services`
 variant remains only for M0 mock transport tests. `ok` on a
-write means worker acceptance only, never physical movement or settled state.
+write means native API acceptance and successful callback, never board acknowledgement,
+physical movement or settled state.
 
 ID **0** is reserved for asynchronous `notification` (`source` is the
 characteristic UUID, `bytes` is a byte array) and unsolicited `disconnected`.
@@ -43,11 +44,13 @@ unbounded memory growth. Protocol frames have bounded allocation before JSON
 parsing. The SDK position decoder accepts its documented minimum length and
 piece codes; it does not validate the first two position-header bytes.
 
-Each operation has one deadline including intervening notifications. Error,
+Each request has one deadline including intervening notifications. A quiet timed
+observation poll returns no event without closing; the caller owns the query or
+watch deadline. Error,
 timeout, EOF, malformed frame, or unexpected disconnect makes the client
 terminal: close pipes, kill/reap child, join reader, discard cached events.
 The mock worker never starts descendants or inherits stdout to another process;
-the future native worker must follow the same ownership contract.
+the native worker follows the same ownership contract.
 
 `interrupt()` sends DISCONNECT then SHUTDOWN. The M2 CLI wires SIGINT/SIGTERM/HUP
 to cancellation, checks for it during requests, and polls for unsolicited link
@@ -66,9 +69,12 @@ and increasing nonzero 32-bit IDs. It reconstructs and compares the complete
 frame, rejecting duplicate/unknown fields, alternate/escaped spellings, extra
 bytes, NUL and partial EOF. This is intentionally a strict JSON subset rather
 than a general JSON parser. Input allocation is bounded before parsing.
-Only CONNECT, DISCOVER, DISCONNECT and SHUTDOWN are accepted; native SUBSCRIBE
-and WRITE requests fail and clean up without executing a board operation.
-The M0 typed encoders/decoder mocks still test future transport operations.
+CONNECT, DISCOVER, SUBSCRIBE, CAPABILITIES, WRITE, DISCONNECT and SHUTDOWN
+are accepted. WRITE has an independent native allowlist: SDK realtime-enable,
+battery/piece queries (three bytes, WithResponse), or 34-byte single-square LED
+and all-off packets (WithoutResponse). Unknown packets, alternate modes and all
+35-byte motor/STOP packets fail before the API. LED writes additionally require
+observed MTU >=37 and both successful subscriptions. No automatic retry exists.
 
 Native discovery returns a complete, bounded snapshot of up to 20 characteristic
 records across at most 32 services (larger, cyclic or inconsistent lists fail):
@@ -90,8 +96,14 @@ UUID or service-less lookup is accepted.
 The native worker owns one library/session/connection and cloned database.
 KindleBT deep-copies borrowed database callback data; the worker retains only
 the returned owned clone and frees it before disconnect/deregistration/close.
-Application callbacks use atomics and never retain borrowed values. An unexpected
-notification terminates M2 without decoding or dereferencing its payload.
+Application callbacks copy 1..512 notification bytes into a mutex-protected,
+16-slot ring; connection, record handle/full UUID, blob format and offset are
+validated first. Only the owner thread serializes notifications. Unknown records,
+malformed callbacks and overflow terminate the session. WRITE waits up to five
+seconds for its matching callback for both modes. Pending payload memory remains
+owned by the worker through cleanup, including timeout. Further writes are
+refused after a callback timeout, except a final fixed, explicitly best-effort
+all-off cleanup packet. Partial subscriptions are unwound independently.
 Repeated SERVICES uses the cached clone; it never starts overlapping retrieval.
 Explicit reconnect from the CLI starts a fresh worker; there is no automatic retry.
 
@@ -107,3 +119,24 @@ any session. Protocol output uses a dedicated saved descriptor; upstream
 stdout/stderr are suppressed during session APIs to prevent address leaks and
 protocol corruption. Only our stage/numeric-status diagnostics reach stderr.
 No optional raw vendor logging switch is exposed.
+
+## M3 capabilities and observation
+
+```json
+{"v":1,"id":3,"operation":{"type":"capabilities"}}
+{"v":1,"id":3,"report":{"type":"capabilities","mtu":64,"callback_status":0}}
+```
+
+64 above is illustrative, not a device result. MTU is null unless an actual
+successful 23..517 callback belongs to the current connection. The optional
+log.c observer reads the exact pinned callback format/name and numeric arguments
+without forwarding raw vendor logs or addresses. An absent observer/callback
+means unknown; it never infers MTU from notification lengths. No negotiation API
+is added. 35-byte delivery is always UNVERIFIED in M3.
+
+Decoded observations retain raw bytes and canonical source UUID. The CLI prints
+piece placement without fabricated FEN metadata. Every telemetry/status command
+requires initial realtime position and bounded response deadlines. Native cleanup
+attempts LEDs off, unsubscribes acquired subscriptions, frees the owned database,
+disconnects and releases registrations/session, reporting failures at each stage.
+No realtime-disable packet exists in the pinned SDK; disconnect ends streaming.

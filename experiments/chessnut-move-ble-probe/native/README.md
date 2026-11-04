@@ -280,3 +280,33 @@ on fd 3 before spawning in the background; a regression and on-device input
 probe verify that boundary. The board’s BLE availability is short, with no exact
 window measured; prepare the command before human button activation. See
 DEVICE_RESULTS.md for final evidence. M2 is Implemented; stop before M3.
+
+
+## M3 notification, write and MTU boundary (host-ready, H3 NOT TESTED)
+
+The worker now resolves bleSetNotification/bleWriteCharacteristic against the
+same real pinned headers, with an independent strict parser and non-motor packet
+allowlist in m3_wire.h. kindlebt_m3.h handles both notification subscriptions,
+bounded callback copies, callback completion, LED cleanup and optional MTU evidence.
+The old M2 behavior above describes the accepted installed build; M3 is not yet
+deployed. Native tests cover partial subscription unwind, exact forward/reversed
+UUID and parent matching, copied payload lifetime, invalid blob format/size,
+write API/callback failures, callback timeout and fixed all-off cleanup.
+
+MTU uses exported log_add_callback from the checksummed log.c build. The observer
+matches precisely the pinned bleMtuUpdatedCallback format and function name, then
+copies numeric status, MTU and connection from va_list. Only status 0 for the
+current connection and MTU 23..517 becomes known. No raw vendor log is emitted;
+missing exports/callback or unexpected formats yield unknown. This is a private,
+version-specific source contract, not a public getter or a negotiated MTU request.
+The library is unchanged, and its mapping remains live until worker exit.
+
+Both write modes require API and matching callback success within five seconds;
+WithoutResponse completion is local stack evidence, not a board ACK. SDK LED
+packets are 34 bytes and require observed MTU >=37. Writes use persistent worker
+buffers even after timeouts. Normal cleanup sends all-off before unsubscribing;
+after an ambiguous timeout, a separate persistent all-off buffer is used for one
+best-effort cleanup write and cleanup remains failed. The database is freed only
+after subscription cleanup. No motor/STOP packet is permitted, no payload is
+split or truncated, and no command is replayed on reconnect. Hardware notification
+sizes, actual MTU, callback availability and physical LED behavior need H3.

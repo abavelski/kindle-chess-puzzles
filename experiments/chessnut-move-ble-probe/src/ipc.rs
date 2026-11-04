@@ -1,4 +1,4 @@
-//! Bounded process IPC. Native M2 accepts only connect/discover/disconnect/shutdown.
+//! Bounded process IPC with terminal failures and a native non-motor allowlist.
 use chessnut_move::protocol::{self, BoardEvent, Command, WriteKind};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -31,6 +31,7 @@ pub enum Operation {
     },
     Discover,
     Subscribe,
+    Capabilities,
     Write {
         bytes: Vec<u8>,
         write_kind: WriteMode,
@@ -67,6 +68,10 @@ pub enum Report {
     },
     Database {
         records: Vec<crate::discovery::GattRecord>,
+    },
+    Capabilities {
+        mtu: Option<u16>,
+        callback_status: Option<i32>,
     },
     Notification {
         source: String,
@@ -116,21 +121,6 @@ pub fn read_report(reader: &mut impl BufRead) -> Result<Envelope, Error> {
     Ok(envelope)
 }
 
-fn decode_notification(source: &str, bytes: &[u8]) -> Result<BoardEvent, Error> {
-    if bytes.len() > MAX_PAYLOAD {
-        return Err(Error::MalformedNotification);
-    }
-    match source {
-        POSITION_UUID => protocol::decode_position_notification(bytes)
-            .map(BoardEvent::PositionChanged)
-            .map_err(|_| Error::MalformedNotification),
-        RESPONSE_UUID => {
-            protocol::decode_response_notification(bytes).map_err(|_| Error::MalformedNotification)
-        }
-        _ => Err(Error::MalformedNotification),
-    }
-}
-
 pub struct Client {
     child: Child,
     input: Option<ChildStdin>,
@@ -141,7 +131,7 @@ pub struct Client {
     closed: bool,
     cancelled: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     grace: Duration,
-    notifications: std::collections::VecDeque<BoardEvent>,
+    notifications: std::collections::VecDeque<crate::telemetry::Observed>,
 }
 impl Client {
     pub fn spawn(command: &mut ProcessCommand, timeout: Duration) -> Result<Self, Error> {
@@ -214,7 +204,7 @@ impl Client {
             }
         }
     }
-    /// M2 idle poll: unexpected traffic or link loss is terminal, including
+    /// Idle poll: invalid traffic or link loss is terminal, including
     /// while the operator is reading the prompt rather than issuing a request.
     pub fn poll_session(&mut self) -> Result<(), Error> {
         match self.reports.try_recv() {
@@ -229,6 +219,18 @@ impl Client {
                 report: Report::Error { code },
                 ..
             })) => Err(Error::Worker(code)),
+            Ok(Ok(Envelope {
+                id: 0,
+                report: Report::Notification { source, bytes },
+                ..
+            })) => {
+                if self.notifications.len() >= 16 {
+                    return Err(Error::Protocol);
+                }
+                self.notifications
+                    .push_back(crate::telemetry::decode_observed(&source, &bytes)?);
+                Ok(())
+            }
             Ok(Err(error)) => Err(error),
             Err(mpsc::TryRecvError::Disconnected) => Err(Error::WorkerExited),
             _ => Err(Error::Protocol),
@@ -260,7 +262,7 @@ impl Client {
         let clean = self.grace.is_zero()
             || matches!(self.child.try_wait(), Ok(Some(status)) if status.success());
         if !clean && !self.grace.is_zero() {
-            eprintln!("phase=M2 cleanup=FAIL worker did not exit successfully within grace; forcing reap; verify board is disconnected before retrying");
+            eprintln!("phase=M3 cleanup=FAIL worker exit was unsuccessful or forced; verify board is disconnected before retrying");
         }
         let _ = self.child.kill();
         let _ = self.child.wait();
@@ -323,7 +325,7 @@ impl Client {
                         return Err(Error::Protocol);
                     }
                     self.notifications
-                        .push_back(decode_notification(&source, &bytes)?);
+                        .push_back(crate::telemetry::decode_observed(&source, &bytes)?);
                 }
                 Report::Disconnected if envelope.id == 0 => return Err(Error::Disconnected),
                 Report::Error { code } if envelope.id == 0 => return Err(Error::Worker(code)),
@@ -351,6 +353,16 @@ impl Client {
                                 return Err(Error::Protocol);
                             }
                         }
+                        Report::Capabilities {
+                            mtu,
+                            callback_status,
+                        } if matches!(operation, Operation::Capabilities) => {
+                            if mtu.is_some_and(|v| !(23..=517).contains(&v))
+                                || (mtu.is_some() && *callback_status != Some(0))
+                            {
+                                return Err(Error::Protocol);
+                            }
+                        }
                         Report::Connected if matches!(operation, Operation::Connect { .. }) => (),
                         Report::Disconnected if matches!(operation, Operation::Disconnect) => (),
                         Report::Ok
@@ -368,27 +380,47 @@ impl Client {
             }
         }
     }
-    pub fn next_notification(&mut self, timeout: Duration) -> Result<BoardEvent, Error> {
+    pub fn take_observed(&mut self) -> Option<crate::telemetry::Observed> {
+        self.notifications.pop_front()
+    }
+    pub fn next_observed(
+        &mut self,
+        timeout: Duration,
+    ) -> Result<Option<crate::telemetry::Observed>, Error> {
         if self.closed {
             return Err(Error::Closed);
         }
         if let Some(event) = self.notifications.pop_front() {
-            return Ok(event);
+            return Ok(Some(event));
         }
         let result = (|| {
             let envelope = self.receive(Instant::now() + timeout)?;
             match envelope.report {
                 Report::Notification { source, bytes } if envelope.id == 0 => {
-                    decode_notification(&source, &bytes)
+                    crate::telemetry::decode_observed(&source, &bytes).map(Some)
                 }
                 Report::Disconnected if envelope.id == 0 => Err(Error::Disconnected),
+                Report::Error { code } if envelope.id == 0 => Err(Error::Worker(code)),
                 _ => Err(Error::Protocol),
             }
         })();
-        if result.is_err() {
-            self.close();
+        match result {
+            Err(Error::Timeout) => Ok(None),
+            Err(error) => {
+                self.close();
+                Err(error)
+            }
+            value => value,
         }
-        result
+    }
+    pub fn next_notification(&mut self, timeout: Duration) -> Result<BoardEvent, Error> {
+        match self.next_observed(timeout)? {
+            Some(observed) => Ok(observed.event),
+            None => {
+                self.close();
+                Err(Error::Timeout)
+            }
+        }
     }
     /// Host-testable interruption path; live signal wiring belongs to the
     /// native session milestone. Never sends an auto-move or replays a write.

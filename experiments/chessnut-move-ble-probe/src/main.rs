@@ -93,11 +93,11 @@ fn run() -> Result<(), String> {
             Ok(())
         }
         [command] if command == "--help" || command == "help" => {
-            println!("chessnut-ble-probe packet-fen '<six-field FEN>'\nMilestone 2: preflight (no connection), packet-fen (offline), session --address XX:XX:XX:XX:XX:XX (discovery only). All board writes are UNSUPPORTED.");
+            println!("chessnut-ble-probe packet-fen '<six-field FEN>'\nMilestone 3: preflight (no connection), packet-fen (offline), session --address XX:XX:XX:XX:XX:XX. Explicit telemetry and guarded LEDs only; motor commands are UNSUPPORTED.");
             Ok(())
         }
         _ => Err(
-            "UNSUPPORTED: Milestone 2 provides preflight, session --address <private BLE address>, packet-fen '<six-field FEN>' and --help"
+            "UNSUPPORTED: Milestone 3 provides preflight, session --address <private BLE address>, packet-fen '<six-field FEN>' and --help"
                 .into(),
         ),
     }

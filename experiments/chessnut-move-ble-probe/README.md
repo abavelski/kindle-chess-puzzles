@@ -8,7 +8,8 @@ original chess app displays, responds and exits normally; its binary and 120
 data files retain their pre-update hashes. **M2 is Implemented; H2 passed on
 2026-11-04.** Kindle connection, required UUID/property discovery, clean disconnect,
 reconnect and exit passed, with human acceptance. The installed build is
-`f19ecfb`. All board writes remain disabled. See
+`f19ecfb`. The M3 implementation is host-ready and staged, **not deployed**;
+H3 remains NOT TESTED. The installed M2 build still has all board writes disabled. See
 [device results](notes/DEVICE_RESULTS.md) and
 [the startup diagnosis and fixes](notes/M1_STARTUP_CRASH.md).
 
@@ -23,7 +24,12 @@ All changes and completion records stay in this experiment.
   deployment, H1 preflight and human original-app verification passed.
 - [x] M2 — Implemented: discovery-only session, connection diagnostics, cleanup,
   host gates, deployment and human H2 connection/discovery/reconnect passed.
-- [ ] M3 — Telemetry/LED/MTU evidence; H3 read-only checkpoint.
+- [ ] M3 — Host implementation complete; deployment and H3 pending.
+  - [x] Both notification subscriptions, SDK realtime, battery and piece queries.
+  - [x] Bounded raw/decoded observations, terminal query deadlines, watch mode.
+  - [x] One-square LED/on-off policy, MTU evidence and cleanup; motor packets blocked.
+  - [x] Host tests, pinned-header adapter checks, ARM build and stage validation.
+  - [ ] Deploy and pass physical H3; compare real placement, hand move and LEDs.
 - [ ] M4 — Guarded motor control; H4 motors checkpoint.
 - [ ] M5 — Reliability/rollback; H5 independence checkpoint.
 
@@ -114,7 +120,7 @@ sh /mnt/us/chessnut-ble-probe/runtime/launch.sh preflight
 echo "exit_status=$?"
 ```
 
-The M2 launcher accepts **preflight** or **session --address <address>**. It checks checksums and the loader,
+The launcher accepts **preflight** or **session --address <address>**. It checks checksums and the loader,
 sets LD_LIBRARY_PATH to the runtime directory only, and holds an operation lock.
 The Rust controller prints a timestamp and build/protocol versions, spawns its
 sibling C worker and limits execution to 15 seconds. Ctrl+C, HUP, TERM or timeout
@@ -214,6 +220,65 @@ The worker's library loading/privilege checks precede any session API call. See
 
 **Human checkpoint H2 — Discovery:** Human places the Move in BLE mode, disconnects its official app, obtains its current BLE address using a trusted scanner (phone/PC), passes it privately to the CLI, and confirms the expected Chessnut service and characteristic UUIDs and a clean reconnect after disconnect. Record connection outcome and redacted logs. **STOP** if discovery/permissions fail or the UUIDs do not match.
 
+## M3 telemetry and LED session (deployment/H3 pending)
+
+Host implementation and staging are complete; physical behavior is **NOT TESTED**.
+See [M3 evidence and limits](notes/M3_HOST_RESULTS.md). Keep the original app,
+official board app and other BLE clients closed. Prepare deployment/preflight and
+the connection first; press the board Bluetooth button only when prompted.
+Use the same private address and session launch shown above. Connection/discovery
+still send no command or subscription by themselves. Explicit CLI commands:
+
+```text
+mtu
+telemetry
+battery
+pieces
+watch 60
+leds e4 green
+leds-clear
+disconnect
+quit
+```
+
+Run these interactively, not as an unattended batch. Start from a known physical
+arrangement and compare its printed `fen_placement`. Move one piece by hand
+during `watch`, then compare the changed placement. Sensor reports contain piece
+placement only; side-to-move, castling, en-passant and counters are unavailable,
+so the CLI does not invent a full six-field FEN. Notifications print timestamp,
+source UUID, bounded raw bytes/length and decoded placement/status. `battery`
+prints percentage and charging; `pieces` prints every tracked identity, coordinate
+and available battery. Quiet watch intervals are normal; a new command ends
+watch and runs immediately. Ctrl+C/HUP/TERM or EOF triggers cleanup.
+
+`telemetry` subscribes both characteristics, sends SDK realtime-enable and requires
+an initial position. `battery`/`pieces` first enable telemetry if needed, drain
+older observations, then send one SDK query and require its response within five
+seconds. Missing/malformed responses, failed callbacks, queue overflow or link
+loss end the session without automatic retries. Reconnect starts a fresh worker;
+telemetry and LEDs require explicit commands again.
+
+`mtu` reports only a successful, matching-connection callback from the exact
+pinned KindleBT source via its log.c observer, or **unknown**. No public MTU
+getter/negotiation API exists at this pin, and no MTU value is guessed or requested.
+A 34-byte LED packet is sent only with observed MTU >=37. It uses SDK
+WithoutResponse and changes at most one square (red/green/blue/off), or clears
+all LEDs. Send `leds-clear` immediately after checking the lit square. Native
+cleanup also attempts all-off before unsubscribing and disconnecting. A missing
+write callback makes cleanup best-effort and unsuccessful; visually verify LEDs
+are off and the board disconnected before another session.
+
+Write logs distinguish API acceptance, actual payload length/write kind and
+callback status. WithoutResponse callback success is local stack completion,
+never board acknowledgement. MTU >=38 proves conventional capacity for 35 bytes;
+**35-byte delivery stays UNVERIFIED until H4**, regardless of MTU or LED success.
+All 35-byte motor/STOP frames are rejected natively in M3. No fragmentation,
+truncation, alternate write mode, movement or realtime-disable command is invented.
+If MTU is unknown or insufficient, LEDs are refused: record H3 blocked and review
+evidence before any later work.
+
+**Human checkpoint H3 — Read-only:** Human moves one physical piece by hand, checks real position notification and decoded FEN, records battery/status and LED behavior, and turns LEDs off. Human and Codex review the MTU evidence. **STOP** for missing/truncated notifications, unsafe errors, or unexpected stock-Bluetooth interference. An unresolved MTU question can continue to a carefully controlled H4 only if all other safety requirements pass and the human explicitly agrees.
+
 ## Uninstall and interrupted-update recovery
 
 After preflight has exited:
@@ -253,16 +318,15 @@ cargo test --locked --all-features --manifest-path experiments/chessnut-move-ble
 `packet-fen` retains six-field metadata and prints all 35 bytes, Normal mode,
 WithoutResponse and OFFLINE ONLY. It validates syntax and placement, not legal
 chess, physical inventory, current position or motor feasibility. It never
-starts a worker. `motion-enable`, `set-fen`, STOP, telemetry and LED commands remain
-UNSUPPORTED. M2 session permits connection/discovery only. The SDK also encodes STOP as 35 bytes: delivery of both STOP
+starts a worker. `motion-enable`, `set-fen` and STOP remain UNSUPPORTED.
+M3 adds explicit telemetry and controlled LED commands below. The SDK also encodes STOP as 35 bytes: delivery of both STOP
 and auto-move remains UNVERIFIED until the MTU and board checkpoints.
 
 The full gate includes the feature-gated mock-worker subprocess tests, Rust
 supervision/signal tests, ELF/manifest checks, and shell install/rollback/remove
 contracts in temporary directories. Plain cargo test omits the feature-gated IPC
-suite; scripts/check.sh always includes it. [IPC.md](IPC.md) describes the M0
-transport scaffold; native preflight uses a one-shot worker with fixed bounded
-reports, not the future live session protocol.
+suite; scripts/check.sh always includes it. [IPC.md](IPC.md) describes the bounded live-session protocol. Native preflight
+remains a separate one-shot command with fixed bounded reports.
 
 ## H1 instructions (verbatim from the plan)
 

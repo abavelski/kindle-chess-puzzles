@@ -331,7 +331,7 @@ def build():
                 shutil.copy2(license_file, notices / (package.name + '-' + license_file.name))
     (notices / 'README.txt').write_text('KindleBT/log.c: MIT. Rust dependency license texts included.\nAmazon SDK libraries and vendor headers are build references only and are not distributed.\nProject code has no declared distribution license; this is a local-install experiment.\n')
     if source_digest() != before: raise ValueError('source changed during build; rebuild')
-    receipt = {'milestone': 2, 'source_sha256': before, 'kindlebt_commit': KINDLEBT,
+    receipt = {'milestone': 3, 'source_sha256': before, 'kindlebt_commit': KINDLEBT,
                'target': TARGET, 'rust': '1.85.1', 'zig': '0.13.0', 'glibc_max': '2.35',
                'host': {'system': platform.system(), 'machine': platform.machine()},
                'zig_archive': ZIG[(platform.system(), platform.machine())],
@@ -432,7 +432,7 @@ mkdir {incoming}
             run(ssh + ['sh -s'], input=f'rm -rf -- {incoming}\n', text=True, timeout=60)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             print('Upload cleanup incomplete; inspect the experiment incoming directory through SSH.')
-    print('Installed only; NOT launched. Run preflight, then stop for human H2 discovery with the board.')
+    print('Installed only; NOT launched. Run preflight, then stop for human H3 telemetry/LED verification with the board.')
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

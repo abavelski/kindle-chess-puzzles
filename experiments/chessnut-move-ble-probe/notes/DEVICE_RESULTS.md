@@ -257,3 +257,17 @@ notification subscription, characteristic read, LED, STOP or motor command ran.
 The final process check found no probe left running, and all 121 original app/data
 hashes remained unchanged. The user explicitly confirmed normal behavior and
 accepted H2. M2 is Implemented. H3–H5 remain NOT TESTED; stop before M3.
+
+
+## M3 preparation — 2026-11-04
+
+Checkpoint: H3 — **NOT TESTED**. Host implementation is ready; no deployment,
+SSH, Mac BLE scan/connection or board command was performed during M3 preparation.
+The installed source remains f19ecfb (M2). Notification delivery/lengths, physical
+placement and hand-move comparison, battery/piece status, actual MTU, write
+callbacks, LED on/off and cleanup, stock Bluetooth interference and human
+acceptance are all NOT TESTED for M3. 35-byte delivery remains UNVERIFIED and all
+motor/STOP packets are blocked. The next boundary is deployment and preflight,
+then a human-timed board connection and H3. See M3_HOST_RESULTS.md for the host
+evidence and README for the exact checkpoint and CLI commands. Do not mark M3
+Implemented before actual H3 results and human acceptance are recorded.
