@@ -1,4 +1,5 @@
 pub mod ipc;
+pub mod preflight;
 
 use chessnut_move::protocol::{AutoMoveMode, Color, Command, Piece, PieceKind, Position};
 

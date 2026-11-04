@@ -1,0 +1,35 @@
+#!/bin/sh
+set -eu
+root=/mnt/us/chessnut-ble-probe
+runtime=$root/runtime
+[ ! -L "$root" ] && [ ! -L "$runtime" ] || exit 1
+[ ! -L "$root/.probe-owner" ] && [ "$(cat "$root/.probe-owner")" = chessnut-ble-probe-v1 ] || exit 1
+[ "$#" = 0 ] && set -- preflight
+[ "$#" = 1 ] && [ "$1" = preflight ] || { echo 'UNSUPPORTED: M1 launcher only runs preflight' >&2; exit 1; }
+mkdir "$root/.operation-lock" || { echo 'Experiment busy' >&2; exit 1; }
+child=
+cleanup() {
+  result=$?
+  trap - EXIT HUP INT TERM
+  if [ -n "$child" ]; then
+    kill -TERM "$child" 2>/dev/null || :
+    wait "$child" 2>/dev/null || :
+  fi
+  rmdir "$root/.operation-lock"
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+cd "$runtime"
+sha256sum -c SHA256SUMS
+[ "$(uname -m)" = armv7l ] && [ -x /lib/ld-linux-armhf.so.3 ] || { echo 'Unsupported architecture/loader' >&2; exit 1; }
+LD_LIBRARY_PATH="$runtime" "$runtime/chessnut-ble-probe" preflight &
+child=$!
+set +e
+wait "$child"
+result=$?
+set -e
+child=
+exit "$result"

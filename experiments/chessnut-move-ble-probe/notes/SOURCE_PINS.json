@@ -54,7 +54,13 @@
     {
       "url": "https://github.com/Sighery/kindle-sdk/releases/download/build-20260325/scribe1-5.17.3.tar.gz",
       "upstream_sha256_digest": "sha256:8d80e019cc64826822c002712bf44e5131e8f64853a647c0cbb8a2fea82b42dd",
-      "verification": "upstream advertised digest only; asset not downloaded or executed in M0"
+      "verification": "M1: downloaded and local SHA-256 matches upstream digest; build reference only, not staged"
     }
-  ]
+  ],
+  "m1_toolchain": {
+    "compiler": "Zig 0.13.0, target arm-linux-gnueabihf.2.35",
+    "rust": "1.85.1",
+    "sdk_use": "build-only libraries; no SDK compiler executed",
+    "build_pins": "scripts/delivery.py SOURCES and ZIG; exact successful receipt in target/kindle/build.json"
+  }
 }

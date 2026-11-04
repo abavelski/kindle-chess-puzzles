@@ -1,4 +1,4 @@
-# Worker IPC version 1 (host scaffold)
+# Worker IPC version 1 (host session scaffold)
 
 UTF-8, one JSON object per LF-terminated frame. Maximum **4096 bytes including
 LF**, notification payload maximum **512 bytes**, command maximum **35 bytes**.
@@ -49,7 +49,9 @@ the future native worker must follow the same ownership contract.
 
 `interrupt()` sends DISCONNECT then SHUTDOWN; Drop forcibly reaps a child if
 this sequence fails or is skipped. No live controller signal handler or native
-STOP cleanup is claimed by this scaffold. The only public CLI path is offline.
+STOP cleanup is claimed by this scaffold. The live session CLI remains unavailable. M1 adds a separate one-shot native
+preflight command with supervised text reports, not session IPC; it never opens
+a Bluetooth session. Controller signals/timeouts terminate and reap that child.
 A future live session must add motor authorization, STOP, timeouts for native
 calls, signal handling, privilege validation, and confirmation before exposing
 this generic transport. No automatic writes/retries/reconnect are present.

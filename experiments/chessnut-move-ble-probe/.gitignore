@@ -4,3 +4,5 @@
 /logs/
 *.tar.gz
 *.so
+__pycache__/
+*.pyc

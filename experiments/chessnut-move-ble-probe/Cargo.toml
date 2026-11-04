@@ -13,6 +13,8 @@ chessnut-move = { version = "=1.0.2", default-features = false }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
 
+signal-hook = "=0.3.18"
+
 [features]
 mock-worker = []
 

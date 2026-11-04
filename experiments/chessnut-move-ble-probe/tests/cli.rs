@@ -17,7 +17,6 @@ fn offline_packet_fen_prints_full_fen_bytes_kind_and_no_write() {
 fn malformed_fen_and_live_commands_fail_explicitly() {
     for args in [
         vec!["packet-fen", "bad"],
-        vec!["preflight"],
         vec!["session"],
         vec!["set-fen"],
         vec!["motion-enable"],
@@ -31,4 +30,14 @@ fn malformed_fen_and_live_commands_fail_explicitly() {
             assert!(String::from_utf8_lossy(&output.stderr).contains("UNSUPPORTED"));
         }
     }
+}
+
+#[test]
+fn preflight_without_native_bundle_reports_worker_launch_failure() {
+    let output = Command::new(env!("CARGO_BIN_EXE_chessnut-ble-probe"))
+        .arg("preflight")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("preflight worker launch failed"));
 }

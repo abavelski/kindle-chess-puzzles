@@ -1,8 +1,9 @@
-# Native boundary research — M0, 2026-11-04
+# Native boundary research and M1 build — 2026-11-04
 
-There is no native worker yet. These findings constrain M1/M2; they do not
-establish compatibility on the target Scribe. Inspected checkouts were outside
-the repository. No SDK, vendor headers, libraries or binaries are committed.
+M1 adds a one-shot native preflight worker; it never calls Bluetooth APIs.
+The M0 findings below still constrain M2. No runtime compatibility on the target
+Scribe is established. SDK, vendor headers, libraries and binaries are ignored
+build inputs, never committed or bundled as device dependencies.
 
 Machine-readable commits and SHA-256 are in
 [notes/SOURCE_PINS.json](../notes/SOURCE_PINS.json). Git source hashes refer to
@@ -145,3 +146,51 @@ not prove any negotiated value. Full notifications, write-without-response
 callbacks must report their actual status; successful encoding/IPC is not BLE
 acceptance or motor completion. No Bluetooth daemon restart, radio changes,
 stock UI changes, or device commands were performed during M0.
+
+## M1 implementation and artifact verification
+
+The builder now uses the proposed current KindleBT source pin and matching
+headers. Archive hashes are independently pinned in scripts/delivery.py; the
+SDK and Espressif downloads were locally checksum-verified. Zig 0.13.0 replaces
+the SDK's Linux-hosted compiler on macOS while reproducing Meson's eight source
+files, log.c, includes and dynamic ACE dependencies. There is no firmware SDK
+installation on the Kindle. The SDK archive is only a host link/inspection
+reference. Its sysroot mixes toolchain and firmware library copies: extraction
+resolves links as data and prefers firmware usr/lib over the newer GCC lib
+runtime where basenames overlap. No extracted symlink or vendor binary is staged.
+
+ACE lacks SONAME, so Zig records its absolute SDK path in DT_NEEDED. The narrow
+localize_needed helper adjusts that entry's string offset to the existing
+libace_bt.so suffix, performing the same correction as upstream's patchelf
+step without changing any vendor file. A test rejects any other absolute input
+and verifies the resulting dynamic dependency. The final ELF verifier rejects
+all remaining absolute dependencies and RPATH/RUNPATH.
+
+kindlebt_worker.c compiles against the exact public header and asserts 32-bit
+pointers, all 16 UUID bytes, and the current bleGetDatabase signature. It does
+not link KindleBT directly; preflight loads the sibling shared library with
+RTLD_NOW, looks up the required public symbols and closes it. No function
+pointer is invoked. The Rust controller supervises the child with a 15-second
+deadline and SIGINT/SIGTERM/SIGHUP cancellation. Only the worker clears groups
+and drops to verified Bluetooth IDs; failure aborts. Runtime symbol loading
+cannot establish that callback layouts or vendor ABI behavior work on 5.19.6;
+M2 must exercise those behind H1 acceptance.
+
+ELF inspection reads program headers, PT_INTERP, DT_NEEDED and the real
+DT_VERNEED records. All three staged native artifacts are ELF32 ARM EABI5
+hard-float; both executables name /lib/ld-linux-armhf.so.3. Their maximum GLIBC
+requirement is 2.34, below the measured device's 2.35. The complete SDK-derived
+dependency closure (24 library names, including the loader) is stored in
+required-libs.txt and build.json. Preflight loads these from the device; they
+are not copied into the bundle. The exact final hashes, input hashes, flags,
+source digest and validation reports are generated in target/kindle/build.json
+and copied into the staged runtime. Stage creation refuses a stale source or
+binary receipt; deployment verifies the stage before opening SSH.
+
+M1 uses fixed line-sized text reports, not the future session IPC. Production
+arguments accept only --preflight plus the controller's sibling library/list
+paths. There is no scan, address, registration, session, subscription or write
+path. Firmware/account/library checks and the original app check are NOT TESTED
+on-device. The worker deliberately requires root SSH so it can prove that only
+the child changes identity. Its read-only probes never restart btmanagerd or
+change stock radio/UI/power state.
