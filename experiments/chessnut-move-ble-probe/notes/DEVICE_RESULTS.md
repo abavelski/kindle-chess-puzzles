@@ -316,3 +316,37 @@ Inspection of the device's connection and GATT-registration entry points is
 consistent with the argument placement used by pinned KindleBT; this limited
 check does not establish complete ABI compatibility or explain the daemon's
 session/UUID mapping failure. No speculative ABI change is justified yet.
+
+
+## Reviewed discovery-only reference test plan — 2026-11-04
+
+Offline comparison confirms M3's libkindlebt.so is byte-identical to the accepted
+H2 library (SHA256 8b5d3bbe417831e9040b922d6db2969e0cfa9ecc5d8790f1af826bb85f96b485).
+Session opening, BLE/GATT registration and connection arguments also match the
+accepted M2 source. These checks do not exclude a worker regression or prove
+stale daemon state. Neither possibility justifies changing stock services yet.
+
+Prepared the exact native sources from f19ecfb as a diagnostic reference using
+the same checked headers, compiler flags, Zig and ARM/glibc target. ARM/PIE/loader/
+COPY-relocation/GLIBC inspection passed. Reference worker SHA256:
+7c1248212615483d96c6a695d6e1e52283b6390bebbfc2043d4a657d7019516a.
+It uses the deployed M3 Rust supervisor for its compatible discovery-only IPC,
+and the byte-identical accepted KindleBT library. The reference sources, bundle,
+receipt and helpers are ignored host artifacts. Its fixed noninteractive command
+sequence is connect/discover -> services -> quit, with no subscriptions, status
+queries, LEDs, MTU request or motor packets; it cannot accept M3 write operations.
+
+Installed only in /mnt/us/chessnut-ble-probe/diagnostics/m2-reference-f19ecfb,
+with a local checksum manifest and the existing owner-marker/operation-lock,
+input-preservation and trap behavior. The M3 runtime was not replaced. Reference
+preflight/checksums PASS and the lock cleared. An initial scp directory spelling
+was rejected; upload used explicit regular filenames instead and both uniquely
+owned temporary upload directories were removed. No stock file/service changed.
+
+Next: prepare SSH and the advertisement trigger, request a fresh human button
+press, run exactly one reference connection, and inspect success or failure with
+cleanup diagnostics. STOP on failure and record the system evidence before any
+retest. If the reference also fails, that is evidence of a problem shared with
+M2/the system stack, not proof of its precise cause. If it passes, investigate M3
+worker differences before telemetry. A stock radio/service restart or reboot is
+not authorized as an automatic workaround by this diagnostic plan.
