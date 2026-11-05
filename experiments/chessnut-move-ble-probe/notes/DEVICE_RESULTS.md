@@ -548,3 +548,22 @@ remained unknown and no position/status was received. Cleanup correctly reported
 FAIL, although disconnect/GATT/BLE/session API statuses were 0; operation lock
 cleared. H3 remains incomplete. The next change serializes descriptor completion
 with bounded waits and host coverage before another user-controlled script run.
+
+## Subscription completion fix deployed — 2026-11-05
+
+Source 0e51faf passes the independent gate (39 Rust tests, 23 Python tests), the
+real-pinned-header adapter/bridge test, ARM build/ELF/glibc checks and stage
+verification. Source_sha256
+`a88a4b6a4a9b93224f3600d45af2a5c238a5ad79f490e5c65aca7655bde0cc7e`
+is installed; remote checksums/receipt, preflight and read-board.sh --check PASS.
+The locally patched bundled libkindlebt.so hash is
+`0fbd2277f620c03b69ef557bf58f91f1386392079fdfd26b8256002913956c21`;
+the receipt records the forwarding change and generated-source/bridge hashes.
+All 121 original app/data files match the fresh deployment baseline. Probe idle,
+operation lock absent, no Bluetooth session opened by deployment/setup. The user
+can run the same script after enabling board Bluetooth; live descriptor callback
+completion and telemetry remain UNVERIFIED. No automatic retry or board test ran.
+
+Parent workspace fmt/clippy PASS; all 237 workspace tests PASS with the existing
+host-check-venv on PATH. The first system-Python run stopped at the documented
+missing host-only python-chess dependency; no app code changed for that setup issue.
