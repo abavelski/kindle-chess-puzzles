@@ -98,7 +98,7 @@ headers and `__typeof__` for function-pointer declarations, not reconstructed
 opaque structures. Native preflight checks the real target's libraries, firmware,
 architecture and identity before opening a session.
 
-KindleBT and log.c are MIT; chessnut-move is MIT. Preserve notices when bundling.
+KindleBT and log.c are MIT; chessnut-move is Apache-2.0. Preserve notices when bundling.
 Amazon headers/libraries are build/runtime references, not redistributable probe
 payloads. The actual device supplies `libace_bt.so`; never replace `/usr/lib`.
 Project-owned reference code has no newly invented distribution license.
