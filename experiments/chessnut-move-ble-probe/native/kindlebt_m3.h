@@ -95,14 +95,68 @@ static bool resolve_characteristics(struct probe_native *n) {
     }
     return false;
 }
+/* SetNotification returns after submitting a CCCD write, before its completion.
+ * Only the public descriptor callback permits the next GATT operation. */
+static void descriptor_wrote(bleConnHandle connection,bleGattCharacteristicsValue_t value,status_t status) {
+    struct probe_native *n=atomic_load(&active_native);
+    if(n==NULL){atomic_store(&unexpected_callback,true);return;}
+    pthread_mutex_lock(&n->state_lock);
+    if(connection==n->connection && n->descriptor_pending && !n->descriptor_done &&
+       value.gattDescriptor.gattRecord.handle==n->descriptor_handle){
+        n->descriptor_status=(int)status;n->descriptor_done=true;
+    }else atomic_store(&unexpected_callback,true);
+    pthread_mutex_unlock(&n->state_lock);
+}
+static uint16_t notification_descriptor(struct aceBT_gattCharRec_t *record) {
+    struct aceBT_gattDescRec_t *desc;uint16_t handle=0;unsigned int count=0;
+    STAILQ_FOREACH(desc,&record->value.descList,link){
+        if(++count>20)return 0;
+        if(desc->value.is_set && desc->value.is_notify){
+            if(handle!=0 || desc->value.gattRecord.handle==0)return 0;
+            handle=desc->value.gattRecord.handle;
+        }
+    }
+    return handle;
+}
+static int native_notification(struct probe_native *n,unsigned int index,bool enabled) {
+    struct aceBT_gattCharRec_t *record=index==0?n->position_record:n->response_record;
+    if(record==NULL)return -1;
+    uint16_t handle=notification_descriptor(record);if(handle==0)return -1;
+    pthread_mutex_lock(&n->state_lock);
+    if(n->descriptor_pending || n->write_pending){pthread_mutex_unlock(&n->state_lock);return -1;}
+    n->descriptor_pending=true;n->descriptor_done=false;n->descriptor_handle=handle;n->descriptor_status=-1;
+    pthread_mutex_unlock(&n->state_lock);
+    const char *stage=enabled?(index==0?"subscribe_position":"subscribe_response"):(index==0?"unsubscribe_position":"unsubscribe_response");
+    int status=native_status(stage,n->bleSetNotification(n->session,n->connection,record->value,enabled));
+    if(status!=0){pthread_mutex_lock(&n->state_lock);n->descriptor_pending=false;pthread_mutex_unlock(&n->state_lock);return status;}
+    /* Conservatively retain ownership after acceptance even if completion fails. */
+    if(enabled)n->subscribed[index]=true;
+    struct timespec start;clock_gettime(CLOCK_MONOTONIC,&start);
+    for(;;){
+        pthread_mutex_lock(&n->state_lock);bool done=n->descriptor_done;status=n->descriptor_status;
+        if(done)n->descriptor_pending=false;
+        pthread_mutex_unlock(&n->state_lock);
+        if(done){
+            fprintf(session_diagnostics,"phase=M3 stage=%s_descriptor_callback handle=%u status=%d\n",stage,handle,status);fflush(session_diagnostics);
+            if(status==0 && !enabled)n->subscribed[index]=false;
+            return status;
+        }
+        struct timespec now;clock_gettime(CLOCK_MONOTONIC,&now);
+        if((now.tv_sec-start.tv_sec)*1000000000LL+now.tv_nsec-start.tv_nsec>=(long long)PROBE_CALLBACK_TIMEOUT_MS*1000000LL || session_cancelled || atomic_load(&unexpected_callback)){
+            fprintf(session_diagnostics,"phase=M3 stage=%s_descriptor_callback handle=%u result=TIMEOUT_OR_INVALID_CALLBACK api_accepted=true\n",stage,handle);fflush(session_diagnostics);
+            return -1; /* Keep pending: cleanup must disconnect, without another GATT write. */
+        }
+        struct timespec pause={.tv_nsec=1000000};nanosleep(&pause,NULL);
+    }
+}
 static int native_subscribe(struct probe_native *n) {
+    pthread_mutex_lock(&n->state_lock);bool pending=n->descriptor_pending;pthread_mutex_unlock(&n->state_lock);
+    if(pending || atomic_load(&unexpected_callback))return -1;
     if(n->subscribed[0] && n->subscribed[1])return 0;
     if(!resolve_characteristics(n))return -1;
-    struct aceBT_gattCharRec_t *records[]={n->position_record,n->response_record};
     for(unsigned int i=0;i<2;++i){
         if(n->subscribed[i])continue;
-        int status=native_status(i==0?"subscribe_position":"subscribe_response",n->bleSetNotification(n->session,n->connection,records[i]->value,true));
-        if(status!=0)return status;n->subscribed[i]=true;
+        int status=native_notification(n,i,true);if(status!=0)return status;
     }
     return 0;
 }
@@ -114,7 +168,7 @@ static int native_write_packet(struct probe_native *n,const probe_packet *packet
         fprintf(session_diagnostics,"phase=M3 stage=write_refused length=%zu reason=MTU_unknown_or_insufficient delivery=UNVERIFIED\n",packet->length);return -1;
     }
     pthread_mutex_lock(&n->state_lock);
-    if(n->write_pending){pthread_mutex_unlock(&n->state_lock);return -1;}
+    if(n->write_pending || n->descriptor_pending){pthread_mutex_unlock(&n->state_lock);return -1;}
     n->write_pending=true;n->write_done=false;n->write_status=-1;pthread_mutex_unlock(&n->state_lock);
     memcpy(n->write_bytes,packet->bytes,packet->length);
     n->write_value=n->command_record->value;
@@ -158,10 +212,14 @@ static int native_m3_cleanup(struct probe_native *n) {
             fprintf(session_diagnostics,"phase=M3 stage=led_clear_best_effort length=34 kind=without_response api_status=%d delivery=UNVERIFIED\n",status);result=-1;
         }else result=-1;
     }
-    struct aceBT_gattCharRec_t *records[]={n->position_record,n->response_record};
+    pthread_mutex_lock(&n->state_lock);bool gatt_pending=n->descriptor_pending || n->write_pending;pthread_mutex_unlock(&n->state_lock);
+    if(gatt_pending){
+        fprintf(session_diagnostics,"phase=M3 stage=unsubscribe result=SKIPPED_PENDING_GATT cleanup=FAIL disconnect_required=true\n");
+        n->subscribed[0]=false;n->subscribed[1]=false;return -1;
+    }
     for(unsigned int i=0;i<2;++i)if(n->subscribed[i]){
-        int status=native_status(i==0?"unsubscribe_position":"unsubscribe_response",n->bleSetNotification(n->session,n->connection,records[i]->value,false));
-        n->subscribed[i]=false;if(status!=0)result=status;
+        int status=native_notification(n,i,false);
+        if(status!=0){result=status;break;}
     }
     return result;
 }

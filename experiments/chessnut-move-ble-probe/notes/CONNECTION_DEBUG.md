@@ -101,3 +101,43 @@ closed stdin, script pass/fail exit propagation, report retention/redaction,
 setup-only check and signal cleanup. Packaging includes/checksums the new script
 and validates it against the source. No additional board test runs automatically;
 the user will enable Bluetooth and invoke the installed script themselves.
+
+## Operator report localizes subscription sequencing — 2026-11-05
+
+The user's 17:49:45 device report confirms connection in 205 ms, successful
+callback/handle/context evidence and matching discovery. Position subscription
+API returns 0, but the response subscription immediately returns -15. The daemon
+explicitly reports Pending GATT Operation for the second CCCD write, and again
+for cleanup's position unsubscribe. No command characteristic writes occurred;
+telemetry and H3 remain unverified. The earlier connection-establishment failure
+did not recur in this attempt. The operation lock cleared, but subscription
+cleanup correctly reported failure despite lifecycle API returns of 0.
+
+Revised next step: serialize notification enable/disable on the exact public
+write-descriptor callback, matched by connection and discovered CCCD handle.
+Bound each wait, report API and completion status separately, and terminate on
+failure/missing/mismatched completion without retries or issuing further GATT
+operations into an unresolved pending operation. Host tests must model the
+asynchronous descriptor completion before building/deploying an updated script.
+The user retains control of the next physical board test.
+
+The pinned library's private gatt_client_callbacks table also omits descriptor
+forwarding, despite the public application table exposing that callback. Build
+now verifies the exact upstream kindlebt.c hash, generates a copy with one bridge
+include and one callback table entry, and builds the bundled experiment library
+from that copy. The bridge delegates through the existing application table;
+there is no new ABI or direct ACE call from the worker. The upstream archive/cache
+and stock Kindle files remain unchanged. The build receipt identifies this local
+change and hashes its generated source and bridge; SOURCE_PINS records provenance.
+This deliberately changes the bundled library hash from the historical unmodified
+pin. It changes no connection parameters or motor/write whitelist.
+
+TDD: a missing-descriptor-callback fixture first failed because subscriptions
+incorrectly succeeded; a delivery test then failed for missing source-transform
+function. Green real-header tests exercise the actual bridge with delayed
+callbacks, status errors, wrong connection/handle, absent completion and both
+serialized enable/disable paths. Timeout blocks subsequent GATT operations,
+including unsubscribe, and preserves failed cleanup before disconnect. The
+source-transform test rejects missing/duplicate/changed anchors and proves only
+the include and callback-table entry are added. Device callback behavior remains
+unverified until the user runs the updated report script.

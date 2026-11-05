@@ -40,6 +40,9 @@ struct probe_native {
     struct aceBT_gattCharRec_t *position_record,*command_record,*response_record;
     bool subscribed[2],leds_maybe,write_pending,write_done,mtu_seen;
     int write_status,mtu_status,observed_mtu;
+    bool descriptor_pending,descriptor_done;
+    uint16_t descriptor_handle;
+    int descriptor_status;
     bleConnHandle mtu_connection;
     unsigned char write_bytes[34],clear_bytes[34];
     bleGattCharacteristicsValue_t write_value,clear_value;
@@ -67,12 +70,14 @@ static void got_database(bleConnHandle connection, bleGattsService_t *database, 
 }
 static void unexpected_notification(bleConnHandle connection,bleGattCharacteristicsValue_t value);
 static void wrote(bleConnHandle connection,bleGattCharacteristicsValue_t value,status_t status);
+static void descriptor_wrote(bleConnHandle connection,bleGattCharacteristicsValue_t value,status_t status);
 static bleGattClientCallbacks_t session_callbacks = {
     .size=sizeof(bleGattClientCallbacks_t),
     .on_ble_gattc_service_discovered_cb=discovered,
     .on_ble_gattc_get_gatt_db_cb=got_database,
     .notify_characteristics_cb=unexpected_notification,
     .on_ble_gattc_write_characteristics_cb=wrote,
+    .on_ble_gattc_write_descriptor_cb=descriptor_wrote,
 };
 static int native_status(const char *stage, status_t status) {
     fprintf(session_diagnostics,"timestamp_unix=%ld phase=M3 stage=%s status=%d\n",(long)time(NULL),stage,(int)status);

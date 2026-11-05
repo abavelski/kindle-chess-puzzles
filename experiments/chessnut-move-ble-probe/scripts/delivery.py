@@ -267,6 +267,15 @@ def runtime_dependencies(elf_reports):
     return sorted({name for report in elf_reports.values() for name in report['needed']}
                   - {'libkindlebt.so'})
 
+def descriptor_bridge_source(source):
+    """Add only the missing public descriptor callback forwarding at this pin."""
+    include = '#include "kindlebt_callbacks.c"'
+    entry = '    .on_ble_gattc_write_characteristics_cb = bleGattcWriteCharsCallbackWrapper,\n'
+    if source.count(include) != 1 or source.count(entry) != 1:
+        raise ValueError('pinned KindleBT callback anchors changed')
+    return source.replace(include, include + '\n#include "kindlebt_descriptor_bridge.h"').replace(
+        entry, entry + '    .on_ble_gattc_write_descriptor_cb = probe_descriptor_callback_bridge,\n')
+
 def build():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     (OUTPUT / 'build.json').unlink(missing_ok=True)
@@ -285,10 +294,16 @@ def build():
     run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-pthread'] + args
         + ['-I', ROOT / 'native', ROOT / 'tests/native_adapter_test.c', '-ldl', '-o', adapter_test])
     run([adapter_test])
+    upstream = sources['kindlebt'] / 'src/kindlebt.c'
+    if sha(upstream) != '950dc7fd601e8bdb4f2af46e66cd211c1cfcb249c137086ba4f350814167c7ea':
+        raise ValueError('unexpected pinned KindleBT translation unit')
+    generated = OUTPUT / 'kindlebt-descriptor.c'
+    generated.write_text(descriptor_bridge_source(upstream.read_text()))
     native_sources = ['kindlebt.c', 'kindlebt_log.c', 'compat_ace.c', 'compat_ace_implementations.c',
                       'compat_ace_shims.c', 'compat_ace_utils.c', 'compat_ace_handler.c', 'compat_acealloc.c']
     run(cc + ['-shared', '-fPIC', '-pthread', '-Wl,-soname,libkindlebt.so', '-Wl,--allow-shlib-undefined'] + args
-        + [sources['kindlebt'] / 'src' / n for n in native_sources]
+        + ['-I', ROOT / 'native', '-I', sources['kindlebt'] / 'src']
+        + [generated if n == 'kindlebt.c' else sources['kindlebt'] / 'src' / n for n in native_sources]
         + [sources['logc'] / 'src/log.c', '-L', sources['sdk'], '-lace_bt', '-ldl', '-o', OUTPUT / 'libkindlebt.so'])
     library = OUTPUT / 'libkindlebt.so'
     library.write_bytes(localize_needed(library.read_bytes(), sources['sdk'] / 'libace_bt.so'))
@@ -329,9 +344,12 @@ def build():
         for license_file in package.glob('*'):
             if license_file.is_file() and license_file.name.lower().startswith(('license', 'copying', 'notice')):
                 shutil.copy2(license_file, notices / (package.name + '-' + license_file.name))
-    (notices / 'README.txt').write_text('KindleBT/log.c: MIT. Rust dependency license texts included.\nAmazon SDK libraries and vendor headers are build references only and are not distributed.\nProject code has no declared distribution license; this is a local-install experiment.\n')
+    (notices / 'README.txt').write_text('KindleBT/log.c: MIT. Rust dependency license texts included.\nBundled KindleBT includes a local public write-descriptor callback forwarding bridge.\nAmazon SDK libraries and vendor headers are build references only and are not distributed.\nProject code has no declared distribution license; this is a local-install experiment.\n')
     if source_digest() != before: raise ValueError('source changed during build; rebuild')
     receipt = {'milestone': 3, 'source_sha256': before, 'kindlebt_commit': KINDLEBT,
+               'kindlebt_local_changes': ['forward public write-descriptor callback'],
+               'kindlebt_generated_source_sha256': sha(generated),
+               'kindlebt_descriptor_bridge_sha256': sha(ROOT / 'native/kindlebt_descriptor_bridge.h'),
                'target': TARGET, 'rust': '1.85.1', 'zig': '0.13.0', 'glibc_max': '2.35',
                'host': {'system': platform.system(), 'machine': platform.machine()},
                'zig_archive': ZIG[(platform.system(), platform.machine())],

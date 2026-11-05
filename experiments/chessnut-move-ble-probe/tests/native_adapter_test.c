@@ -22,10 +22,38 @@
 #include <kindlebt/kindlebt.h>
 static int preflight(const char *library, const char *required) { (void)library; (void)required; return 0; }
 #include "kindlebt_session.h"
+#include "kindlebt_descriptor_bridge.h"
+bleGattClientCallbacks_t application_gatt_client_callbacks;
 static int subscriptions, fail_subscription;
+static bool omit_descriptor_callback,delay_descriptor_callback,wrong_descriptor_connection,wrong_descriptor_handle;
+static int descriptor_callback_status;
+static pthread_t descriptor_threads[4];static unsigned int descriptor_threads_count;
+static atomic_bool fake_descriptor_in_flight;
+struct descriptor_job {bleConnHandle connection;bleGattCharacteristicsValue_t value;};
+static void *delayed_descriptor(void *arg){
+    struct descriptor_job *job=arg;struct timespec delay={.tv_nsec=5000000};nanosleep(&delay,NULL);
+    atomic_store(&fake_descriptor_in_flight,false);
+    probe_descriptor_callback_bridge(job->connection,job->value,(status_t)0);
+    free(job);return NULL;
+}
 static int fake_subscribe(sessionHandle s,bleConnHandle c,bleGattCharacteristicsValue_t v,bool enabled) {
-    (void)s;(void)c;(void)v;
-    ++subscriptions;return enabled && subscriptions==fail_subscription ? -9 : 0;
+    (void)s;
+    assert(!atomic_load(&fake_descriptor_in_flight));
+    ++subscriptions;
+    if(enabled && subscriptions==fail_subscription)return -9;
+    if(!omit_descriptor_callback && session_callbacks.on_ble_gattc_write_descriptor_cb){
+        v.gattDescriptor.gattRecord.handle=STAILQ_FIRST(&v.descList)->value.gattRecord.handle;
+        if(wrong_descriptor_handle)++v.gattDescriptor.gattRecord.handle;
+        if(wrong_descriptor_connection)c=NULL;
+        if(delay_descriptor_callback){
+            assert(descriptor_threads_count<4);
+            atomic_store(&fake_descriptor_in_flight,true);
+            struct descriptor_job *job=malloc(sizeof(*job));assert(job);
+            job->connection=c;job->value=v;
+            assert(pthread_create(&descriptor_threads[descriptor_threads_count++],NULL,delayed_descriptor,job)==0);
+        }else probe_descriptor_callback_bridge(c,v,(status_t)descriptor_callback_status);
+    }
+    return 0;
 }
 static int write_api_status,write_callback_status;static bool omit_write_callback;
 static bleGattCharacteristicsValue_t *borrowed_write;
@@ -45,6 +73,7 @@ static uuid_t uuid128(const char *text) {
 int main(void) {
     /* Reference every production entry point so -Werror remains enabled. */
     (void)session_worker;
+    application_gatt_client_callbacks=session_callbacks;
     char uuid[37];
     uuid_t source={.type=ACEBT_UUID_TYPE_128,.uu={0x12,0x34,0x56,0x78,0x90,0xab,0xcd,0xef,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88}};
     assert(uuid_text(&source,uuid));
@@ -147,10 +176,45 @@ int main(void) {
     for(int i=0;i<3;++i){chars[i].value.gattRecord.uuid=uuid128(ids[i]);chars[i].value.gattRecord.handle=(uint16_t)(i+1);chars[i].value.gattRecord.attProp=i==1?0x0c:0x10;}
     STAILQ_INIT(&db[0].charsList);STAILQ_INSERT_TAIL(&db[0].charsList,&chars[0],link);
     STAILQ_INIT(&db[1].charsList);STAILQ_INSERT_TAIL(&db[1].charsList,&chars[1],link);STAILQ_INSERT_TAIL(&db[1].charsList,&chars[2],link);
+    struct aceBT_gattDescRec_t descriptors[2]={0};
+    for(int i=0;i<2;++i){
+        descriptors[i].value.is_set=true;descriptors[i].value.is_notify=true;
+        descriptors[i].value.gattRecord.handle=(uint16_t)(259+i*258);
+        STAILQ_INIT(&chars[i*2].value.descList);
+        STAILQ_INSERT_TAIL(&chars[i*2].value.descList,&descriptors[i],link);
+    }
     live.database=db;live.count=2;
+    omit_descriptor_callback=true;
+    assert(native_subscribe(&live)!=0); /* API acceptance is not CCCD completion. */
+    assert(subscriptions==1); /* Never issue the second pending GATT operation. */
+    assert(native_m3_cleanup(&live)!=0);assert(subscriptions==1);
+    memset(live.subscribed,0,sizeof(live.subscribed));live.descriptor_pending=false;subscriptions=0;
+    omit_descriptor_callback=false;
     fail_subscription=2;assert(native_subscribe(&live)!=0);assert(live.subscribed[0] && !live.subscribed[1]);
     assert(native_m3_cleanup(&live)==0);assert(subscriptions==3);
-    subscriptions=0;fail_subscription=0;assert(native_subscribe(&live)==0);
+    subscriptions=0;fail_subscription=0;
+    descriptor_callback_status=-8;
+    assert(native_subscribe(&live)==-8 && subscriptions==1);
+    descriptor_callback_status=0;assert(native_m3_cleanup(&live)==0 && subscriptions==2);
+    for(int wrong=0;wrong<2;++wrong){
+        subscriptions=0;wrong_descriptor_connection=wrong==0;wrong_descriptor_handle=wrong==1;
+        assert(native_subscribe(&live)!=0 && subscriptions==1);
+        assert(atomic_load(&unexpected_callback));
+        assert(native_m3_cleanup(&live)!=0 && subscriptions==1);
+        atomic_store(&unexpected_callback,false);live.descriptor_pending=false;
+    }
+    wrong_descriptor_connection=false;wrong_descriptor_handle=false;
+    subscriptions=0;delay_descriptor_callback=true;
+    assert(native_subscribe(&live)==0 && subscriptions==2);
+    assert(native_m3_cleanup(&live)==0 && subscriptions==4);
+    for(unsigned int i=0;i<descriptor_threads_count;++i)assert(pthread_join(descriptor_threads[i],NULL)==0);
+    delay_descriptor_callback=false;
+    assert(native_subscribe(&live)==0);
+    int before_unsubscribe_timeout=subscriptions;omit_descriptor_callback=true;
+    assert(native_m3_cleanup(&live)!=0 && subscriptions==before_unsubscribe_timeout+1);
+    assert(live.descriptor_pending); /* Missing first unsubscribe never starts the second. */
+    omit_descriptor_callback=false;live.descriptor_pending=false;
+    assert(native_subscribe(&live)==0);
     probe_packet battery={.bytes={0x41,1,0x0c},.length=3};
     assert(native_write_packet(&live,&battery)==0);assert(writes==1 && written_length==3 && written_kind==ACEBT_BLE_WRITE_TYPE_RESP_REQUIRED);
     unsigned char payload[34]={0};

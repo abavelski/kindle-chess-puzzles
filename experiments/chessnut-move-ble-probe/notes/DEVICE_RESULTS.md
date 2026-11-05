@@ -532,3 +532,19 @@ no board command. The user will enable board Bluetooth and run the script over
 SSH, then supply the complete report. No automatic connection attempt or retry
 was started. H3 remains BLOCKED pending actual Kindle telemetry and the remaining
 human checkpoint requirements.
+
+## User-run report — 2026-11-05, 17:49:45 device time
+
+Installed source 9c88bc2 connected successfully in 205 ms: API/callback status 0,
+matching target, connected context and non-null public/native handles. Discovery
+matched the expected services/characteristics. This run progressed beyond the
+previous establishment failure.
+
+Position subscription API returned 0; the immediate response subscription and
+position unsubscribe both returned -15. The daemon reports Pending GATT Operation
+at those descriptor writes. The probe had not waited for position CCCD write
+completion. No telemetry queries/command writes ran (write_api_calls=0), MTU
+remained unknown and no position/status was received. Cleanup correctly reported
+FAIL, although disconnect/GATT/BLE/session API statuses were 0; operation lock
+cleared. H3 remains incomplete. The next change serializes descriptor completion
+with bounded waits and host coverage before another user-controlled script run.

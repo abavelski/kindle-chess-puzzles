@@ -224,3 +224,16 @@ class RuntimeDependencyTests(unittest.TestCase):
         self.assertIn('libcrypto.so.3', delivery.runtime_dependencies(artifacts))
 
 if __name__ == '__main__': unittest.main()
+
+class DescriptorBridgeTests(unittest.TestCase):
+    def test_pinned_source_patch_only_adds_descriptor_forwarding(self):
+        original = '#include "kindlebt_callbacks.c"\n' + (
+            '    .on_ble_gattc_write_characteristics_cb = bleGattcWriteCharsCallbackWrapper,\n')
+        patched = delivery.descriptor_bridge_source(original)
+        self.assertIn('#include "kindlebt_descriptor_bridge.h"', patched)
+        self.assertIn('.on_ble_gattc_write_descriptor_cb = probe_descriptor_callback_bridge,', patched)
+        self.assertEqual(patched.replace('\n#include "kindlebt_descriptor_bridge.h"', '').replace(
+            '    .on_ble_gattc_write_descriptor_cb = probe_descriptor_callback_bridge,\n', ''), original)
+        for bad in ('', original + original, original.replace('bleGattcWriteCharsCallbackWrapper', 'changed')):
+            with self.assertRaises(ValueError):
+                delivery.descriptor_bridge_source(bad)

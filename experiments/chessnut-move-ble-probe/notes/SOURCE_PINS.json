@@ -13,6 +13,13 @@
         "include/kindlebt/kindlebt_defines.h": "3cdd4109006af43bea3bcf5130784a0610df8d3cc569bb81bcf5f488911346c1",
         "examples/basic_usage.c": "1d2b4b87ddfb79a0ec50e7691d059b1e25c2b81dcd07c7e8f7650e7f80877d3d",
         "LICENSE": "67dce3f1f4b882f8ff48155248c763b62942e7ec905d20e1344fb378149d3840"
+      },
+      "local_modification": {
+        "reason": "Pinned gatt_client_callbacks omits write-descriptor forwarding; serialize asynchronous CCCD operations.",
+        "upstream_src_kindlebt_c_sha256": "950dc7fd601e8bdb4f2af46e66cd211c1cfcb249c137086ba4f350814167c7ea",
+        "method": "scripts/delivery.py generates a copy with one bridge include and one callback table entry; upstream cache unchanged.",
+        "bridge": "native/kindlebt_descriptor_bridge.h",
+        "bridge_sha256": "5cfc6c6b80e4f0a45ec936b6e14c58cdeb2b7658311c75586720c01c26ee9979"
       }
     },
     {

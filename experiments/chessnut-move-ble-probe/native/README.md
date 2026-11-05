@@ -329,3 +329,16 @@ The observer never retries, changes parameters, recovers a handle or calls an AP
 This does not fix the observed controller establishment failure. Native header
 fixtures cover incorrect target/function/format, bound/overflow, absent callback,
 failed API with connected context, missing handle, malformed context and redaction.
+
+Notification registration now waits for the public
+`on_ble_gattc_write_descriptor_cb`, matching the active connection and the unique
+bounded discovered notification descriptor handle. API acceptance and descriptor
+completion are logged separately. Each enable/disable finishes before the next
+GATT operation. A five-second missing/invalid completion preserves pending state,
+blocks further writes/unsubscribes, and falls back to disconnect with failed
+cleanup reported. No delay-based retry is used. The bundled experiment library adds the missing
+descriptor callback forwarding wrapper; stock Kindle libraries remain untouched.
+The user's 2026-11-05 report verified connect/discovery, but exposed overlapping
+CCCD writes (`Pending GATT Operation`, -15); callback sequencing remains pending
+a new physical test. Host tests cover delayed completion, missing completion,
+wrong connection/handle, callback failure, and serialized unsubscribe.
