@@ -223,6 +223,41 @@ The worker's library loading/privilege checks precede any session API call. See
 
 **Human checkpoint H2 — Discovery:** Human places the Move in BLE mode, disconnects its official app, obtains its current BLE address using a trusted scanner (phone/PC), passes it privately to the CLI, and confirms the expected Chessnut service and characteristic UUIDs and a clean reconnect after disconnect. Record connection outcome and redacted logs. **STOP** if discovery/permissions fail or the UUIDs do not match.
 
+## One-command board read report
+
+After SSH login, enable board Bluetooth and run:
+
+```sh
+sh /mnt/us/chessnut-ble-probe/runtime/read-board.sh
+```
+
+The private board address is read from `/mnt/us/chessnut-ble-probe/board-address`,
+provisioned separately from source and never committed. No address argument or
+Mac listener is needed. Keep the official app closed. There is one connection
+attempt, with native callback/context evidence, UUID/property discovery, measured
+MTU or unknown, SDK realtime enable, battery and tracked-piece queries, then
+20 seconds of position observation. Moving one piece by hand is optional and
+helps check position updates. No LED/motor/STOP command or automatic retry is sent.
+Status queries do not depend on receiving a spontaneous initial position. Missing
+position data is reported as failure after the status queries and observation;
+battery/status values already printed remain valid observations. Other transport
+or query failures terminate with their stage and cleanup diagnostics.
+
+The script streams a MAC-redacted report to the terminal and saves it under
+`/mnt/us/chessnut-ble-probe/logs/read-board-*.log`. It includes source fingerprint,
+firmware/privileges/loading, actual connection and query results, decoded/raw
+notifications, cleanup, a bounded excerpt of existing daemon logs and final
+`READ_BOARD_RESULT=PASS|FAIL exit_status=...`. Paste the whole report, including
+that final line. Run `echo $?` immediately afterward if desired. Ctrl+C/HUP/TERM
+requests cleanup and retains the partial failure report. No global logging,
+services or radio settings are changed. A stalled vendor call can take the
+existing supervised cleanup grace to finish; a forced cleanup remains failure.
+
+`read-board.sh --check` validates setup/redaction without connecting. The existing
+launcher also accepts `read-once --address <private address>` for the noninteractive
+Rust sequence; unlike the interactive session, it does not read stdin or allow
+queued commands/EOF to prematurely end observation.
+
 ## Connection debugging build
 
 The deployed diagnostic build adds bounded connection evidence; it does not claim a

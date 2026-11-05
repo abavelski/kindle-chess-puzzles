@@ -164,3 +164,24 @@ pub fn run_session(
         }
     }
 }
+
+/// One operator-started read test. No stdin thread, retries, LED or motor commands.
+pub fn run_read_once(
+    worker: &mut Command,
+    address: &str,
+    output: &mut impl Write,
+    cancelled: Arc<AtomicBool>,
+    timeout: Duration,
+    grace: Duration,
+    watch_seconds: u16,
+) -> Result<(), String> {
+    if !valid_address(address) || !(1..=300).contains(&watch_seconds) {
+        return Err("invalid address or observation duration (1..300 seconds)".into());
+    }
+    writeln!(output,"READ_ONCE: one connection; realtime/battery/piece queries; {watch_seconds}s observation; no LEDs or motors. Move one piece by hand when connected.").map_err(|e|e.to_string())?;
+    let mut client = Some(connect(
+        worker, address, output, &cancelled, timeout, grace,
+    )?);
+    crate::m3_session::read_once(client.as_mut().unwrap(), output, timeout, watch_seconds)?;
+    disconnect(&mut client, output)
+}

@@ -91,8 +91,9 @@ fn wait_for(
     output: &mut impl Write,
     kind: u8,
     timeout: Duration,
-) -> Result<(), String> {
+) -> Result<usize, String> {
     let deadline = Instant::now() + timeout;
+    let mut positions = 0;
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
@@ -105,9 +106,12 @@ fn wait_for(
                     | (BoardEvent::BatteryStatus(_), 1)
                     | (BoardEvent::PieceStatus(_), 2)
             );
+            if matches!(event.event, BoardEvent::PositionChanged(_)) {
+                positions += 1;
+            }
             observed(output, &event)?;
             if matches {
-                return Ok(());
+                return Ok(positions);
             }
         }
     }
@@ -231,4 +235,59 @@ pub fn execute(
         _ => return Ok((false, None)),
     }
     Ok((true, None))
+}
+
+/// Noninteractive read sequence: status queries do not require a spontaneous
+/// initial position. All observed positions count toward the final read result.
+pub(crate) fn read_once(
+    client: &mut Client,
+    output: &mut impl Write,
+    timeout: Duration,
+    seconds: u16,
+) -> Result<(), String> {
+    let budget = timeout.min(Duration::from_secs(5));
+    capabilities(client, output)?;
+    writeln!(output, "read_stage=subscribe_position_and_response").map_err(|e| e.to_string())?;
+    client.request(Operation::Subscribe).map_err(error)?;
+    send(client, &Command::enable_realtime_updates(), output)?;
+    writeln!(output, "read_stage=battery").map_err(|e| e.to_string())?;
+    send(client, &Command::read_battery_level(), output)?;
+    let mut positions = wait_for(client, output, 1, budget)?;
+    writeln!(output, "read_stage=pieces").map_err(|e| e.to_string())?;
+    send(client, &Command::read_piece_status(), output)?;
+    positions += wait_for(client, output, 2, budget)?;
+    writeln!(
+        output,
+        "read_stage=watch duration_seconds={seconds}; move one piece by hand if desired"
+    )
+    .map_err(|e| e.to_string())?;
+    let deadline = Instant::now() + Duration::from_secs(u64::from(seconds));
+    while Instant::now() < deadline {
+        if let Some(event) = client
+            .next_observed(
+                deadline
+                    .saturating_duration_since(Instant::now())
+                    .min(Duration::from_millis(50)),
+            )
+            .map_err(error)?
+        {
+            if matches!(event.event, BoardEvent::PositionChanged(_)) {
+                positions += 1;
+            }
+            observed(output, &event)?;
+        }
+    }
+    capabilities(client, output)?;
+    writeln!(
+        output,
+        "watch complete position_notifications={positions} battery=RECEIVED pieces=RECEIVED"
+    )
+    .map_err(|e| e.to_string())?;
+    if positions == 0 {
+        return Err(
+            "No position notification received; battery/piece results above remain valid; no retry"
+                .into(),
+        );
+    }
+    Ok(())
 }

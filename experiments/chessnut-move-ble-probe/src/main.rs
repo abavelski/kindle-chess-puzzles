@@ -39,7 +39,7 @@ fn run() -> Result<(), String> {
             }
             result
         }
-        [command, option, address] if command == "session" && option == "--address" => {
+        [command, option, address] if matches!(command.as_str(), "session" | "read-once") && option == "--address" => {
             use std::{io::{self, BufRead, Read}, sync::{atomic::AtomicBool, mpsc, Arc}, time::Duration};
             if !chessnut_ble_probe::session::valid_address(address) {
                 return Err("invalid Bluetooth address; expected six hexadecimal octets (address not logged)".into());
@@ -53,6 +53,9 @@ fn run() -> Result<(), String> {
             let directory = executable.parent().ok_or("missing executable directory")?;
             let mut worker = std::process::Command::new(directory.join("kindlebt-worker"));
             worker.arg("--ipc").arg(directory.join("libkindlebt.so")).arg(directory.join("required-libs.txt"));
+            let result = if command == "read-once" {
+                chessnut_ble_probe::session::run_read_once(&mut worker,address,&mut io::stdout().lock(),cancelled,Duration::from_secs(45),Duration::from_secs(55),20)
+            } else {
             let (sender, input) = mpsc::sync_channel(8);
             std::thread::spawn(move || {
                 let mut stdin = io::stdin().lock();
@@ -68,7 +71,8 @@ fn run() -> Result<(), String> {
                     }
                 }
             });
-            let result = chessnut_ble_probe::session::run_session(&mut worker,address,input,&mut io::stdout().lock(),cancelled,Duration::from_secs(45),Duration::from_secs(55));
+            chessnut_ble_probe::session::run_session(&mut worker,address,input,&mut io::stdout().lock(),cancelled,Duration::from_secs(45),Duration::from_secs(55))
+            };
             for handler in handlers { signal_hook::low_level::unregister(handler); }
             result
         }
@@ -93,7 +97,7 @@ fn run() -> Result<(), String> {
             Ok(())
         }
         [command] if command == "--help" || command == "help" => {
-            println!("chessnut-ble-probe packet-fen '<six-field FEN>'\nMilestone 3: preflight (no connection), packet-fen (offline), session --address XX:XX:XX:XX:XX:XX. Explicit telemetry and guarded LEDs only; motor commands are UNSUPPORTED.");
+            println!("chessnut-ble-probe packet-fen '<six-field FEN>'\nMilestone 3: preflight (no connection), packet-fen (offline), session --address XX:XX:XX:XX:XX:XX, read-once --address XX:XX:XX:XX:XX:XX. Explicit telemetry and guarded LEDs only; motor commands are UNSUPPORTED.");
             Ok(())
         }
         _ => Err(

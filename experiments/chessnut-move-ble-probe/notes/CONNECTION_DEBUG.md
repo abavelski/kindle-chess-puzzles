@@ -80,3 +80,24 @@ reported failure. Missing, overflowed or successful callback histories cannot
 invent a failure code. Registration failures are not reclassified. Red test:
 real-header adapter first failed for missing connection_error_stage. No radio/API
 parameters, dependency pins, stock files or retries change as a result.
+
+
+## Operator-run read report — 2026-11-05
+
+At the user's request, read-board.sh provides a direct on-Kindle diagnostic
+without Mac advertisement timing or interactive command entry. It runs the new
+noninteractive read-once path: one connect/discovery, both subscriptions, SDK
+realtime, battery/piece status, 20s observation, MTU evidence and cleanup. It
+never writes LEDs or motors. It prints/saves a redacted report including existing
+system logs and an explicit outcome/exit code. A private address file is outside
+the checksummed runtime and source; deployment provisions the known supplied
+address without printing it. --check opens no session.
+
+TDD red evidence: missing run_read_once, missing shell script, then the initial-
+position prerequisite prevented battery/status reads. Green coverage includes
+full observation without stdin/early EOF, status retrieval without initial
+position (eventual missing-position failure), worker failures/no retry, CLI with
+closed stdin, script pass/fail exit propagation, report retention/redaction,
+setup-only check and signal cleanup. Packaging includes/checksums the new script
+and validates it against the source. No additional board test runs automatically;
+the user will enable Bluetooth and invoke the installed script themselves.
