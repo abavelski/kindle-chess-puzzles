@@ -42,11 +42,24 @@ fn bounded_notifications_keep_source_length_and_sdk_event() {
     let observed = decode_observed(RESPONSE_UUID, &[0x41, 3, 0x0c, 1, 72]).unwrap();
     assert_eq!(observed.bytes.len(), 5);
     assert!(
-        matches!(observed.event,chessnut_move::protocol::BoardEvent::BatteryStatus(s) if s.percentage==72)
+        matches!(observed.event,Ok(chessnut_move::protocol::BoardEvent::BatteryStatus(s)) if s.percentage==72)
     );
-    assert!(decode_observed(POSITION_UUID, &[0; 33]).is_err());
+    assert!(decode_observed(POSITION_UUID, &[0; 33])
+        .unwrap()
+        .event
+        .is_err());
     assert!(decode_observed(RESPONSE_UUID, &[0; 513]).is_err());
     assert!(decode_observed("other", &[0; 34]).is_err());
     let position = decode_observed(POSITION_UUID, &[0; 34]).unwrap();
     assert_eq!(position.bytes.len(), 34);
+}
+
+#[test]
+fn incomplete_position_is_raw_evidence_never_a_position() {
+    let bytes = [
+        1, 0x24, 0, 0x5c, 0, 0x20, 0, 0, 0, 0, 0, 0x70, 7, 0, 0, 0, 0, 0, 0, 0,
+    ];
+    let observed = decode_observed(POSITION_UUID, &bytes).unwrap();
+    assert_eq!(observed.bytes, bytes);
+    assert!(observed.event.is_err());
 }

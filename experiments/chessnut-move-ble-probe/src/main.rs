@@ -39,7 +39,7 @@ fn run() -> Result<(), String> {
             }
             result
         }
-        [command, option, address] if matches!(command.as_str(), "session" | "read-once") && option == "--address" => {
+        [command, option, address] if matches!(command.as_str(), "session" | "read-once" | "subscribe-once" | "position-once" | "move-once" | "return-once") && option == "--address" => {
             use std::{io::{self, BufRead, Read}, sync::{atomic::AtomicBool, mpsc, Arc}, time::Duration};
             if !chessnut_ble_probe::session::valid_address(address) {
                 return Err("invalid Bluetooth address; expected six hexadecimal octets (address not logged)".into());
@@ -53,8 +53,14 @@ fn run() -> Result<(), String> {
             let directory = executable.parent().ok_or("missing executable directory")?;
             let mut worker = std::process::Command::new(directory.join("kindlebt-worker"));
             worker.arg("--ipc").arg(directory.join("libkindlebt.so")).arg(directory.join("required-libs.txt"));
-            let result = if command == "read-once" {
-                chessnut_ble_probe::session::run_read_once(&mut worker,address,&mut io::stdout().lock(),cancelled,Duration::from_secs(45),Duration::from_secs(55),20)
+            let result = if !matches!(command.as_str(), "session" | "move-once" | "return-once") {
+                use chessnut_ble_probe::session::ReadMode;
+                let mode = match command.as_str() {
+                    "subscribe-once" => ReadMode::Subscriptions,
+                    "position-once" => ReadMode::Position,
+                    _ => ReadMode::Full,
+                };
+                chessnut_ble_probe::session::run_staged_once(&mut worker,address,&mut io::stdout().lock(),cancelled,Duration::from_secs(45),Duration::from_secs(55),(mode,20))
             } else {
             let (sender, input) = mpsc::sync_channel(8);
             std::thread::spawn(move || {
@@ -71,7 +77,15 @@ fn run() -> Result<(), String> {
                     }
                 }
             });
+            if command=="session" {
             chessnut_ble_probe::session::run_session(&mut worker,address,input,&mut io::stdout().lock(),cancelled,Duration::from_secs(45),Duration::from_secs(55))
+            } else {
+                let mut output=GuidedOutput::new().map_err(|e|e.to_string())?;
+                let result=chessnut_ble_probe::session::run_guided_move(&mut worker,address,input,&mut output,cancelled,(command=="return-once",Duration::from_secs(45),Duration::from_secs(55)));
+                use std::io::Write;
+                let _=writeln!(output,"GUIDED_SESSION_RESULT={}{}",if result.is_ok(){"CLOSED"}else{"FAIL"},result.as_ref().err().map_or_else(String::new,|e|format!(" reason={e}")));
+                result
+            }
             };
             for handler in handlers { signal_hook::low_level::unregister(handler); }
             result
@@ -97,7 +111,7 @@ fn run() -> Result<(), String> {
             Ok(())
         }
         [command] if command == "--help" || command == "help" => {
-            println!("chessnut-ble-probe packet-fen '<six-field FEN>'\nMilestone 3: preflight (no connection), packet-fen (offline), session --address XX:XX:XX:XX:XX:XX, read-once --address XX:XX:XX:XX:XX:XX. Explicit telemetry and guarded LEDs only; motor commands are UNSUPPORTED.");
+            println!("chessnut-ble-probe packet-fen '<six-field FEN>'\nMilestone 4: preflight (no connection), packet-fen (offline), session/read-once/subscribe-once/position-once --address XX:XX:XX:XX:XX:XX. Motion defaults disabled. Guided move-once/return-once require explicit confirmation. Interactive session supports motion-enable, set-fen, confirm and stop. No startup or read-script motor writes.");
             Ok(())
         }
         _ => Err(
@@ -110,5 +124,45 @@ fn main() {
     if let Err(error) = run() {
         eprintln!("{error}");
         std::process::exit(1);
+    }
+}
+
+/// Optional private log mirror for guided scripts; no background screen output.
+struct GuidedOutput {
+    screen: std::io::Stdout,
+    log: Option<std::fs::File>,
+}
+impl GuidedOutput {
+    fn new() -> std::io::Result<Self> {
+        use std::os::unix::fs::OpenOptionsExt;
+        let log = std::env::var_os("PROBE_SESSION_LOG")
+            .map(|path| {
+                std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(0o600)
+                    .open(path)
+            })
+            .transpose()?;
+        Ok(Self {
+            screen: std::io::stdout(),
+            log,
+        })
+    }
+}
+impl std::io::Write for GuidedOutput {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.screen.write_all(bytes)?;
+        if let Some(log) = &mut self.log {
+            log.write_all(bytes)?;
+        }
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.screen.flush()?;
+        if let Some(log) = &mut self.log {
+            log.flush()?;
+        }
+        Ok(())
     }
 }

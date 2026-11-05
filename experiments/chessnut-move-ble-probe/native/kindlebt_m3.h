@@ -45,6 +45,32 @@ static unsigned int native_mtu(struct probe_native *n) {
     unsigned int mtu=n->mtu_seen && n->mtu_status==0 && n->mtu_connection==n->connection && n->observed_mtu>=23 && n->observed_mtu<=517 ? (unsigned int)n->observed_mtu:0;
     pthread_mutex_unlock(&n->state_lock);return mtu;
 }
+/* Firmware libace_bt.so exports the two-argument function declared by the
+ * pinned ACE header. Only this owner thread calls it; no hand-built IPC. */
+static int native_negotiate_mtu(struct probe_native *n) {
+    if(native_mtu(n)>=41)return 0; /* 38-byte Move notification + ATT overhead. */
+    pthread_mutex_lock(&n->state_lock);n->mtu_seen=false;pthread_mutex_unlock(&n->state_lock);
+    if(n->aceBT_bleRequestMtu==NULL || session_cancelled)return -1;
+    int result=native_status("mtu_request_500",n->aceBT_bleRequestMtu(n->connection,500));
+    if(result!=0)return result;
+    struct timespec start;clock_gettime(CLOCK_MONOTONIC,&start);
+    for(;;){
+        pthread_mutex_lock(&n->state_lock);
+        bool matched=n->mtu_seen && n->mtu_connection==n->connection;
+        int status=n->mtu_status,mtu=n->observed_mtu;
+        pthread_mutex_unlock(&n->state_lock);
+        if(matched){
+            bool ok=status==0 && mtu>=41 && mtu<=517;
+            fprintf(session_diagnostics,"phase=M3 stage=mtu_callback requested=500 negotiated=%d status=%d minimum=41 result=%s\n",mtu,status,ok?"PASS":"FAIL");fflush(session_diagnostics);
+            return ok?0:-1;
+        }
+        struct timespec now;clock_gettime(CLOCK_MONOTONIC,&now);
+        if((now.tv_sec-start.tv_sec)*1000000000LL+now.tv_nsec-start.tv_nsec>=(long long)PROBE_CALLBACK_TIMEOUT_MS*1000000LL || session_cancelled || atomic_load(&unexpected_callback)){
+            fprintf(session_diagnostics,"phase=M3 stage=mtu_callback result=TIMEOUT_OR_INVALID_CALLBACK\n");fflush(session_diagnostics);return -1;
+        }
+        struct timespec pause={.tv_nsec=1000000};nanosleep(&pause,NULL);
+    }
+}
 static void capabilities_report(struct probe_native *n,unsigned int id) {
     unsigned int mtu=native_mtu(n);char value[16];
     if(mtu)snprintf(value,sizeof(value),"%u",mtu);else strcpy(value,"null");
@@ -57,7 +83,9 @@ static void flush_notifications(struct probe_native *n) {
     for(;;){
         pthread_mutex_lock(&n->state_lock);bool present=probe_notification_pop(&n->notifications,&event);pthread_mutex_unlock(&n->state_lock);if(!present)break;
         const char *source=event.source==0?"1b7e8262-2877-41c3-b46e-cf057c562023":"1b7e8273-2877-41c3-b46e-cf057c562023";
-        fprintf(session_diagnostics,"timestamp_unix=%ld phase=M3 stage=notification source=%s length=%zu\n",(long)time(NULL),source,event.length);
+        fprintf(session_diagnostics,"timestamp_unix=%ld phase=M3 stage=notification source=%s length=%zu bytes=",(long)time(NULL),source,event.length);
+        for(size_t i=0;i<event.length;++i)fprintf(session_diagnostics,"%s%02x",i?" ":"",event.bytes[i]);
+        fputc('\n',session_diagnostics);fflush(session_diagnostics);
         fprintf(n->wire,"{\"v\":1,\"id\":0,\"report\":{\"type\":\"notification\",\"source\":\"%s\",\"bytes\":[",source);
         for(size_t i=0;i<event.length;++i)fprintf(n->wire,"%s%u",i?",":"",event.bytes[i]);
         fputs("]}}\n",n->wire);fflush(n->wire);
@@ -107,21 +135,41 @@ static void descriptor_wrote(bleConnHandle connection,bleGattCharacteristicsValu
     }else atomic_store(&unexpected_callback,true);
     pthread_mutex_unlock(&n->state_lock);
 }
+static bool descriptor_is_cccd(const bleGattDescriptor_t *desc) {
+    const uuid_t *uuid=&desc->gattRecord.uuid;
+    return uuid->type==ACEBT_UUID_TYPE_16 &&
+      ((uuid->uu[0]==0x29 && uuid->uu[1]==0x02) || (uuid->uu[0]==0x02 && uuid->uu[1]==0x29));
+}
+static void descriptor_report(uint16_t characteristic,const char *layout,const bleGattDescriptor_t *desc) {
+    char uuid[37];if(!uuid_text(&desc->gattRecord.uuid,uuid))strcpy(uuid,"invalid");
+    fprintf(session_diagnostics,"phase=M3 stage=descriptor characteristic_handle=%u layout=%s uuid=%s handle=%u is_set=%s is_notify=%s cccd=%s\n",
+      characteristic,layout,uuid,desc->gattRecord.handle,desc->is_set?"true":"false",desc->is_notify?"true":"false",descriptor_is_cccd(desc)?"true":"false");
+}
 static uint16_t notification_descriptor(struct aceBT_gattCharRec_t *record) {
+    /* Amazon's pinned HAL embeds a single descriptor and uses a counted list
+     * only for multiple descriptors. is_notify alone is not descriptor identity. */
+    if(record->value.multiDescCount==0){
+        const bleGattDescriptor_t *desc=&record->value.gattDescriptor;
+        descriptor_report(record->value.gattRecord.handle,"embedded",desc);
+        return desc->is_set && descriptor_is_cccd(desc)?desc->gattRecord.handle:0;
+    }
+    if(record->value.multiDescCount>20)return 0;
     struct aceBT_gattDescRec_t *desc;uint16_t handle=0;unsigned int count=0;
     STAILQ_FOREACH(desc,&record->value.descList,link){
-        if(++count>20)return 0;
-        if(desc->value.is_set && desc->value.is_notify){
+        if(++count>record->value.multiDescCount)return 0;
+        descriptor_report(record->value.gattRecord.handle,"list",&desc->value);
+        if(desc->value.is_set && descriptor_is_cccd(&desc->value)){
             if(handle!=0 || desc->value.gattRecord.handle==0)return 0;
             handle=desc->value.gattRecord.handle;
         }
     }
-    return handle;
+    return count==record->value.multiDescCount?handle:0;
 }
 static int native_notification(struct probe_native *n,unsigned int index,bool enabled) {
     struct aceBT_gattCharRec_t *record=index==0?n->position_record:n->response_record;
-    if(record==NULL)return -1;
-    uint16_t handle=notification_descriptor(record);if(handle==0)return -1;
+    if(record==NULL){fprintf(session_diagnostics,"phase=M3 stage=subscribe_precondition result=FAIL reason=missing_characteristic index=%u\n",index);return -1;}
+    uint16_t handle=notification_descriptor(record);
+    if(handle==0){fprintf(session_diagnostics,"phase=M3 stage=subscribe_precondition result=FAIL reason=missing_invalid_or_ambiguous_cccd index=%u characteristic_handle=%u list_count=%u api_called=false\n",index,record->value.gattRecord.handle,record->value.multiDescCount);fflush(session_diagnostics);return -1;}
     pthread_mutex_lock(&n->state_lock);
     if(n->descriptor_pending || n->write_pending){pthread_mutex_unlock(&n->state_lock);return -1;}
     n->descriptor_pending=true;n->descriptor_done=false;n->descriptor_handle=handle;n->descriptor_status=-1;
@@ -142,7 +190,7 @@ static int native_notification(struct probe_native *n,unsigned int index,bool en
             return status;
         }
         struct timespec now;clock_gettime(CLOCK_MONOTONIC,&now);
-        if((now.tv_sec-start.tv_sec)*1000000000LL+now.tv_nsec-start.tv_nsec>=(long long)PROBE_CALLBACK_TIMEOUT_MS*1000000LL || session_cancelled || atomic_load(&unexpected_callback)){
+        if((now.tv_sec-start.tv_sec)*1000000000LL+now.tv_nsec-start.tv_nsec>=(long long)PROBE_CALLBACK_TIMEOUT_MS*1000000LL || (session_cancelled && enabled) || atomic_load(&unexpected_callback)){
             fprintf(session_diagnostics,"phase=M3 stage=%s_descriptor_callback handle=%u result=TIMEOUT_OR_INVALID_CALLBACK api_accepted=true\n",stage,handle);fflush(session_diagnostics);
             return -1; /* Keep pending: cleanup must disconnect, without another GATT write. */
         }
@@ -151,9 +199,10 @@ static int native_notification(struct probe_native *n,unsigned int index,bool en
 }
 static int native_subscribe(struct probe_native *n) {
     pthread_mutex_lock(&n->state_lock);bool pending=n->descriptor_pending;pthread_mutex_unlock(&n->state_lock);
-    if(pending || atomic_load(&unexpected_callback))return -1;
+    if(pending || atomic_load(&unexpected_callback)){fprintf(session_diagnostics,"phase=M3 stage=subscribe_precondition result=FAIL reason=pending_or_invalid_callback api_called=false\n");return -1;}
     if(n->subscribed[0] && n->subscribed[1])return 0;
-    if(!resolve_characteristics(n))return -1;
+    if(!resolve_characteristics(n)){fprintf(session_diagnostics,"phase=M3 stage=subscribe_precondition result=FAIL reason=characteristic_resolution api_called=false\n");return -1;}
+    if(native_negotiate_mtu(n)!=0)return -1;
     for(unsigned int i=0;i<2;++i){
         if(n->subscribed[i])continue;
         int status=native_notification(n,i,true);if(status!=0)return status;
@@ -162,14 +211,18 @@ static int native_subscribe(struct probe_native *n) {
 }
 static bool packet_led(const probe_packet *packet){return packet->length==34;}
 static int native_write_packet(struct probe_native *n,const probe_packet *packet) {
-    if(!probe_m3_allowed(packet) || n->command_record==NULL || !n->subscribed[0] || !n->subscribed[1])return -1;
+    if(!probe_wire_allowed(packet) || n->command_record==NULL || !n->subscribed[0] || !n->subscribed[1])return -1;
     unsigned int mtu=native_mtu(n);
-    if(packet_led(packet) && (mtu==0 || packet->length>mtu-3)){
+    if((packet_led(packet) || packet->length==35) && (mtu==0 || packet->length>mtu-3)){
         fprintf(session_diagnostics,"phase=M3 stage=write_refused length=%zu reason=MTU_unknown_or_insufficient delivery=UNVERIFIED\n",packet->length);return -1;
     }
+    if(probe_motor(packet) && (!n->motion_armed || n->motion_maybe))return -1;
+    if(n->motion_maybe && !probe_stop(packet))return -1;
     pthread_mutex_lock(&n->state_lock);
     if(n->write_pending || n->descriptor_pending){pthread_mutex_unlock(&n->state_lock);return -1;}
     n->write_pending=true;n->write_done=false;n->write_status=-1;pthread_mutex_unlock(&n->state_lock);
+    if(probe_motor(packet)){n->motion_armed=false;n->motion_maybe=true;}
+    if(probe_stop(packet))n->motion_armed=false;
     memcpy(n->write_bytes,packet->bytes,packet->length);
     n->write_value=n->command_record->value;
     n->write_value.blobValue.data=n->write_bytes;n->write_value.blobValue.size=(uint16_t)packet->length;n->write_value.blobValue.offset=0;n->write_value.format=BLE_FORMAT_BLOB;
@@ -185,19 +238,32 @@ static int native_write_packet(struct probe_native *n,const probe_packet *packet
         flush_notifications(n);
         pthread_mutex_lock(&n->state_lock);bool done=n->write_done;status=n->write_status;if(done)n->write_pending=false;pthread_mutex_unlock(&n->state_lock);
         if(done){
+            if(status==0 && probe_stop(packet))n->motion_maybe=false;
             fprintf(session_diagnostics,"timestamp_unix=%ld phase=M3 stage=write_callback length=%zu kind=%s status=%d delivery=NOT_INFERRED\n",(long)time(NULL),packet->length,packet->without_response?"without_response":"with_response",status);fflush(session_diagnostics);
             if(status==0 && packet_led(packet)){bool clear=true;for(size_t i=2;i<34;++i)if(packet->bytes[i])clear=false;if(clear)n->leds_maybe=false;}
             return status;
         }
         struct timespec now;clock_gettime(CLOCK_MONOTONIC,&now);
-        if((now.tv_sec-start.tv_sec)*1000000000LL+now.tv_nsec-start.tv_nsec>=(long long)PROBE_CALLBACK_TIMEOUT_MS*1000000LL || atomic_load(&unexpected_callback)){
+        if((now.tv_sec-start.tv_sec)*1000000000LL+now.tv_nsec-start.tv_nsec>=(long long)PROBE_CALLBACK_TIMEOUT_MS*1000000LL || session_cancelled || atomic_load(&unexpected_callback)){
             fprintf(session_diagnostics,"phase=M3 stage=write_callback length=%zu result=TIMEOUT_OR_INVALID_CALLBACK api_accepted=true delivery=UNVERIFIED\n",packet->length);return -1;
         }
         struct timespec pause={.tv_nsec=5000000};nanosleep(&pause,NULL);
     }
 }
 static int native_m3_cleanup(struct probe_native *n) {
-    int result=0;
+    int result=0;n->motion_armed=false;
+    if(n->motion_maybe && n->command_record){
+        probe_packet stop={.bytes={0x42,0x21},.length=35,.without_response=true};
+        pthread_mutex_lock(&n->state_lock);bool pending=n->write_pending || n->descriptor_pending;pthread_mutex_unlock(&n->state_lock);
+        if(!pending){if(native_write_packet(n,&stop)!=0)result=-1;}
+        else {
+            memset(n->stop_bytes,0,sizeof(n->stop_bytes));n->stop_bytes[0]=0x42;n->stop_bytes[1]=0x21;
+            n->stop_value=n->command_record->value;n->stop_value.blobValue.data=n->stop_bytes;n->stop_value.blobValue.size=35;n->stop_value.blobValue.offset=0;n->stop_value.format=BLE_FORMAT_BLOB;
+            ++n->write_api_calls;
+            int status=n->bleWriteCharacteristic(n->session,n->connection,&n->stop_value,ACEBT_BLE_WRITE_TYPE_RESP_NO);
+            fprintf(session_diagnostics,"phase=M4 stage=stop_best_effort length=35 kind=without_response api_status=%d physical_stop=UNVERIFIED\n",status);result=-1;
+        }
+    }
     if(n->leds_maybe){
         probe_packet clear={.bytes={0x43,0x20},.length=34,.without_response=true};
         pthread_mutex_lock(&n->state_lock);bool pending=n->write_pending;pthread_mutex_unlock(&n->state_lock);

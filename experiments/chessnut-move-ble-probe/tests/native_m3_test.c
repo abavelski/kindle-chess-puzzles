@@ -13,7 +13,19 @@ int main(void) {
     packet.bytes[8]=1;assert(!probe_m3_allowed(&packet));packet.bytes[8]=0;
     packet.bytes[7]=0x40;assert(!probe_m3_allowed(&packet));
     packet.length=35;packet.bytes[0]=0x42;packet.bytes[1]=0x21;assert(!probe_m3_allowed(&packet));
+    probe_packet motor={.bytes={0x42,0x21},.length=35,.without_response=true};
+    assert(probe_stop(&motor) && probe_wire_allowed(&motor));
+    motor.bytes[2]=7;assert(!probe_wire_allowed(&motor)); /* Force is forbidden. */
+    motor.bytes[34]=1;assert(probe_motor(&motor) && probe_wire_allowed(&motor));
+    motor.bytes[2]=0xff;assert(!probe_wire_allowed(&motor));
+    motor.bytes[2]=7;motor.without_response=false;assert(!probe_wire_allowed(&motor));
     unsigned int id=0;
+    motor.without_response=true;
+    char motor_frame[512];size_t used=(size_t)snprintf(motor_frame,sizeof(motor_frame),"{\"v\":1,\"id\":8,\"operation\":{\"type\":\"write\",\"bytes\":[");
+    for(size_t i=0;i<35;++i)used+=(size_t)snprintf(motor_frame+used,sizeof(motor_frame)-used,"%s%u",i?",":"",motor.bytes[i]);
+    snprintf(motor_frame+used,sizeof(motor_frame)-used,"],\"write_kind\":\"without_response\"}}\n");
+    assert(probe_write_request(motor_frame,&id,&packet) && id==8 && packet.length==35 && memcmp(packet.bytes,motor.bytes,35)==0);
+
     assert(probe_write_request("{\"v\":1,\"id\":7,\"operation\":{\"type\":\"write\",\"bytes\":[65,1,12],\"write_kind\":\"with_response\"}}\n",&id,&packet));
     assert(id==7 && packet.length==3 && probe_m3_allowed(&packet));
     const char *bad[]={

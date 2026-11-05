@@ -121,7 +121,7 @@ static int preflight(const char *library, const char *required) {
         "openSession", "closeSession", "bleRegister", "bleDeregister",
         "bleRegisterGattClient", "bleDeregisterGattClient", "bleConnect", "bleDisconnect",
         "bleDiscoverAllServices", "bleGetDatabase", "bleCleanupGattService",
-        "bleWriteCharacteristic", "bleSetNotification"
+        "bleWriteCharacteristic", "bleSetNotification", "aceBT_bleRequestMtu"
     };
     for (size_t i = 0; i < sizeof(symbols)/sizeof(symbols[0]); ++i) {
         dlerror();

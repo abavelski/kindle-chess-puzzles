@@ -31,17 +31,25 @@ fn observed(output: &mut impl Write, event: &Observed) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
     match &event.event {
-        BoardEvent::PositionChanged(position) => writeln!(
+        Err(reason) if event.source == crate::ipc::POSITION_UUID => writeln!(
+            output,
+            "position=INCOMPLETE reason={reason} decoded_position=false"
+        ),
+        Err(reason) => writeln!(
+            output,
+            "response=UNDECODED reason={reason} acknowledgement=NOT_INFERRED"
+        ),
+        Ok(BoardEvent::PositionChanged(position)) => writeln!(
             output,
             "fen_placement={} metadata=unavailable",
             telemetry::placement(position)
         ),
-        BoardEvent::BatteryStatus(status) => writeln!(
+        Ok(BoardEvent::BatteryStatus(status)) => writeln!(
             output,
             "battery percentage={} charging={}",
             status.percentage, status.charging
         ),
-        BoardEvent::PieceStatus(status) => {
+        Ok(BoardEvent::PieceStatus(status)) => {
             writeln!(output, "pieces count={}", status.pieces.len()).map_err(|e| e.to_string())?;
             for (index, piece) in status.pieces.iter().enumerate() {
                 writeln!(
@@ -67,6 +75,18 @@ pub fn drain(client: &mut Client, output: &mut impl Write) -> Result<(), String>
         client.poll_session().map_err(error)?;
         while let Some(event) = client.take_observed() {
             observed(output, &event)?;
+        }
+    }
+    Ok(())
+}
+/// Keep the prompt usable: explicit watch/query commands display sensor data.
+pub fn drain_background(client: &mut Client, output: &mut impl Write) -> Result<(), String> {
+    for _ in 0..16 {
+        client.poll_session().map_err(error)?;
+        while let Some(event) = client.take_observed() {
+            if !matches!(event.event, Ok(BoardEvent::PositionChanged(_))) {
+                observed(output, &event)?;
+            }
         }
     }
     Ok(())
@@ -102,11 +122,11 @@ fn wait_for(
         if let Some(event) = client.next_observed(remaining).map_err(error)? {
             let matches = matches!(
                 (&event.event, kind),
-                (BoardEvent::PositionChanged(_), 0)
-                    | (BoardEvent::BatteryStatus(_), 1)
-                    | (BoardEvent::PieceStatus(_), 2)
+                (Ok(BoardEvent::PositionChanged(_)), 0)
+                    | (Ok(BoardEvent::BatteryStatus(_)), 1)
+                    | (Ok(BoardEvent::PieceStatus(_)), 2)
             );
-            if matches!(event.event, BoardEvent::PositionChanged(_)) {
+            if matches!(event.event, Ok(BoardEvent::PositionChanged(_))) {
                 positions += 1;
             }
             observed(output, &event)?;
@@ -224,7 +244,7 @@ pub fn execute(
                     .next_observed(remaining.min(Duration::from_millis(50)))
                     .map_err(error)?
                 {
-                    if matches!(event.event, BoardEvent::PositionChanged(_)) {
+                    if matches!(event.event, Ok(BoardEvent::PositionChanged(_))) {
                         positions += 1;
                     }
                     observed(output, &event)?;
@@ -244,18 +264,31 @@ pub(crate) fn read_once(
     output: &mut impl Write,
     timeout: Duration,
     seconds: u16,
+    mode: crate::session::ReadMode,
 ) -> Result<(), String> {
+    use crate::session::ReadMode;
     let budget = timeout.min(Duration::from_secs(5));
     capabilities(client, output)?;
-    writeln!(output, "read_stage=subscribe_position_and_response").map_err(|e| e.to_string())?;
+    writeln!(
+        output,
+        "read_stage=negotiate_mtu_then_subscribe_position_and_response"
+    )
+    .map_err(|e| e.to_string())?;
     client.request(Operation::Subscribe).map_err(error)?;
+    writeln!(output, "subscriptions=PASS characteristic_commands=0").map_err(|e| e.to_string())?;
+    if mode == ReadMode::Subscriptions {
+        return Ok(());
+    }
     send(client, &Command::enable_realtime_updates(), output)?;
-    writeln!(output, "read_stage=battery").map_err(|e| e.to_string())?;
-    send(client, &Command::read_battery_level(), output)?;
-    let mut positions = wait_for(client, output, 1, budget)?;
-    writeln!(output, "read_stage=pieces").map_err(|e| e.to_string())?;
-    send(client, &Command::read_piece_status(), output)?;
-    positions += wait_for(client, output, 2, budget)?;
+    let mut positions = 0;
+    if mode == ReadMode::Full {
+        writeln!(output, "read_stage=battery").map_err(|e| e.to_string())?;
+        send(client, &Command::read_battery_level(), output)?;
+        positions += wait_for(client, output, 1, budget)?;
+        writeln!(output, "read_stage=pieces").map_err(|e| e.to_string())?;
+        send(client, &Command::read_piece_status(), output)?;
+        positions += wait_for(client, output, 2, budget)?;
+    }
     writeln!(
         output,
         "read_stage=watch duration_seconds={seconds}; move one piece by hand if desired"
@@ -271,7 +304,7 @@ pub(crate) fn read_once(
             )
             .map_err(error)?
         {
-            if matches!(event.event, BoardEvent::PositionChanged(_)) {
+            if matches!(event.event, Ok(BoardEvent::PositionChanged(_))) {
                 positions += 1;
             }
             observed(output, &event)?;
@@ -280,7 +313,12 @@ pub(crate) fn read_once(
     capabilities(client, output)?;
     writeln!(
         output,
-        "watch complete position_notifications={positions} battery=RECEIVED pieces=RECEIVED"
+        "watch complete position_notifications={positions} status_queries={}",
+        if mode == ReadMode::Full {
+            "RECEIVED"
+        } else {
+            "NOT_REQUESTED"
+        }
     )
     .map_err(|e| e.to_string())?;
     if positions == 0 {

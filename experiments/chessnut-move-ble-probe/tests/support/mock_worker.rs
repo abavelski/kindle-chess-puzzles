@@ -8,6 +8,12 @@ fn emit(id: u32, report: Report) {
     );
     io::stdout().flush().unwrap();
 }
+fn moved_notification(packed: &[u8]) -> Vec<u8> {
+    let mut bytes = vec![1, 0x24];
+    bytes.extend_from_slice(packed);
+    bytes.extend([0; 4]);
+    bytes
+}
 fn main() {
     let scenario =
         std::env::var("PROBE_MOCK_SCENARIO").unwrap_or_else(|_| std::env::args().nth(1).unwrap());
@@ -27,6 +33,10 @@ fn main() {
         });
     }
     let mut disconnected = false;
+    let mut motor_sent = false;
+    let mut motor_target: Option<Vec<u8>> = None;
+    let mut stopped = false;
+    let mut armed = false;
     for line in io::stdin().lock().lines() {
         let request: Request = serde_json::from_str(&line.unwrap()).unwrap();
         assert_eq!(request.v, 1);
@@ -50,7 +60,9 @@ fn main() {
                 _ => emit(id, Report::Connected),
             },
             Operation::Discover
-                if (scenario.starts_with("database") || scenario.starts_with("m3")) =>
+                if (scenario.starts_with("database")
+                    || scenario.starts_with("m3")
+                    || scenario.starts_with("m4")) =>
             {
                 let mut records = [
                     (POSITION_SERVICE, POSITION_UUID, 0x10),
@@ -95,6 +107,12 @@ fn main() {
                     },
                 },
             ),
+            Operation::Arm => {
+                assert!(scenario.starts_with("m4"));
+                assert!(!armed);
+                armed = true;
+                emit(id, Report::Ok);
+            }
             Operation::Capabilities => emit(
                 id,
                 Report::Capabilities {
@@ -112,7 +130,28 @@ fn main() {
                     },
                 },
             ),
-            Operation::Subscribe if scenario.starts_with("m3") => emit(id, Report::Ok),
+            Operation::Subscribe if scenario.starts_with("m3") || scenario.starts_with("m4") => {
+                emit(id, Report::Ok);
+                if scenario == "m4-stream" {
+                    let target =
+                        chessnut_ble_probe::TargetFen::parse("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1")
+                            .unwrap();
+                    let mut bytes = vec![1, 0x24];
+                    bytes.extend_from_slice(&target.packet().bytes()[2..34]);
+                    std::thread::spawn(move || {
+                        for _ in 0..30 {
+                            std::thread::sleep(std::time::Duration::from_millis(10));
+                            emit(
+                                0,
+                                Report::Notification {
+                                    source: POSITION_UUID.into(),
+                                    bytes: bytes.clone(),
+                                },
+                            );
+                        }
+                    });
+                }
+            }
             Operation::Subscribe => {
                 emit(id, Report::Ok);
                 emit(
@@ -132,7 +171,86 @@ fn main() {
                     },
                 );
             }
+            Operation::Write { bytes, write_kind } if scenario.starts_with("m4") => {
+                use chessnut_ble_probe::TargetFen;
+                let notification = |placement: &str| {
+                    let fen = TargetFen::parse(&format!("{placement} w - - 0 1")).unwrap();
+                    let mut bytes = vec![1, 0x24];
+                    bytes.extend_from_slice(&fen.packet().bytes()[2..34]);
+                    bytes.extend([0; 4]);
+                    bytes
+                };
+                if bytes == [0x21, 1, 0] {
+                    emit(id, Report::Ok);
+                    emit(
+                        0,
+                        Report::Notification {
+                            source: POSITION_UUID.into(),
+                            bytes: if scenario.starts_with("m4-paused") && motor_sent && stopped {
+                                moved_notification(motor_target.as_ref().unwrap())
+                            } else {
+                                notification(if scenario == "m4-wrong-source" {
+                                    "4k3/8/8/8/8/4P3/8/4K3"
+                                } else if scenario == "m4-return" {
+                                    "4k3/4P3/8/8/8/8/8/4K3"
+                                } else {
+                                    "4k3/8/8/8/8/8/4P3/4K3"
+                                })
+                            },
+                        },
+                    );
+                    if scenario.starts_with("m4-paused") && motor_sent && stopped {
+                        for _ in 0..2 {
+                            emit(
+                                0,
+                                Report::Notification {
+                                    source: POSITION_UUID.into(),
+                                    bytes: moved_notification(motor_target.as_ref().unwrap()),
+                                },
+                            );
+                        }
+                    }
+                } else if bytes.len() == 35 && bytes[..2] == [0x42, 0x21] {
+                    assert_eq!(write_kind, WriteMode::WithoutResponse);
+                    if bytes[2..].iter().all(|b| *b == 0) {
+                        armed = false;
+                        stopped = true;
+                        emit(id, Report::Ok);
+                    } else {
+                        assert!(armed && !motor_sent);
+                        assert_eq!(bytes[34], 1);
+                        armed = false;
+                        motor_sent = true;
+                        motor_target = Some(bytes[2..34].to_vec());
+                        emit(id, Report::Ok);
+                        if scenario == "m4" || scenario == "m4-return" {
+                            let bytes = moved_notification(motor_target.as_ref().unwrap());
+                            std::thread::spawn(move || {
+                                for _ in 0..5 {
+                                    std::thread::sleep(std::time::Duration::from_millis(15));
+                                    emit(
+                                        0,
+                                        Report::Notification {
+                                            source: POSITION_UUID.into(),
+                                            bytes: bytes.clone(),
+                                        },
+                                    );
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    panic!("unexpected M4 packet {bytes:?}");
+                }
+            }
             Operation::Write { bytes, write_kind } if scenario.starts_with("m3") => {
+                if scenario == "m3-position-only" {
+                    assert_eq!(
+                        bytes,
+                        [0x21, 1, 0],
+                        "position probe must only enable realtime"
+                    );
+                }
                 let allowed = (write_kind == WriteMode::WithResponse
                     && [vec![0x21, 1, 0], vec![0x41, 1, 0x0c], vec![0x41, 1, 0x0b]]
                         .contains(&bytes))
@@ -153,8 +271,20 @@ fn main() {
                     emit(0, Report::Disconnected);
                     continue;
                 }
+                // Synthetic unknown response, not a claim about uncaptured device bytes.
+                if bytes == [0x21, 1, 0] && scenario.starts_with("m3-raw") {
+                    emit(
+                        0,
+                        Report::Notification {
+                            source: RESPONSE_UUID.into(),
+                            bytes: vec![0x21, 1, 0],
+                        },
+                    );
+                }
                 emit(id, Report::Ok);
-                if bytes == [0x21, 1, 0] && scenario != "m3-no-position" {
+                if bytes == [0x21, 1, 0]
+                    && !matches!(scenario.as_str(), "m3-no-position" | "m3-raw-only")
+                {
                     emit(
                         0,
                         Report::Notification {

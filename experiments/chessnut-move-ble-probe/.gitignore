@@ -6,3 +6,8 @@
 *.so
 __pycache__/
 *.pyc
+
+# Private identifiers and disposable manual reports must never enter Git.
+*.private.*
+/notes/my_output*.txt
+/notes/*.log

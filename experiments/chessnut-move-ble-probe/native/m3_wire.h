@@ -19,6 +19,18 @@ static bool probe_m3_allowed(const probe_packet *p) {
     }
     return lit<=1;
 }
+static bool probe_stop(const probe_packet *p) {
+    if(p->length!=35 || !p->without_response || p->bytes[0]!=0x42 || p->bytes[1]!=0x21)return false;
+    for(size_t i=2;i<35;++i)if(p->bytes[i])return false;
+    return true;
+}
+static bool probe_motor(const probe_packet *p) {
+    if(p->length!=35 || !p->without_response || p->bytes[0]!=0x42 || p->bytes[1]!=0x21 || p->bytes[34]!=1)return false;
+    bool present=false;
+    for(size_t i=2;i<34;++i){if((p->bytes[i]&15)>12 || (p->bytes[i]>>4)>12)return false;if(p->bytes[i])present=true;}
+    return present;
+}
+static bool probe_wire_allowed(const probe_packet *p){return probe_m3_allowed(p) || probe_stop(p) || probe_motor(p);}
 static bool probe_decimal(const char **cursor,unsigned int maximum,unsigned int *out) {
     const char *p=*cursor; if(*p<'0' || *p>'9')return false;
     unsigned int value=0;
@@ -36,14 +48,14 @@ static bool probe_write_request(const char *frame,unsigned int *id,probe_packet 
     memset(packet,0,sizeof(*packet));
     do {
         unsigned int byte;
-        if(packet->length>=34 || !probe_decimal(&p,255,&byte))return false;
+        if(packet->length>=35 || !probe_decimal(&p,255,&byte))return false;
         packet->bytes[packet->length++]=(unsigned char)byte;
         if(*p!=',')break;++p;
     }while(true);
     if(strcmp(p,"],\"write_kind\":\"with_response\"}}\n")==0)packet->without_response=false;
     else if(strcmp(p,"],\"write_kind\":\"without_response\"}}\n")==0)packet->without_response=true;
     else return false;
-    if(!probe_m3_allowed(packet))return false;
+    if(!probe_wire_allowed(packet))return false;
     char canonical[512];size_t used=(size_t)snprintf(canonical,sizeof(canonical),"{\"v\":1,\"id\":%u,\"operation\":{\"type\":\"write\",\"bytes\":[",request_id);
     for(size_t i=0;i<packet->length;++i)used+=(size_t)snprintf(canonical+used,sizeof(canonical)-used,"%s%u",i?",":"",packet->bytes[i]);
     snprintf(canonical+used,sizeof(canonical)-used,"],\"write_kind\":\"%s\"}}\n",packet->without_response?"without_response":"with_response");

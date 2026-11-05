@@ -1,4 +1,4 @@
-//! Bounded process IPC with terminal failures and a native non-motor allowlist.
+//! Bounded process IPC with terminal failures and a native guarded write policy.
 use chessnut_move::protocol::{self, BoardEvent, Command, WriteKind};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -32,6 +32,7 @@ pub enum Operation {
     Discover,
     Subscribe,
     Capabilities,
+    Arm,
     Write {
         bytes: Vec<u8>,
         write_kind: WriteMode,
@@ -369,6 +370,7 @@ impl Client {
                             if matches!(
                                 operation,
                                 Operation::Subscribe
+                                    | Operation::Arm
                                     | Operation::Write { .. }
                                     | Operation::Shutdown
                             ) => {}
@@ -414,11 +416,22 @@ impl Client {
         }
     }
     pub fn next_notification(&mut self, timeout: Duration) -> Result<BoardEvent, Error> {
-        match self.next_observed(timeout)? {
-            Some(observed) => Ok(observed.event),
-            None => {
+        let deadline = Instant::now() + timeout;
+        loop {
+            match self.next_observed(deadline.saturating_duration_since(Instant::now()))? {
+                Some(observed) => {
+                    if let Ok(event) = observed.event {
+                        return Ok(event);
+                    }
+                }
+                None => {
+                    self.close();
+                    return Err(Error::Timeout);
+                }
+            }
+            if Instant::now() >= deadline {
                 self.close();
-                Err(Error::Timeout)
+                return Err(Error::Timeout);
             }
         }
     }

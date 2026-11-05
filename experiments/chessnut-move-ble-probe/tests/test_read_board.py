@@ -2,6 +2,15 @@ from pathlib import Path
 import os,signal,subprocess,tempfile,time,unittest
 ROOT=Path(__file__).resolve().parents[1]
 class ReadBoardTests(unittest.TestCase):
+ def test_staged_modes_forward_only_the_selected_probe(self):
+  for option,command in [('--subscriptions','subscribe-once'),('--position','position-once')]:
+   with tempfile.TemporaryDirectory() as tmp:
+    root,script=self.setup_bundle(tmp)
+    (root/'runtime/launch.sh').write_text('#!/bin/sh\nprintf "selected=%s\\n" "$1"\n')
+    result=subprocess.run(['sh',str(script),option],text=True,capture_output=True,timeout=5)
+    self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+    self.assertIn('selected='+command,result.stdout)
+    self.assertIn('mode='+command,result.stdout)
  def setup_bundle(self,tmp):
   root=Path(tmp)/'probe';runtime=root/'runtime';runtime.mkdir(parents=True)
   (root/'.probe-owner').write_text('chessnut-ble-probe-v1\n')

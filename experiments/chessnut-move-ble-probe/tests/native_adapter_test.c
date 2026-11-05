@@ -1,6 +1,6 @@
 /* Built/run against the pinned real public headers, never guessed FFI types. */
 #define _GNU_SOURCE
-#define PROBE_CALLBACK_TIMEOUT_MS 20
+#define PROBE_CALLBACK_TIMEOUT_MS 100
 #include <assert.h>
 #include <ctype.h>
 #include <dlfcn.h>
@@ -39,10 +39,11 @@ static void *delayed_descriptor(void *arg){
 static int fake_subscribe(sessionHandle s,bleConnHandle c,bleGattCharacteristicsValue_t v,bool enabled) {
     (void)s;
     assert(!atomic_load(&fake_descriptor_in_flight));
+    if(enabled)assert(native_mtu(atomic_load(&active_native))>=41);
     ++subscriptions;
     if(enabled && subscriptions==fail_subscription)return -9;
     if(!omit_descriptor_callback && session_callbacks.on_ble_gattc_write_descriptor_cb){
-        v.gattDescriptor.gattRecord.handle=STAILQ_FIRST(&v.descList)->value.gattRecord.handle;
+        if(v.multiDescCount) v.gattDescriptor.gattRecord.handle=STAILQ_FIRST(&v.descList)->value.gattRecord.handle;
         if(wrong_descriptor_handle)++v.gattDescriptor.gattRecord.handle;
         if(wrong_descriptor_connection)c=NULL;
         if(delay_descriptor_callback){
@@ -64,6 +65,15 @@ static int fake_write(sessionHandle s,bleConnHandle c,bleGattCharacteristicsValu
 }
 static void emit_mtu(const char *fmt,...) {
     log_Event event={.fmt=fmt};va_start(event.ap,fmt);mtu_observer(&event);va_end(event.ap);
+}
+static int mtu_requests, mtu_api_status, mtu_callback_status, mtu_value=64;
+static bool omit_mtu_callback, wrong_mtu_connection;
+static aceBT_status_t fake_request_mtu(aceBT_bleConnHandle connection, int mtu) {
+    assert(mtu==500);++mtu_requests;
+    if(!mtu_api_status && !omit_mtu_callback)
+        emit_mtu("Callback %s(): status %d, mtu %d, conn_handle %p", "bleMtuUpdatedCallback",
+                 mtu_callback_status,mtu_value,wrong_mtu_connection?NULL:connection);
+    return (aceBT_status_t)mtu_api_status;
 }
 static uuid_t uuid128(const char *text) {
     uuid_t uuid={.type=ACEBT_UUID_TYPE_128};unsigned int i=0,value;
@@ -110,6 +120,17 @@ int main(void) {
     live.connection=(bleConnHandle)(uintptr_t)0x1234;live.bleSetNotification=fake_subscribe;live.bleWriteCharacteristic=fake_write;
     session_diagnostics=tmpfile();live.wire=tmpfile();assert(session_diagnostics && live.wire);
     assert(native_mtu(&live)==0);
+    live.aceBT_bleRequestMtu=fake_request_mtu;
+    assert(native_negotiate_mtu(&live)==0 && mtu_requests==1 && native_mtu(&live)==64);
+    assert(native_negotiate_mtu(&live)==0 && mtu_requests==1);
+    live.mtu_seen=false;mtu_api_status=-7;
+    assert(native_negotiate_mtu(&live)!=0);mtu_api_status=0;
+    mtu_callback_status=-8;assert(native_negotiate_mtu(&live)!=0);mtu_callback_status=0;
+    mtu_value=23;assert(native_negotiate_mtu(&live)!=0);mtu_value=64;
+    wrong_mtu_connection=true;assert(native_negotiate_mtu(&live)!=0);wrong_mtu_connection=false;
+    omit_mtu_callback=true;assert(native_negotiate_mtu(&live)!=0);omit_mtu_callback=false;
+    live.mtu_seen=false;
+
     const char *connection_format="Callback %s(): state %d, status %d, conn_handle %p addr %s";
     unsigned char expected_address[]={0x12,0x34,0x56,0x78,0x90,0xab};
     memcpy(live.target_address,expected_address,6);live.target_set=true;
@@ -179,11 +200,40 @@ int main(void) {
     struct aceBT_gattDescRec_t descriptors[2]={0};
     for(int i=0;i<2;++i){
         descriptors[i].value.is_set=true;descriptors[i].value.is_notify=true;
+        descriptors[i].value.gattRecord.uuid.type=ACEBT_UUID_TYPE_16;
+        descriptors[i].value.gattRecord.uuid.uu[0]=0x29;
+        descriptors[i].value.gattRecord.uuid.uu[1]=0x02;
         descriptors[i].value.gattRecord.handle=(uint16_t)(259+i*258);
         STAILQ_INIT(&chars[i*2].value.descList);
-        STAILQ_INSERT_TAIL(&chars[i*2].value.descList,&descriptors[i],link);
+        /* The pinned HAL embeds a single descriptor; no list is populated. */
+        chars[i*2].value.gattDescriptor=descriptors[i].value;
     }
+    assert(notification_descriptor(&chars[0])==259);
+    /* Multiple descriptors use the counted list, and flags do not identify UUID. */
+    struct aceBT_gattCharRec_t listed={0};
+    struct aceBT_gattDescRec_t other={0};
+    other.value=descriptors[0].value;other.value.gattRecord.uuid.uu[1]=1;
+    STAILQ_INIT(&listed.value.descList);
+    STAILQ_INSERT_TAIL(&listed.value.descList,&other,link);
+    STAILQ_INSERT_TAIL(&listed.value.descList,&descriptors[0],link);
+    listed.value.multiDescCount=2;
+    assert(notification_descriptor(&listed)==259);
+    listed.value.multiDescCount=1;assert(notification_descriptor(&listed)==0);
+    listed.value.multiDescCount=2;
+    other.value.gattRecord.uuid.uu[1]=2;assert(notification_descriptor(&listed)==0);
+    other.value.gattRecord.uuid.uu[1]=1;
+    STAILQ_NEXT(&descriptors[0],link)=&other;assert(notification_descriptor(&listed)==0);
+    STAILQ_NEXT(&descriptors[0],link)=NULL;
+    chars[0].value.gattDescriptor.gattRecord.uuid.uu[1]=1;
+    assert(notification_descriptor(&chars[0])==0);
+    chars[0].value.gattDescriptor=descriptors[0].value;
     live.database=db;live.count=2;
+    live.mtu_seen=false;mtu_api_status=-7;
+    assert(native_subscribe(&live)!=0 && subscriptions==0);
+    mtu_api_status=0;omit_mtu_callback=true;
+    assert(native_subscribe(&live)!=0 && subscriptions==0);
+    omit_mtu_callback=false;
+
     omit_descriptor_callback=true;
     assert(native_subscribe(&live)!=0); /* API acceptance is not CCCD completion. */
     assert(subscriptions==1); /* Never issue the second pending GATT operation. */
@@ -206,7 +256,9 @@ int main(void) {
     wrong_descriptor_connection=false;wrong_descriptor_handle=false;
     subscriptions=0;delay_descriptor_callback=true;
     assert(native_subscribe(&live)==0 && subscriptions==2);
+    session_cancelled=1; /* TERM initiates cleanup; it must not cancel its own CCCD wait. */
     assert(native_m3_cleanup(&live)==0 && subscriptions==4);
+    session_cancelled=0;
     for(unsigned int i=0;i<descriptor_threads_count;++i)assert(pthread_join(descriptor_threads[i],NULL)==0);
     delay_descriptor_callback=false;
     assert(native_subscribe(&live)==0);
@@ -245,6 +297,34 @@ int main(void) {
     assert(borrowed_write==&live.clear_value && borrowed_write->blobValue.data==live.clear_bytes);
     for(int i=2;i<34;++i)assert(live.clear_bytes[i]==0);
     assert(live.write_api_calls==(size_t)writes);
+    /* M4: exact 35-byte packet, one-shot permission, STOP, cleanup ownership. */
+    live.write_pending=false;omit_write_callback=false;live.leds_maybe=false;
+    assert(native_subscribe(&live)==0);
+    probe_packet motor={.bytes={0x42,0x21,7},.length=35,.without_response=true};motor.bytes[34]=1;
+    int before_motion=writes;
+    assert(native_write_packet(&live,&motor)!=0 && writes==before_motion);
+    live.motion_armed=true;
+    emit_mtu(mtu_format,"bleMtuUpdatedCallback",0,23,live.connection);
+    assert(native_write_packet(&live,&motor)!=0 && writes==before_motion);
+    emit_mtu(mtu_format,"bleMtuUpdatedCallback",0,300,live.connection);
+    assert(native_write_packet(&live,&motor)==0 && writes==before_motion+1);
+    assert(written_length==35 && written_kind==ACEBT_BLE_WRITE_TYPE_RESP_NO && !live.motion_armed && live.motion_maybe);
+    assert(memcmp(live.write_bytes,motor.bytes,35)==0);
+    assert(native_write_packet(&live,&motor)!=0 && writes==before_motion+1);
+    assert(native_write_packet(&live,&battery)!=0 && writes==before_motion+1);
+    probe_packet stop={.bytes={0x42,0x21},.length=35,.without_response=true};
+    assert(native_write_packet(&live,&stop)==0 && !live.motion_maybe);
+    live.motion_armed=true;assert(native_write_packet(&live,&motor)==0);
+    session_cancelled=1; /* Interrupted active motion still sends STOP on cleanup. */
+    assert(native_m3_cleanup(&live)==0 && !live.motion_maybe && !live.motion_armed);
+    session_cancelled=0;
+    assert(native_subscribe(&live)==0);live.motion_armed=true;omit_write_callback=true;
+    assert(native_write_packet(&live,&motor)!=0 && live.motion_maybe && live.write_pending);
+    int before_emergency=writes;
+    assert(native_m3_cleanup(&live)!=0 && writes==before_emergency+1);
+    assert(borrowed_write==&live.stop_value && borrowed_write->blobValue.data==live.stop_bytes && borrowed_write->blobValue.size==35);
+    assert(live.stop_bytes[0]==0x42 && live.stop_bytes[1]==0x21);
+    for(int i=2;i<35;++i)assert(live.stop_bytes[i]==0);
     fclose(live.wire);fclose(session_diagnostics);active_native=NULL;pthread_mutex_destroy(&live.state_lock);
     puts("native adapter UUID/database/callback contracts PASS");
 }

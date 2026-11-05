@@ -1,4 +1,4 @@
-//! M3 controller. Only explicit SDK telemetry and guarded LED commands can write.
+//! Explicit telemetry and human-confirmed M4 controller.
 use crate::{
     discovery::validate_database,
     ipc::{Client, Operation, Report},
@@ -53,6 +53,14 @@ fn connect(
 }
 fn disconnect(client: &mut Option<Client>, output: &mut impl Write) -> Result<(), String> {
     if let Some(mut current) = client.take() {
+        if current.is_closed() {
+            writeln!(
+                output,
+                "connection=UNVERIFIED worker=CLOSED; see native cleanup diagnostics"
+            )
+            .map_err(|e| e.to_string())?;
+            return Ok(());
+        }
         current
             .interrupt()
             .map_err(|e| format!("disconnect/cleanup failed: {e:?}"))?;
@@ -79,13 +87,14 @@ pub fn run_session(
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_secs();
-    writeln!(output,"timestamp_unix={timestamp} phase=M3 build={} protocol=1.0.2 address=[REDACTED] motor_packets=BLOCKED",env!("CARGO_PKG_VERSION")).map_err(|e|e.to_string())?;
+    writeln!(output,"timestamp_unix={timestamp} phase=M4 build={} protocol=1.0.2 address=[REDACTED] motor_packets=GUARDED_DEFAULT_DISABLED",env!("CARGO_PKG_VERSION")).map_err(|e|e.to_string())?;
     let mut client = Some(connect(
         worker, address, output, &cancelled, timeout, grace,
     )?);
-    writeln!(output,"Commands: services, telemetry, battery, pieces, watch 20, mtu, leds e4 green, leds-clear, disconnect, connect, quit. Motor commands are UNSUPPORTED.").map_err(|e|e.to_string())?;
+    writeln!(output,"Commands: services, telemetry, battery, pieces, watch 20, mtu, leds e4 green, leds-clear, disconnect, connect, quit. M4: motion-enable, packet-fen <FEN>, set-fen <FEN>, confirm, cancel, stop. Default motion disabled.").map_err(|e|e.to_string())?;
     let mut prompt = true;
     let mut streaming = false;
+    let mut motion = crate::motion::Guard::default();
     let mut deferred = None;
     loop {
         if cancelled.load(Ordering::Relaxed) {
@@ -94,7 +103,7 @@ pub fn run_session(
             );
         }
         if let Some(current) = &mut client {
-            crate::m3_session::drain(current, output)?;
+            crate::m3_session::drain_background(current, output)?;
         }
         if prompt {
             write!(output, "probe> ")
@@ -116,6 +125,19 @@ pub fn run_session(
         };
         prompt = true;
         if let Some(current) = &mut client {
+            let (handled, next) = crate::motion_session::execute(
+                line.trim(),
+                &mut motion,
+                current,
+                &mut streaming,
+                &input,
+                output,
+                timeout,
+            )?;
+            if handled {
+                deferred = next;
+                continue;
+            }
             let (handled, next) = crate::m3_session::execute(
                 line.trim(),
                 current,
@@ -134,8 +156,9 @@ pub fn run_session(
                 disconnect(&mut client, output)?;
                 return Ok(());
             }
-            "disconnect" => {disconnect(&mut client, output)?;streaming=false;},
+            "disconnect" => {motion.reset();disconnect(&mut client, output)?;streaming=false;},
             "connect" if client.is_none() => {
+                motion.reset();
                 streaming=false;
                 client = Some(connect(
                     worker, address, output, &cancelled, timeout, grace,
@@ -153,12 +176,12 @@ pub fn run_session(
             }
             "" | "help" => writeln!(
                 output,
-                "services | telemetry | battery | pieces | watch 20 | mtu | leds <square> <color> | leds-clear | disconnect | connect | quit; motor commands UNSUPPORTED"
+                "services | telemetry | battery | pieces | watch 20 | mtu | leds <square> <color> | leds-clear | disconnect | connect | quit; motion-enable | packet-fen <FEN> | set-fen <FEN> | confirm | cancel | stop"
             )
             .map_err(|e| e.to_string())?,
             _ => writeln!(
                 output,
-                "UNSUPPORTED: no command write sent; motion-enable, set-fen and STOP remain unavailable in M3"
+                "UNSUPPORTED: no command sent; use help for supported commands"
             )
             .map_err(|e| e.to_string())?,
         }
@@ -175,13 +198,89 @@ pub fn run_read_once(
     grace: Duration,
     watch_seconds: u16,
 ) -> Result<(), String> {
+    run_staged_once(
+        worker,
+        address,
+        output,
+        cancelled,
+        timeout,
+        grace,
+        (ReadMode::Full, watch_seconds),
+    )
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadMode {
+    Subscriptions,
+    Position,
+    Full,
+}
+
+/// Separate operator-selected tests of the native subscription boundary,
+/// position streaming, and the complete telemetry sequence.
+pub fn run_staged_once(
+    worker: &mut Command,
+    address: &str,
+    output: &mut impl Write,
+    cancelled: Arc<AtomicBool>,
+    timeout: Duration,
+    grace: Duration,
+    plan: (ReadMode, u16),
+) -> Result<(), String> {
+    let (mode, watch_seconds) = plan;
     if !valid_address(address) || !(1..=300).contains(&watch_seconds) {
         return Err("invalid address or observation duration (1..300 seconds)".into());
     }
-    writeln!(output,"READ_ONCE: one connection; realtime/battery/piece queries; {watch_seconds}s observation; no LEDs or motors. Move one piece by hand when connected.").map_err(|e|e.to_string())?;
+    writeln!(output,"READ_ONCE: mode={mode:?}; one connection; no LEDs or motors; wait for read_stage=watch before moving a piece.").map_err(|e|e.to_string())?;
     let mut client = Some(connect(
         worker, address, output, &cancelled, timeout, grace,
     )?);
-    crate::m3_session::read_once(client.as_mut().unwrap(), output, timeout, watch_seconds)?;
-    disconnect(&mut client, output)
+    let read = crate::m3_session::read_once(
+        client.as_mut().unwrap(),
+        output,
+        timeout,
+        watch_seconds,
+        mode,
+    );
+    let cleanup = disconnect(&mut client, output);
+    if let Err(reason) = read {
+        return Err(match cleanup {
+            Ok(()) => reason,
+            Err(cleanup) => format!("{reason}; {cleanup}"),
+        });
+    }
+    cleanup
+}
+
+/// One user-started guided move with a fixed source and explicit confirmation.
+pub fn run_guided_move(
+    worker: &mut Command,
+    address: &str,
+    input: Receiver<Result<String, String>>,
+    output: &mut impl Write,
+    cancelled: Arc<AtomicBool>,
+    settings: (bool, Duration, Duration),
+) -> Result<(), String> {
+    let (returning, timeout, grace) = settings;
+    if !valid_address(address) {
+        return Err("invalid Bluetooth address".into());
+    }
+    let mut client = Some(connect(
+        worker, address, output, &cancelled, timeout, grace,
+    )?);
+    let result = crate::motion_session::guided(
+        client.as_mut().unwrap(),
+        &input,
+        output,
+        returning,
+        timeout,
+        &cancelled,
+    );
+    let cleanup = disconnect(&mut client, output);
+    match (result, cleanup) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(e), Ok(())) => Err(e),
+        (Ok(()), Err(e)) => Err(e),
+        (Err(e), Err(c)) => Err(format!("{e}; {c}")),
+    }
 }

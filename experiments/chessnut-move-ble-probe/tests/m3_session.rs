@@ -36,9 +36,7 @@ fn m3_queries_leds_and_cleanup_use_only_safe_sdk_packets() {
             "mtu",
             "leds e4 green",
             "leds-clear",
-            "motion-enable",
-            "set-fen bad",
-            "stop",
+            "force",
             "quit",
         ],
     );
@@ -55,7 +53,7 @@ fn m3_queries_leds_and_cleanup_use_only_safe_sdk_packets() {
 fn telemetry_failures_are_terminal_and_do_not_replay_queries() {
     for (scenario, reason) in [
         ("m3-no-position", "response timeout kind=0"),
-        ("m3-malformed", "MalformedNotification"),
+        ("m3-malformed", "response timeout kind=0"),
         ("m3-battery-timeout", "response timeout kind=1"),
         ("m3-write-failed", "write_callback_failed"),
         ("m3-disconnect", "Disconnected"),
@@ -98,7 +96,7 @@ fn invalid_watch_and_led_arguments_send_nothing() {
 #[test]
 fn quiet_watch_completes_and_operator_command_ends_it_promptly() {
     for (seconds, delay, marker) in [
-        ("watch 1", 1200, "watch complete position_changes=0"),
+        ("watch 1", 1700, "watch complete position_changes=0"),
         ("watch 300", 150, "mtu="),
     ] {
         let mut worker = Command::new(env!("CARGO_BIN_EXE_mock-worker"));

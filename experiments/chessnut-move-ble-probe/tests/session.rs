@@ -29,15 +29,7 @@ fn run(scenario: &str, commands: &[&str]) -> (Result<(), String>, String) {
 fn discovery_session_disconnect_reconnect_and_unsupported_writes() {
     let (result, text) = run(
         "database",
-        &[
-            "services",
-            "set-fen bad",
-            "motion-enable",
-            "stop",
-            "disconnect",
-            "connect",
-            "quit",
-        ],
+        &["services", "force", "disconnect", "connect", "quit"],
     );
     assert!(result.is_ok(), "{result:?}: {text}");
     assert_eq!(text.matches("discovery=PASS").count(), 3);

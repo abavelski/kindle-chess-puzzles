@@ -153,3 +153,61 @@ whose last callback reports failure, the error code preserves both domains,
 e.g. `connect_callback_10_api_status_-2`. The public API still returned -2; 10
 is the observed callback status. Missing/overflowed histories retain the neutral
 API-only error. Other setup stages cannot be relabeled as connection callbacks.
+
+
+### Undecoded response diagnostics (raw-response-v3)
+
+Command-response payloads of 3..512 bytes that the SDK cannot decode remain
+bounded observations with raw bytes and decoder error text. They do not fail an
+outstanding write merely because they arrived before its completion. They never
+satisfy a position/battery/piece wait or imply a board acknowledgement. Source,
+frame, queue and size bounds still apply; invalid position payloads remain fatal.
+The observation window and query deadlines do not extend on raw traffic. Native
+raw bytes are flushed before Rust interpretation, including malformed traffic.
+
+After TERM, unsubscribe completion still receives its bounded five-second wait;
+termination cancels new subscriptions, not the cleanup already in progress.
+A worker already closed after an error is reported as connection UNVERIFIED,
+rather than an unconditional successful disconnect.
+
+## MTU fix prepared — 2026-11-05 (`mtu-v4`)
+
+The next operator-run position probe negotiates MTU before either CCCD write.
+The worker requests 500 through `aceBT_bleRequestMtu(conn_handle, int)` and waits
+up to five seconds for a successful MTU callback matching the current connection.
+It requires MTU >=41 (38-byte Move notification plus three ATT bytes), accepts
+smaller-than-requested negotiated values, and stops before subscriptions if the
+API/callback fails, is missing, or reports insufficient capacity. Subscription-only
+mode now also exercises this prerequisite. A successful request alone is not success.
+
+API evidence: the actual Kindle `/usr/lib/libace_bt.so` exports
+`aceBT_bleRequestMtu` at Thumb address 0x8839. Inspection shows two argument registers
+forwarded to `serialize_ble_req_mtu`, then vendor IPC 804. This matches the pinned
+Amazon `ace/bluetooth_ble_api.h` declaration. The adapter uses `__typeof__` and
+`dlsym`; it does not construct vendor IPC. The installed-library symbol is checked
+by read-only preflight. The firmware library copy stays private under ignored target/.
+
+Short position notifications remain raw evidence during the observation window;
+no concatenation, padding, FEN or successful position count is inferred. A window
+with no decodable position still fails, followed by ordinary unsubscribe/disconnect.
+The exact captured 20-byte packet is a host regression fixture. Native tests cover
+API failure, callback failure, wrong connection, missing callback, MTU 23 rejection,
+accepted MTU 64, and no subscriptions before negotiation succeeds.
+
+Manual checkpoint remains pending: enable Bluetooth, turn on the board, then run
+`sh /mnt/us/chessnut-ble-probe/runtime/read-board.sh --position`.
+Wait for `read_stage=watch`, then move one piece by hand during the 20-second window.
+Look for `stage=mtu_callback ... result=PASS`, full notification lengths and decoded
+placement. H3 is incomplete until the actual board result is reviewed.
+
+## M4 guarded writes
+
+`{"type":"arm"}` explicitly grants one Normal auto-move write in the current
+connected worker only after subscriptions and measured MTU >=38, with no active
+motion or pending write. A 35-byte WithoutResponse auto-move requires prefix
+42 21, valid packed piece nibbles and final Normal flag 01. Force is rejected.
+The fixed 35-byte all-zero-body SDK STOP is accepted without arming. M3 safe
+packets remain unchanged; while motion may be active only STOP may write.
+Normal send consumes arming before the API call; no retry or automatic replay.
+Native ownership persists until successful STOP/cleanup. Controller confirmation,
+fresh sensor source, restricted geometry and observation are additional gates.

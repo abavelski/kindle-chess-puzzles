@@ -6,7 +6,13 @@ root=/mnt/us/chessnut-ble-probe
 runtime=$root/runtime
 [ ! -L "$root" ] && [ ! -L "$runtime" ] &&
 [ "$(cat "$root/.probe-owner")" = chessnut-ble-probe-v1 ] || exit 1
-case "$#:${1:-}" in 0:) ;; 1:--check) ;; *) echo 'Usage: sh read-board.sh [--check]' >&2; exit 2;; esac
+mode=read-once
+case "$#:${1:-}" in
+ 0:|1:--check) ;;
+ 1:--subscriptions) mode=subscribe-once ;;
+ 1:--position) mode=position-once ;;
+ *) echo 'Usage: sh read-board.sh [--check|--subscriptions|--position]' >&2; exit 2;;
+esac
 [ -f "$root/board-address" ] && [ ! -L "$root/board-address" ] || {
  echo "Missing private board address: $root/board-address" >&2; exit 2;
 }
@@ -66,10 +72,15 @@ opened=true
 printf '=== CHESSNUT KINDLE READ TEST ===\n' >&4
 printf 'started=%s\naddress=[REDACTED] attempts=1 LEDs=DISABLED motors=DISABLED\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" >&4
 printf 'report=%s\n' "$report" >&4
+printf 'probe_revision=m4-v7 mode=%s\n' "$mode" >&4
 grep 'source_sha256' "$runtime/build.json" >&4 || :
-printf 'When connected, move one piece by hand; observation lasts 20 seconds.\n' >&4
+if [ "$mode" = subscribe-once ]; then
+ printf 'Subscription test only; leave pieces still. No characteristic commands.\n' >&4
+else
+ printf 'Wait for read_stage=watch, then move one piece by hand; observation lasts 20 seconds.\n' >&4
+fi
 # read-once never consumes stdin; preserve the SSH terminal for the operator.
-sh "$runtime/launch.sh" read-once --address "$address" >&4 2>&1 4>&- < /dev/null &
+sh "$runtime/launch.sh" "$mode" --address "$address" >&4 2>&1 4>&- < /dev/null &
 child=$!
 set +e
 wait "$child"

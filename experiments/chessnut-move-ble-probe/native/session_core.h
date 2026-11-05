@@ -39,7 +39,7 @@ static bool probe_request(const char *frame, unsigned int *id, char operation[16
         unsigned char bytes[6]; if (!probe_address(address,bytes)) return false;
         snprintf(expected,sizeof(expected),"{\"v\":1,\"id\":%u,\"operation\":{\"type\":\"connect\",\"address\":\"%s\"}}\n",*id,address);
     } else {
-        if (strcmp(operation,"discover")!=0 && strcmp(operation,"disconnect")!=0 && strcmp(operation,"shutdown")!=0 && strcmp(operation,"subscribe")!=0 && strcmp(operation,"capabilities")!=0) return false;
+        if (strcmp(operation,"discover")!=0 && strcmp(operation,"disconnect")!=0 && strcmp(operation,"shutdown")!=0 && strcmp(operation,"subscribe")!=0 && strcmp(operation,"capabilities")!=0 && strcmp(operation,"arm")!=0) return false;
         snprintf(expected,sizeof(expected),"{\"v\":1,\"id\":%u,\"operation\":{\"type\":\"%s\"}}\n",*id,operation);
     }
     return strcmp(frame,expected)==0;

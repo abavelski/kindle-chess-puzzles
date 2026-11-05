@@ -346,7 +346,7 @@ def build():
                 shutil.copy2(license_file, notices / (package.name + '-' + license_file.name))
     (notices / 'README.txt').write_text('KindleBT/log.c: MIT. Rust dependency license texts included.\nBundled KindleBT includes a local public write-descriptor callback forwarding bridge.\nAmazon SDK libraries and vendor headers are build references only and are not distributed.\nProject code has no declared distribution license; this is a local-install experiment.\n')
     if source_digest() != before: raise ValueError('source changed during build; rebuild')
-    receipt = {'milestone': 3, 'source_sha256': before, 'kindlebt_commit': KINDLEBT,
+    receipt = {'milestone': 4, 'source_sha256': before, 'kindlebt_commit': KINDLEBT,
                'kindlebt_local_changes': ['forward public write-descriptor callback'],
                'kindlebt_generated_source_sha256': sha(generated),
                'kindlebt_descriptor_bridge_sha256': sha(ROOT / 'native/kindlebt_descriptor_bridge.h'),
@@ -376,7 +376,7 @@ def stage():
         shutil.copy2(OUTPUT / name, runtime / name)
     for name in ['build.json', 'required-libs.txt']: shutil.copy2(OUTPUT / name, runtime / name)
     shutil.copytree(OUTPUT / 'notices', runtime / 'notices')
-    for name in ['launch.sh', 'uninstall-device.sh', 'read-board.sh']: shutil.copy2(ROOT / 'scripts' / name, runtime / name)
+    for name in ['launch.sh', 'uninstall-device.sh', 'read-board.sh', 'move-board.sh']: shutil.copy2(ROOT / 'scripts' / name, runtime / name)
     shutil.copy2(ROOT / 'scripts/install-device.sh', folder / 'install.sh')
     write_manifest(runtime)
     write_manifest(folder)
@@ -402,11 +402,11 @@ def verify_stage(folder):
             raise ValueError('ELF receipt mismatch')
     if (runtime / 'required-libs.txt').read_text().splitlines() != receipt['device_libraries']:
         raise ValueError('device dependency receipt mismatch')
-    for name in ['launch.sh', 'uninstall-device.sh', 'read-board.sh']:
+    for name in ['launch.sh', 'uninstall-device.sh', 'read-board.sh', 'move-board.sh']:
         if sha(runtime / name) != sha(ROOT / 'scripts' / name): raise ValueError('stale runtime script')
     if sha(folder / 'install.sh') != sha(ROOT / 'scripts/install-device.sh'): raise ValueError('stale installer')
     allowed = {'chessnut-ble-probe', 'kindlebt-worker', 'libkindlebt.so', 'build.json', 'required-libs.txt',
-               'launch.sh', 'uninstall-device.sh', 'read-board.sh', 'SHA256SUMS'}
+               'launch.sh', 'uninstall-device.sh', 'read-board.sh', 'move-board.sh', 'SHA256SUMS'}
     if any(p.name not in allowed and p.name != 'notices' for p in runtime.iterdir()):
         raise ValueError('unexpected runtime payload')
     if any(p.name not in {'runtime', 'install.sh', 'SHA256SUMS'} for p in folder.iterdir()):
@@ -450,7 +450,7 @@ mkdir {incoming}
             run(ssh + ['sh -s'], input=f'rm -rf -- {incoming}\n', text=True, timeout=60)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             print('Upload cleanup incomplete; inspect the experiment incoming directory through SSH.')
-    print('Installed only; NOT launched. Run preflight, then stop for human H3 telemetry/LED verification with the board.')
+    print('Installed only; NOT launched. Run preflight, then stop for human H4 motor verification with the board.')
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

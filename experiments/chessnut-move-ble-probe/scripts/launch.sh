@@ -7,7 +7,7 @@ runtime=$root/runtime
 [ "$#" = 0 ] && set -- preflight
 case "$#:$1" in
   1:preflight) ;;
-  3:session|3:read-once) [ "$2" = --address ] || exit 1 ;;
+  3:session|3:read-once|3:subscribe-once|3:position-once|3:move-once|3:return-once) [ "$2" = --address ] || exit 1 ;;
   *) echo 'UNSUPPORTED: use preflight or session --address <private BLE address>' >&2; exit 1 ;;
 esac
 mkdir "$root/.operation-lock" || { echo 'Experiment busy' >&2; exit 1; }

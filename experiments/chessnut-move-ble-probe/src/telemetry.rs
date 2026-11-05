@@ -7,18 +7,24 @@ use chessnut_move::protocol::{
 pub struct Observed {
     pub source: String,
     pub bytes: Vec<u8>,
-    pub event: BoardEvent,
+    /// Undecoded content is evidence, never a decoded status or position.
+    pub event: Result<BoardEvent, String>,
 }
 pub fn decode_observed(source: &str, bytes: &[u8]) -> Result<Observed, Error> {
     if bytes.is_empty() || bytes.len() > 512 {
         return Err(Error::MalformedNotification);
     }
     let event = match source {
-        POSITION_UUID => protocol::decode_position_notification(bytes)
+        POSITION_UUID if bytes.len() < 34 => Err(format!(
+            "incomplete position: received={} minimum=34; no reassembly inferred",
+            bytes.len()
+        )),
+        POSITION_UUID => Ok(protocol::decode_position_notification(bytes)
             .map(BoardEvent::PositionChanged)
-            .map_err(|_| Error::MalformedNotification)?,
-        RESPONSE_UUID => protocol::decode_response_notification(bytes)
-            .map_err(|_| Error::MalformedNotification)?,
+            .map_err(|_| Error::MalformedNotification)?),
+        RESPONSE_UUID if bytes.len() >= 3 => {
+            protocol::decode_response_notification(bytes).map_err(|reason| reason.to_string())
+        }
         _ => return Err(Error::MalformedNotification),
     };
     Ok(Observed {

@@ -8,13 +8,13 @@
 #include "session_core.h"
 #include "m3_wire.h"
 #include "log.h"
-/* Exact pinned header types; no guessed layouts or direct ACE calls. */
+/* Exact pinned header types; no guessed layouts. MTU uses the verified ACE declaration. */
 _Static_assert(ACE_STATUS_OK == 0, "portable lifecycle expects zero success");
 #define PROBE_FUNCTIONS(X) \
  X(openSession) X(closeSession) X(bleRegister) X(bleDeregister) \
  X(bleRegisterGattClient) X(bleDeregisterGattClient) X(bleConnect) X(bleDisconnect) \
  X(bleDiscoverAllServices) X(bleGetDatabase) X(bleCleanupGattService) X(dca_find_by_handle) \
- X(bleSetNotification) X(bleWriteCharacteristic)
+ X(bleSetNotification) X(bleWriteCharacteristic) X(aceBT_bleRequestMtu)
 #define PROBE_FIELD(name) __typeof__(&name) name;
 typedef struct { int state, status; bool handle_present; } probe_connection_event;
 typedef struct {
@@ -38,14 +38,15 @@ struct probe_native {
     pthread_mutex_t state_lock;
     probe_notifications notifications;
     struct aceBT_gattCharRec_t *position_record,*command_record,*response_record;
+    bool motion_armed,motion_maybe;
     bool subscribed[2],leds_maybe,write_pending,write_done,mtu_seen;
     int write_status,mtu_status,observed_mtu;
     bool descriptor_pending,descriptor_done;
     uint16_t descriptor_handle;
     int descriptor_status;
     bleConnHandle mtu_connection;
-    unsigned char write_bytes[34],clear_bytes[34];
-    bleGattCharacteristicsValue_t write_value,clear_value;
+    unsigned char write_bytes[35],clear_bytes[34],stop_bytes[35];
+    bleGattCharacteristicsValue_t write_value,clear_value,stop_value;
 };
 #undef PROBE_FIELD
 static _Atomic(struct probe_native *) active_native;
@@ -256,6 +257,9 @@ static int session_worker(const char *library, const char *required) {
         } else if(strcmp(operation,"subscribe")==0) {
             if(!session.connected || native_subscribe(&n)!=0) {ipc_error(wire,id,"subscribe_failed",-1);result=1;break;}
             ipc_report(wire,id,"ok");
+        } else if(strcmp(operation,"arm")==0) {
+            if(!session.connected || n.motion_maybe || n.write_pending || !n.subscribed[0] || !n.subscribed[1] || native_mtu(&n)<38){ipc_error(wire,id,"motion_arm_precondition",-1);result=1;break;}
+            n.motion_armed=true;ipc_report(wire,id,"ok");
         } else if(strcmp(operation,"capabilities")==0) {
             capabilities_report(&n,id);
         } else if (strcmp(operation,"connect")==0) {
