@@ -115,3 +115,12 @@ Useful deep dives:
 - [Implementation task history](tasks/README.md)
 
 Chess piece artwork comes from the **Sashité Western** SVG set and is converted into deterministic e-ink-friendly assets during development.
+
+## Physical-board integration planning
+
+The standalone Chessnut Move probe is complete as an investigation and has been
+removed from the Kindle. Read the [verified findings and integration handoff](docs/CHESSNUT_MOVE_INTEGRATION_HANDOFF.md)
+and the [curated transport/protocol reference](support/chessnut-move/README.md)
+before planning the optional app integration. The reference is outside the app
+workspace; the app currently gains no Bluetooth or motor behavior. Physical STOP
+was ineffective in human tests and remains a user-accepted limitation.

@@ -1,0 +1,61 @@
+{
+  "archive_commit": "376c0974c267e2d7ec483842a89b297ce3c99582",
+  "archive_branch": "experiment/chessnut-move-kindlebt-probe",
+  "unchanged_source_files": {
+    "src/ipc.rs": {
+      "source": "experiments/chessnut-move-ble-probe/src/ipc.rs",
+      "sha256": "d0aec681644e51f29ac31c462a50f4535519ee3dd8df1cf0723b83da4d83d5ff"
+    },
+    "src/discovery.rs": {
+      "source": "experiments/chessnut-move-ble-probe/src/discovery.rs",
+      "sha256": "2a339dfa6b786e0b907dac89d4207c6be95ecd04f06c9f4a6411ea59a29568c2"
+    },
+    "src/telemetry.rs": {
+      "source": "experiments/chessnut-move-ble-probe/src/telemetry.rs",
+      "sha256": "0edca5e8943b57e9192b096e67467d7bca3b5749b1ad11563ac2a8d1dfd6b646"
+    },
+    "src/preflight.rs": {
+      "source": "experiments/chessnut-move-ble-probe/src/preflight.rs",
+      "sha256": "96f96016a640eac256c4bafbffa8fda5b6849856defc2aedbd7bba8554155f86"
+    },
+    "native/connection_diagnostics.h": {
+      "source": "experiments/chessnut-move-ble-probe/native/connection_diagnostics.h",
+      "sha256": "b24213018ce6b64681e6d32199c9f7c0fa3e989ddc33a9d72841cabd1d5bf27e"
+    },
+    "native/m3_wire.h": {
+      "source": "experiments/chessnut-move-ble-probe/native/m3_wire.h",
+      "sha256": "70ec53df9a8644a1212538065c8feacd8364aaf41384283ddc1f3c1819948ae2"
+    },
+    "native/kindlebt_descriptor_bridge.h": {
+      "source": "experiments/chessnut-move-ble-probe/native/kindlebt_descriptor_bridge.h",
+      "sha256": "5cfc6c6b80e4f0a45ec936b6e14c58cdeb2b7658311c75586720c01c26ee9979"
+    },
+    "native/kindlebt_session.h": {
+      "source": "experiments/chessnut-move-ble-probe/native/kindlebt_session.h",
+      "sha256": "8ed11e4552ae380b5a8478abefa85de61fcbf157e8992b7d9e18c1af34f4347b"
+    },
+    "native/kindlebt_worker.c": {
+      "source": "experiments/chessnut-move-ble-probe/native/kindlebt_worker.c",
+      "sha256": "b9aae70cb6128ea649576462306bc2a73f4129246a829d9c091da8011da3bf00"
+    },
+    "native/kindlebt_m3.h": {
+      "source": "experiments/chessnut-move-ble-probe/native/kindlebt_m3.h",
+      "sha256": "8c1576dae1d8a1e00c293e88d7add714f3d353bbcf054644c3484090bc7f0b38"
+    },
+    "native/session_core.h": {
+      "source": "experiments/chessnut-move-ble-probe/native/session_core.h",
+      "sha256": "241b38586294e8045aa11d8a900e08d21475514f1c09a20c9e1dfdc92d8d294f"
+    },
+    "native/bluetooth_identity.h": {
+      "source": "experiments/chessnut-move-ble-probe/native/bluetooth_identity.h",
+      "sha256": "142156fac64379b2d576a9396429b8ae341cf6278e17fffc55a7e41d25f8f1cc"
+    }
+  },
+  "adaptations": [
+    "Rust crate renamed and made standalone; retained pure TargetFen converter and transport modules; omitted probe UI/motion shell.",
+    "Probe lockfile retained with library/test dependency inventory adjusted; SDK remains exactly 1.0.2 without default features.",
+    "Test imports adapted to crate name; CLI-specific preflight signal test remains in full archive.",
+    "Build helpers and their portable tests extracted without download/install/deploy entry points.",
+    "Only source, pins, tests and license notices copied; no private identifiers, vendor libraries, raw logs or generated payloads."
+  ]
+}

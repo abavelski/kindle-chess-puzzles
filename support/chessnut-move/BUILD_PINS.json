@@ -1,0 +1,159 @@
+{
+  "recorded": "2026-11-05",
+  "sources": {
+    "kindlebt": {
+      "url": "https://codeload.github.com/Sighery/kindlebt/tar.gz/59e1d8e69a52e3cd58cee6fcc416d1774ad55791",
+      "sha256": "88cc29547e150444900cbbbac7a27c7252f5537b916da85467f2fce26a841dc2"
+    },
+    "logc": {
+      "url": "https://codeload.github.com/rxi/log.c/tar.gz/f9ea34994bd58ed342d2245cd4110bb5c6790153",
+      "sha256": "0e1b70940986c16a8cb7ca322680b3c7614f769bc477c5b90e68a42aecc77ff6"
+    },
+    "darkroot": {
+      "url": "https://dl.espressif.com/dl/acs/acs_rtos_reference_ffs_1.15.0.tar.gz",
+      "sha256": "e70a82ab242ce9d1412949bb035cd972b785b2627179aa934912fcd751b3b545"
+    },
+    "sdk": {
+      "url": "https://github.com/Sighery/kindle-sdk/releases/download/build-20260325/scribe1-5.17.3.tar.gz",
+      "sha256": "8d80e019cc64826822c002712bf44e5131e8f64853a647c0cbb8a2fea82b42dd"
+    }
+  },
+  "zig_archives": [
+    {
+      "host": [
+        "Darwin",
+        "arm64"
+      ],
+      "name": "macos-aarch64",
+      "sha256": "46fae219656545dfaf4dce12fb4e8685cec5b51d721beee9389ab4194d43394c"
+    },
+    {
+      "host": [
+        "Darwin",
+        "x86_64"
+      ],
+      "name": "macos-x86_64",
+      "sha256": "8b06ed1091b2269b700b3b07f8e3be3b833000841bae5aa6a09b1a8b4773effd"
+    },
+    {
+      "host": [
+        "Linux",
+        "x86_64"
+      ],
+      "name": "linux-x86_64",
+      "sha256": "d45312e61ebcc48032b77bc4cf7fd6915c11fa16e4aad116b66c9468211230ea"
+    },
+    {
+      "host": [
+        "Linux",
+        "aarch64"
+      ],
+      "name": "linux-aarch64",
+      "sha256": "041ac42323837eb5624068acd8b00cd5777dac4cf91179e8dad7a7e90dd0c556"
+    }
+  ],
+  "verified_build": {
+    "milestone": 4,
+    "source_sha256": "35ad29dda2dda0b9345a1503dcb604d77bed369cd8b5d5034b7ff1505a4b87c3",
+    "kindlebt_commit": "59e1d8e69a52e3cd58cee6fcc416d1774ad55791",
+    "kindlebt_local_changes": [
+      "forward public write-descriptor callback"
+    ],
+    "kindlebt_generated_source_sha256": "a677100f669397ccf839df168c7293cf4cd547fd5c398326b10c28086e4e5b90",
+    "kindlebt_descriptor_bridge_sha256": "5cfc6c6b80e4f0a45ec936b6e14c58cdeb2b7658311c75586720c01c26ee9979",
+    "target": "armv7-unknown-linux-gnueabihf",
+    "rust": "1.85.1",
+    "zig": "0.13.0",
+    "glibc_max": "2.35",
+    "native_flags": [
+      "-target arm-linux-gnueabihf.2.35",
+      "-O2",
+      "-fno-omit-frame-pointer"
+    ],
+    "worker_flags": [
+      "-std=c11",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-fPIC",
+      "-pie",
+      "-pthread",
+      "-ldl"
+    ],
+    "device_libraries": [
+      "ld-linux-armhf.so.3",
+      "libace_bt.so",
+      "libc.so.6",
+      "libpthread.so.0"
+    ],
+    "elf": {
+      "chessnut-ble-probe": {
+        "needed": [
+          "ld-linux-armhf.so.3",
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "interpreter": "/lib/ld-linux-armhf.so.3",
+        "glibc_versions": [
+          "GLIBC_2.12",
+          "GLIBC_2.15",
+          "GLIBC_2.16",
+          "GLIBC_2.17",
+          "GLIBC_2.18",
+          "GLIBC_2.28",
+          "GLIBC_2.29",
+          "GLIBC_2.33",
+          "GLIBC_2.34",
+          "GLIBC_2.4",
+          "GLIBC_2.9"
+        ],
+        "machine": "ARM",
+        "class": "ELF32",
+        "abi": "EABI5 hard-float",
+        "pie": true,
+        "copy_relocations": 0
+      },
+      "kindlebt-worker": {
+        "needed": [
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "interpreter": "/lib/ld-linux-armhf.so.3",
+        "glibc_versions": [
+          "GLIBC_2.17",
+          "GLIBC_2.34",
+          "GLIBC_2.4",
+          "GLIBC_2.7"
+        ],
+        "machine": "ARM",
+        "class": "ELF32",
+        "abi": "EABI5 hard-float",
+        "pie": true,
+        "copy_relocations": 0
+      },
+      "libkindlebt.so": {
+        "needed": [
+          "libace_bt.so",
+          "libc.so.6",
+          "libpthread.so.0"
+        ],
+        "interpreter": null,
+        "glibc_versions": [
+          "GLIBC_2.17",
+          "GLIBC_2.34",
+          "GLIBC_2.4"
+        ],
+        "machine": "ARM",
+        "class": "ELF32",
+        "abi": "EABI5 hard-float",
+        "pie": false,
+        "copy_relocations": 0
+      }
+    },
+    "artifacts": {
+      "chessnut-ble-probe": "2b5d67836cdde58f8c158256fd1aae3671d8b0dbb0cfbf36992acc46c1911452",
+      "kindlebt-worker": "bbf62bc03d7a99328c335a6033a5140a371e60832b4b041979584aee0c2aa03e",
+      "libkindlebt.so": "0fbd2277f620c03b69ef557bf58f91f1386392079fdfd26b8256002913956c21"
+    }
+  }
+}
