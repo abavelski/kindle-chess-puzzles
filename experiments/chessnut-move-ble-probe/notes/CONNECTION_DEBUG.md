@@ -62,3 +62,21 @@ will additionally capture the existing system message stream privately while
 the probe runs, to preserve daemon evidence before log rotation. The capture
 is a supervised read-only SSH tail, bounded on the host, with no Bluetooth API.
 Physical validation of the new diagnostics and H3 remain NOT TESTED/BLOCKED.
+
+
+## First instrumented hardware result — 2026-11-05
+
+The callback is delivered: target match, state 3/status 10, no handle. The API
+then waits 10 seconds and returns -2 because pinned bleConnStateChangedCallback
+updates/signals its wait condition only for success status. The matching library
+context remains unconnected with no handle. Daemon evidence reports GATT 133 /
+controller reason 0x3e. This localizes the present failure before GATT discovery;
+it does not establish why connection establishment fails. The earlier stale-
+entry failure is a separate historical case, not the current callback outcome.
+
+The final error now preserves explicit callback/API domains as
+connect_callback_10_api_status_-2 when the most recent bounded target callback
+reported failure. Missing, overflowed or successful callback histories cannot
+invent a failure code. Registration failures are not reclassified. Red test:
+real-header adapter first failed for missing connection_error_stage. No radio/API
+parameters, dependency pins, stock files or retries change as a result.

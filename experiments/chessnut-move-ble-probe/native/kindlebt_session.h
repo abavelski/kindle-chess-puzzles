@@ -255,7 +255,7 @@ static int session_worker(const char *library, const char *required) {
             capabilities_report(&n,id);
         } else if (strcmp(operation,"connect")==0) {
             unsigned char bytes[6];
-            if (!probe_address(address,bytes) || probe_connect(&session,bytes)!=0) { ipc_error(wire,id,session.stage?session.stage:"address",session.status); result=1; break; }
+            if (!probe_address(address,bytes) || probe_connect(&session,bytes)!=0) { char stage[96];connection_error_stage(&n,session.stage?session.stage:"address",session.status,stage);ipc_error(wire,id,stage,session.status); result=1; break; }
             ipc_report(wire,id,"connected");
         } else if (strcmp(operation,"discover")==0) {
             if (!session.database_attempted && probe_discover(&session)!=0) { ipc_error(wire,id,session.stage,session.status); result=1; break; }

@@ -147,3 +147,9 @@ public numeric status in the existing error code. Sanitized `connect_evidence`
 and `connect_callback` lines are stderr diagnostics, not protocol frames. They
 report actual bounded callback/context observations; they do not acknowledge a
 connection or change any request/cleanup behavior.
+
+If a failed connect has a complete, bounded matching-target callback history
+whose last callback reports failure, the error code preserves both domains,
+e.g. `connect_callback_10_api_status_-2`. The public API still returned -2; 10
+is the observed callback status. Missing/overflowed histories retain the neutral
+API-only error. Other setup stages cannot be relabeled as connection callbacks.

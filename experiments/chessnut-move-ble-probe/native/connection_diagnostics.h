@@ -23,6 +23,17 @@ static bool observe_connection(log_Event *event) {
     pthread_mutex_unlock(&n->state_lock);
     return true;
 }
+/* Keep API and observed callback status in separate named fields of the error
+ * code. A missing/overflowed history cannot justify a callback diagnosis. */
+static void connection_error_stage(struct probe_native *n,const char *stage,int api_status,char out[96]) {
+    snprintf(out,96,"%s",stage?stage:"unknown");
+    if(stage==NULL || strcmp(stage,"connect")!=0 || api_status==0)return;
+    pthread_mutex_lock(&n->state_lock);
+    probe_connection_debug debug=n->connection_debug;
+    pthread_mutex_unlock(&n->state_lock);
+    if(!debug.overflow && debug.count>0 && debug.events[debug.count-1].status!=0)
+        snprintf(out,96,"connect_callback_%d_api",debug.events[debug.count-1].status);
+}
 static void connection_diagnostics_report(struct probe_native *n,int api_status,unsigned long long elapsed_ms) {
     pthread_mutex_lock(&n->state_lock);
     probe_connection_debug debug=n->connection_debug;

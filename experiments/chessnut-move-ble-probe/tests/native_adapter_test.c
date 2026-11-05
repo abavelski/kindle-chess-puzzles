@@ -92,8 +92,19 @@ int main(void) {
     assert(live.connection_debug.count==0 && live.connection_debug.unmatched==1);
     emit_mtu(connection_format,"bleConnStateChangedCallback",0,10,NULL,"12:34:56:78:90:AB");
     assert(live.connection_debug.count==1 && live.connection_debug.events[0].status==10);
+    char failure_stage[96];
+    connection_error_stage(&live,"connect",-2,failure_stage);
+    assert(strcmp(failure_stage,"connect_callback_10_api")==0);
+    connection_error_stage(&live,"gatt_register",-2,failure_stage);
+    assert(strcmp(failure_stage,"gatt_register")==0);
+    connection_error_stage(&live,"connect",0,failure_stage);
+    assert(strcmp(failure_stage,"connect")==0);
     for(int i=0;i<12;++i)emit_mtu(connection_format,"bleConnStateChangedCallback",1,0,live.connection,"12:34:56:78:90:AB");
     assert(live.connection_debug.count==8 && live.connection_debug.overflow);
+    live.connection_debug.events[7].status=10;
+    connection_error_stage(&live,"connect",-2,failure_stage);
+    assert(strcmp(failure_stage,"connect")==0); /* later history may be missing */
+    live.connection_debug.events[7].status=0;
     device_context_t context={0};pthread_mutex_init(&context.lock,NULL);
     memcpy(context.address,expected_address,6);context.handle=live.connection;context.gattc_connected=true;
     device_context_array_t contexts={.items=&context,.count=1,.capacity=1};live.contexts=&contexts;
@@ -105,6 +116,8 @@ int main(void) {
     assert(!strstr(diagnostic,"12:34:56:78:90") && !strstr(diagnostic,"0x1234"));
     fclose(session_diagnostics);session_diagnostics=tmpfile();assert(session_diagnostics);
     memset(&live.connection_debug,0,sizeof(live.connection_debug));live.contexts=NULL;
+    connection_error_stage(&live,"connect",-2,failure_stage);
+    assert(strcmp(failure_stage,"connect")==0);
     connection_diagnostics_report(&live,-2,10000);
     rewind(session_diagnostics);memset(diagnostic,0,sizeof(diagnostic));assert(fread(diagnostic,1,sizeof(diagnostic)-1,session_diagnostics)>0);
     assert(strstr(diagnostic,"callback_seen=false") && strstr(diagnostic,"context_snapshot=unavailable"));

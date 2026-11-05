@@ -483,3 +483,33 @@ original app/data hashes match the fresh deployment baseline. No connection,
 subscription or board write occurred during this preparation. Next hardware
 boundary: one coordinated discovery-only attempt with numeric callback/context
 evidence and private read-only system-log capture, then stop on failure.
+
+
+## Diagnostic connection attempt — 2026-11-05, 16:58 CET
+
+The previous evening's listener expired without connecting. When the user
+reported blinking today, re-armed the ready SSH/log-capture/advertisement trigger;
+one actual advertisement then started one b4ce485 diagnostic attempt. A private
+system-log stream preserved the event without changing Bluetooth logging settings.
+
+The public API returned -2 after 10004 ms. The exact target's pinned KindleBT
+connection callback was observed once: state 3, status 10, no handle. The bounded
+library snapshot contained one matching context, both connected/disconnected
+flags false, no context handle and no public handle. There was no observer
+overflow or unmatched callback. Thus this attempt received an explicit failure
+callback; it was not a lost callback or wrong-target report. At the same event,
+the daemon logged GATT 133 and controller disconnect reason 62 (0x3e). The pinned
+KindleBT callback only signals its connected/disconnected condition on success,
+which explains why this explicit failure is eventually surfaced as a public
+timeout. This does not explain or fix the controller's establishment failure.
+
+No discovery, subscription, MTU query or board command ran (write_api_calls=0).
+Cleanup GATT/BLE/session APIs returned 0, final session exit was 1 and the lock
+cleared. The host orchestration completed normally; that is not session success.
+No retry occurred and all observers/capture processes exited. H3 stays BLOCKED.
+
+Follow-up: include a bounded matching callback failure in the final native error
+without replacing the public API result or guessing absent callbacks. Host-test
+that behavior, cross-build/stage it, and stop physical tests until a concrete
+connection-establishment experiment is available. No additional power cycle or
+button press is requested. The controller failure remains a lower-level blocker.
