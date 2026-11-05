@@ -1,6 +1,6 @@
 # Chessnut Move on Kindle Scribe: standalone KindleBT proof-of-concept plan
 
-**Status:** Plan only — no implementation or device verification completed by this document.
+**Status:** Historical probe plan. See [the integration handoff](CHESSNUT_MOVE_INTEGRATION_HANDOFF.md) for verified outcomes, cleanup and the user-accepted physical STOP limitation. This original plan is not a claim that every checkpoint passed.
 **Target:** First-generation Kindle Scribe (Barolo), jailbroken, firmware 5.19.6, ARMv7 hard-float, glibc 2.35.
 **Goal:** Establish whether the Kindle can control and read a Chessnut Move directly over BLE using KindleBT, **before** changing Kindle Chess Puzzles.
 **Audience:** Codex implementing one milestone at a time, and a human operating the actual Kindle and board.

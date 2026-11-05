@@ -1,0 +1,73 @@
+{
+  "checked_on_local_date": "2026-11-04",
+  "rustc": "1.85.1 (4eb161250 2025-03-15)",
+  "cargo": "1.85.1 (d73d2caf9 2024-12-31)",
+  "sources": [
+    {
+      "repository": "https://github.com/Sighery/kindlebt",
+      "ref_inspected": "origin/master",
+      "commit": "59e1d8e69a52e3cd58cee6fcc416d1774ad55791",
+      "git_archive_tar_sha256": "3917a59818c44be4357155421c078dedd80630a29d9ebd81c89a2ab29f69b54f",
+      "files_sha256": {
+        "include/kindlebt/kindlebt.h": "da5fa7a89a6d47fb18b0927fbc301790231788b2cc649bd0ace785b95e2e87eb",
+        "include/kindlebt/kindlebt_defines.h": "3cdd4109006af43bea3bcf5130784a0610df8d3cc569bb81bcf5f488911346c1",
+        "examples/basic_usage.c": "1d2b4b87ddfb79a0ec50e7691d059b1e25c2b81dcd07c7e8f7650e7f80877d3d",
+        "LICENSE": "67dce3f1f4b882f8ff48155248c763b62942e7ec905d20e1344fb378149d3840"
+      },
+      "local_modification": {
+        "reason": "Pinned gatt_client_callbacks omits write-descriptor forwarding; serialize asynchronous CCCD operations.",
+        "upstream_src_kindlebt_c_sha256": "950dc7fd601e8bdb4f2af46e66cd211c1cfcb249c137086ba4f350814167c7ea",
+        "method": "scripts/delivery.py generates a copy with one bridge include and one callback table entry; upstream cache unchanged.",
+        "bridge": "native/kindlebt_descriptor_bridge.h",
+        "bridge_sha256": "5cfc6c6b80e4f0a45ec936b6e14c58cdeb2b7658311c75586720c01c26ee9979"
+      }
+    },
+    {
+      "repository": "https://github.com/Sighery/kindlebt",
+      "ref_inspected": "v0.1.0^{}",
+      "commit": "f50665b177941c450bfe6b5b72a23f8fe32069db",
+      "git_archive_tar_sha256": "78c7a143654472f86948c08999680bbc7ff4d8af4087611bbd299d58517ab51a"
+    },
+    {
+      "repository": "https://github.com/daymxn/chessnut-move-rs",
+      "ref_inspected": "v1.0.2^{}",
+      "commit": "4f0468097b48c35151beb8d0743b169c3ae7bce3",
+      "git_archive_tar_sha256": "ff1ed9d7f37bcf272b91b81307df60c88d58fe3642b88293ce9a95ebd6ee8f01"
+    },
+    {
+      "repository": "https://github.com/Sighery/kindle-sdk",
+      "ref_inspected": "build-20250905^{}",
+      "commit": "f02be98a95d428196af6c3617cac178d85e5ed69",
+      "git_archive_tar_sha256": "f4b5a6d35a4d1e58f5ef1d3d6af49ea2a9a15b24de0bf9a7124f3c762f0f50e0"
+    },
+    {
+      "repository": "https://github.com/Sighery/kindle-sdk",
+      "ref_inspected": "build-20260325^{}",
+      "commit": "8ed0efa1f4f6a76cf626df41c776f174399ef880",
+      "git_archive_tar_sha256": "cd4038d77e3d92d16ec97a4a2e7a8fde00679a28534accb7ea5f9be32b153a61"
+    }
+  ],
+  "release_assets": [
+    {
+      "url": "https://github.com/Sighery/kindlebt/releases/download/v0.1.0/kindlebt-hf.tar.gz",
+      "upstream_sha256_digest": "sha256:45977afde1e352964e359886bd13741cf596f09c1e6f90ad92b945bef588b884",
+      "verification": "upstream advertised digest only; asset not downloaded or executed in M0"
+    },
+    {
+      "url": "https://github.com/Sighery/kindle-sdk/releases/download/build-20260325/kindlepw5-5.16.2.1.1.tar.gz",
+      "upstream_sha256_digest": "sha256:c4ea55f69d9df348cfc79e143177fee98902fc4cc195657f19144f700fe3520d",
+      "verification": "upstream advertised digest only; asset not downloaded or executed in M0"
+    },
+    {
+      "url": "https://github.com/Sighery/kindle-sdk/releases/download/build-20260325/scribe1-5.17.3.tar.gz",
+      "upstream_sha256_digest": "sha256:8d80e019cc64826822c002712bf44e5131e8f64853a647c0cbb8a2fea82b42dd",
+      "verification": "M1: downloaded and local SHA-256 matches upstream digest; build reference only, not staged"
+    }
+  ],
+  "m1_toolchain": {
+    "compiler": "Zig 0.13.0, target arm-linux-gnueabihf.2.35",
+    "rust": "1.85.1",
+    "sdk_use": "build-only libraries; no SDK compiler executed",
+    "build_pins": "scripts/delivery.py SOURCES and ZIG; exact successful receipt in target/kindle/build.json"
+  }
+}
