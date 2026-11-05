@@ -513,3 +513,22 @@ without replacing the public API result or guessing absent callbacks. Host-test
 that behavior, cross-build/stage it, and stop physical tests until a concrete
 connection-establishment experiment is available. No additional power cycle or
 button press is requested. The controller failure remains a lower-level blocker.
+
+## Operator-run board read script deployed — 2026-11-05
+
+At the user's request, deployed source 9c88bc2 with the one-command
+`/mnt/us/chessnut-ble-probe/runtime/read-board.sh` report script. Installed
+source_sha256 is
+`910bc45852f13dcc1131b7b91e6d51fbf020036992fa0da91ad37c3f6aaad9cf`.
+Remote checksums and receipt match; launcher preflight exits 0 and clears its
+operation lock. All 121 original app/data hashes are unchanged from the fresh
+deployment baseline.
+
+Provisioned the private board-address file separately from the deployment bundle.
+The device dependency/shell checks and `read-board.sh --check` pass, including
+address redaction. The installed CLI includes `read-once`; the probe is idle and
+the operation lock is absent. These checks opened no Bluetooth session and sent
+no board command. The user will enable board Bluetooth and run the script over
+SSH, then supply the complete report. No automatic connection attempt or retry
+was started. H3 remains BLOCKED pending actual Kindle telemetry and the remaining
+human checkpoint requirements.
