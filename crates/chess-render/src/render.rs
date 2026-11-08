@@ -11,18 +11,15 @@ use crate::{
     AnalysisPanelOutput, ButtonIcon, ButtonSpec, ButtonType, DisplayMetrics, Gray8, HitTarget,
     Layout, LayoutError, Rect,
 };
-use chess_core::{AppState, BoardMode, Color, PieceKind, SolutionFeedback, Workspace};
+use chess_core::{BoardMode, Color, PieceKind, SolutionFeedback, Workspace};
 
 #[cfg(test)]
 use crate::button::toolbar_button;
 
 const WHITE: u8 = 255;
 const INK: u8 = 0;
-const LIGHT_SQUARE: u8 = 238;
-const DARK_SQUARE: u8 = 184;
 const SOFT_GRAY: u8 = 224;
 const DISABLED_INK: u8 = 128;
-const BOARD_FRAME_GRAY: u8 = 160;
 const DESCRIPTION_EXTRA_LINE_SPACING: u32 = 6;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -35,7 +32,30 @@ pub struct RenderOutput {
 }
 
 impl RenderOutput {
-    pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
+    pub fn hit_test_puzzles(
+        &self,
+        x: u32,
+        y: u32,
+        state: &chess_core::puzzle_app::PuzzleState,
+    ) -> Option<chess_core::puzzle_app::PuzzleAction> {
+        self.hit_test_app(x, y, state)
+            .and_then(HitTarget::into_puzzle_action)
+    }
+    pub fn hit_test_review(
+        &self,
+        x: u32,
+        y: u32,
+        state: &chess_core::review_app::ReviewApp,
+    ) -> Option<chess_core::review_app::ReviewAction> {
+        self.hit_test_app(x, y, state)
+            .and_then(HitTarget::into_review_action)
+    }
+    pub fn hit_test_app(
+        &self,
+        x: u32,
+        y: u32,
+        state: &impl crate::screen::ScreenState,
+    ) -> Option<HitTarget> {
         if state.settings_open() {
             return self.layout.hit_test_app(x, y, state);
         }
@@ -67,7 +87,10 @@ impl RenderOutput {
     }
 }
 
-pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput, LayoutError> {
+pub fn render(
+    state: &impl crate::screen::ScreenState,
+    metrics: DisplayMetrics,
+) -> Result<RenderOutput, LayoutError> {
     let layout = Layout::for_app(metrics, state)?;
     let mut frame = Gray8::new(metrics.width, metrics.height, WHITE);
     let text_scale = (metrics.dpi / 100).clamp(2, 5);
@@ -121,7 +144,12 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     })
 }
 
-fn draw_header(frame: &mut Gray8, state: &AppState, layout: Layout, control_scale: u32) {
+fn draw_header(
+    frame: &mut Gray8,
+    state: &impl crate::screen::ScreenState,
+    layout: Layout,
+    control_scale: u32,
+) {
     frame.stroke_rect(layout.header, 3, INK);
     let padding = layout.header.height / 8;
 
@@ -309,58 +337,31 @@ fn header_control_visual_rect(layout: Layout, rect: Rect) -> Rect {
     rect.inset(layout.header.height / 10)
 }
 
-fn draw_board(frame: &mut Gray8, state: &AppState, layout: Layout, coordinate_scale: u32) {
-    for display_square in 0..64 {
-        let rect = layout.square_rect(display_square);
-        let row = display_square / 8;
-        let column = display_square % 8;
-        let tone = if (row + column) % 2 == 0 {
-            LIGHT_SQUARE
-        } else {
-            DARK_SQUARE
-        };
-        frame.fill_rect(rect, tone);
-
-        let logical_square = if state.flipped() {
-            63 - display_square
-        } else {
-            display_square
-        };
-        if let Some(piece) = state.board().piece_at(logical_square) {
-            draw_piece(frame, piece, rect);
-        }
-        if state.board().selected() == Some(logical_square) {
-            frame.stroke_rect(rect, 6, INK);
-            frame.stroke_rect(rect.inset(7), 3, WHITE);
-        }
-    }
-    frame.stroke_rect(layout.board, 4, INK);
-    draw_coordinates(frame, state.flipped(), layout, coordinate_scale);
-    frame.stroke_rect(layout.board_outer, 2, BOARD_FRAME_GRAY);
+fn draw_board(
+    frame: &mut Gray8,
+    state: &impl crate::screen::ScreenState,
+    layout: Layout,
+    coordinate_scale: u32,
+) {
+    eink_ui::board::draw_board(
+        frame,
+        state.board(),
+        state.flipped(),
+        eink_ui::board::BoardGeometry {
+            board: layout.board,
+            board_outer: layout.board_outer,
+            gutter: layout.coordinate_gutter(),
+        },
+        coordinate_scale,
+    );
 }
 
-fn draw_coordinates(frame: &mut Gray8, flipped: bool, layout: Layout, scale: u32) {
-    let files = if flipped { "HGFEDCBA" } else { "ABCDEFGH" };
-    let ranks = if flipped { "12345678" } else { "87654321" };
-    let gutter = layout.coordinate_gutter();
-    for (index, file) in files.chars().enumerate() {
-        let square = layout.square_rect(index + 56);
-        let rect = Rect::new(square.x, layout.board.bottom(), square.width, gutter);
-        draw_text_centered(frame, rect, &file.to_string(), scale, INK);
-    }
-    for (index, rank) in ranks.chars().enumerate() {
-        let square = layout.square_rect(index * 8);
-        let rect = Rect::new(
-            layout.board.x.saturating_sub(gutter),
-            square.y,
-            gutter,
-            square.height,
-        );
-        draw_text_centered(frame, rect, &rank.to_string(), scale, INK);
-    }
-}
-
-fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+fn draw_toolbar(
+    frame: &mut Gray8,
+    state: &impl crate::screen::ScreenState,
+    layout: Layout,
+    scale: u32,
+) {
     for target in layout.toolbar_targets {
         if target.rect.width == 0 {
             continue;
@@ -426,7 +427,12 @@ fn draw_analysis_icon(frame: &mut Gray8, rect: Rect, thickness: u32, ink: u8) {
     }
 }
 
-fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+fn draw_navigation(
+    frame: &mut Gray8,
+    state: &impl crate::screen::ScreenState,
+    layout: Layout,
+    scale: u32,
+) {
     if state.workspace() == Workspace::Review {
         let (can_previous, can_next) = match (state.review_state(), state.active_review_game()) {
             (Some(review), Some(entry)) => (review.can_previous(), review.can_next(entry.game())),
@@ -472,7 +478,7 @@ fn draw_navigation(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u
     );
 }
 
-fn analysis_view(state: &AppState) -> Option<AnalysisView<'_>> {
+fn analysis_view(state: &impl crate::screen::ScreenState) -> Option<AnalysisView<'_>> {
     match state.workspace() {
         Workspace::Puzzles => {
             let puzzle = state.active_puzzle();
@@ -500,7 +506,7 @@ fn analysis_view(state: &AppState) -> Option<AnalysisView<'_>> {
 
 fn draw_status(
     frame: &mut Gray8,
-    state: &AppState,
+    state: &impl crate::screen::ScreenState,
     layout: Layout,
     scale: u32,
 ) -> Option<AnalysisPanelOutput> {
@@ -678,7 +684,12 @@ fn draw_promotion_modal(frame: &mut Gray8, layout: Layout, color: Color, scale: 
     draw_button(frame, layout.promotion_cancel, "CANCEL", false, scale);
 }
 
-fn draw_puzzle_goto(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+fn draw_puzzle_goto(
+    frame: &mut Gray8,
+    state: &impl crate::screen::ScreenState,
+    layout: Layout,
+    scale: u32,
+) {
     frame.fill_rect(layout.goto_modal, WHITE);
     frame.stroke_rect(layout.goto_modal, 6, INK);
 
@@ -727,7 +738,12 @@ fn draw_puzzle_goto(frame: &mut Gray8, state: &AppState, layout: Layout, scale: 
     draw_button(frame, layout.goto_cancel, "CANCEL", false, scale.min(3));
 }
 
-fn draw_settings_panel(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+fn draw_settings_panel(
+    frame: &mut Gray8,
+    state: &impl crate::screen::ScreenState,
+    layout: Layout,
+    scale: u32,
+) {
     frame.fill_rect(layout.settings_modal, WHITE);
     frame.stroke_rect(layout.settings_modal, 6, INK);
 
@@ -848,7 +864,12 @@ fn draw_setting_value_row(frame: &mut Gray8, rect: Rect, label: &str, value: &st
     draw_text_bold_vertically_centered(frame, value_x, rect, value, scale, INK);
 }
 
-fn draw_collection_picker(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+fn draw_collection_picker(
+    frame: &mut Gray8,
+    state: &impl crate::screen::ScreenState,
+    layout: Layout,
+    scale: u32,
+) {
     frame.fill_rect(layout.collection_modal, WHITE);
     frame.stroke_rect(layout.collection_modal, 6, INK);
 
@@ -908,7 +929,12 @@ fn draw_collection_picker(frame: &mut Gray8, state: &AppState, layout: Layout, s
     );
 }
 
-fn draw_review_game_picker(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32) {
+fn draw_review_game_picker(
+    frame: &mut Gray8,
+    state: &impl crate::screen::ScreenState,
+    layout: Layout,
+    scale: u32,
+) {
     let Some(review) = state.review_state() else {
         return;
     };

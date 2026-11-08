@@ -22,8 +22,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-02 | Generic chess model and analysis validation | 01 | Done | No |
 | SPLIT-03 | Puzzle-only product state/actions | 02 | Done | No |
 | SPLIT-04 | Review-only product state/actions | 02 | Done | No |
-| SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Ready | No |
-| SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Blocked | No |
+| SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Done | No |
+| SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Ready | No |
 | SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Blocked | No |
 | SPLIT-08 | Two actual Cargo binaries | 07 | Blocked | No |
 | SPLIT-09 | Separate state, settings and legacy migration | 08 | Blocked | No |
@@ -81,14 +81,16 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-05 — Shared e-ink UI, product-specific screens
 
-**Status:** Ready. **Read:** [architecture](ARCHITECTURE.md), [testing](TESTING.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [architecture](ARCHITECTURE.md), [testing](TESTING.md).  
 **Likely files:** chess-render canvas.rs, geometry.rs, pieces.rs, font.rs, analysis_panel.rs, layout.rs, render.rs, button.rs, damage.rs; new generic eink-ui and product screen modules.  
 **First failing tests:** generic board/analysis components render without importing any product action type; product-specific hit testing maps to only that product's actions, preserving old STANDARD/SMALL snapshots and damage reconstruction.  
 **Acceptance:** no puzzle or review actions in shared UI; retain monochrome readability, touch targets, text pagination, explicit move-ref interactions. **Fit:** Codex.
 
+**Evidence (implementation: this task commit, `refactor(split): extract shared eink widgets and product screens`):** New eink-ui crate owns Gray8/geometry, embedded fonts/pieces, neutral board/analysis widgets, neutral analysis hit targets and damage calculations. Its dependency tree is chess-model + fontdue only (no product/platform imports). Product layouts/typed hit mappings remain in chess-render; read-only ScreenState implementations render PuzzleState or ReviewApp directly. Compatibility re-exports preserve existing rendering consumers and golden checksums. First `cargo test --locked -p chess-render --test product_screens` failed on missing render_puzzles/render_review; after implementation → 2 passed (independent states; STANDARD/SMALL byte-identical legacy frames; typed hit paths reject cross-product actions and workspace switching; empty Review renders safely). `cargo test --locked -p eink-ui` → 14 passed before the final output-type compatibility adjustment; final full gate also passes its tests. `cargo clippy --locked --workspace --all-targets -- -D warnings`, `python3 scripts/generate_sashite.py --check`, and full `PATH=/tmp/kindle-split-venv/bin:$PATH scripts/check.sh` → exit 0. All reviewed snapshots and damage reconstruction unchanged. No device claim.
+
 ### SPLIT-06 — Untangle platform from products
 
-**Status:** Blocked by 03,04,05. **Read:** [Kindle notes](KINDLE_SCRIBE.md), [lifecycle](EINK_LIFECYCLE.md).  
+**Status:** Ready. **Read:** [Kindle notes](KINDLE_SCRIBE.md), [lifecycle](EINK_LIFECYCLE.md).  
 **Likely files:** kindle-platform storage.rs, refresh.rs, chessnut.rs, input.rs, display.rs, power.rs; product repository adapters.  
 **First failing tests:** Kindle platform compiles with no chess-core/puzzle-app/review-app dependency; generic file operations and refresh requests have no puzzle/review-aware parameters.  
 **Implementation:** move format discovery/loading, progress/resume handling and chess-aware refresh/board intent to product/composition; preserve low-level hardware and Bluetooth transport.  

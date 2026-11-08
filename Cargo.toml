@@ -3,6 +3,7 @@ exclude = ["support/chessnut-move"]
 members = [
     "crates/chess-model",
     "crates/chess-core",
+    "crates/eink-ui",
     "crates/chess-render",
     "crates/fbink-sys",
     "crates/kindle-platform",

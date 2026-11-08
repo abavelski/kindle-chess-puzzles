@@ -5,8 +5,8 @@ use crate::{
     ButtonSpec, ButtonType, Rect,
 };
 use chess_core::{
-    Action, AnalysisNodeIndex, AppState, PromotionChoice, Workspace, WorkspaceSettings,
-    COLLECTIONS_PER_PAGE, REVIEW_GAMES_PER_PAGE,
+    Action, AnalysisNodeIndex, PromotionChoice, Workspace, WorkspaceSettings, COLLECTIONS_PER_PAGE,
+    REVIEW_GAMES_PER_PAGE,
 };
 
 pub const MIN_TOUCH_MM: u32 = 10;
@@ -159,6 +159,183 @@ impl HitTarget {
             Self::CloseCollections => Some(Action::CloseCollectionPicker),
         }
     }
+    pub fn into_puzzle_action(self) -> Option<chess_core::puzzle_app::PuzzleAction> {
+        match self {
+            Self::ToggleBoardConnection => {
+                Some(chess_core::puzzle_app::PuzzleAction::ToggleBoardConnection)
+            }
+            Self::SendBoardPosition => {
+                Some(chess_core::puzzle_app::PuzzleAction::SendBoardPosition)
+            }
+
+            Self::Square(square) => Some(chess_core::puzzle_app::PuzzleAction::TapSquare(square)),
+            Self::AnalysisMove(node) => Some(
+                chess_core::puzzle_app::PuzzleAction::SelectAnalysisNode(node),
+            ),
+            Self::AnalysisPreviousPage => {
+                Some(chess_core::puzzle_app::PuzzleAction::AnalysisPreviousPage)
+            }
+            Self::AnalysisNextPage => Some(chess_core::puzzle_app::PuzzleAction::AnalysisNextPage),
+            Self::ToggleAnalysis => Some(chess_core::puzzle_app::PuzzleAction::ToggleAnalysis),
+            Self::ToggleMode => Some(chess_core::puzzle_app::PuzzleAction::ToggleMode),
+            Self::ToggleDescription => {
+                Some(chess_core::puzzle_app::PuzzleAction::ToggleDescription)
+            }
+            Self::ToggleOrientationLock => {
+                Some(chess_core::puzzle_app::PuzzleAction::ToggleOrientationLock)
+            }
+            Self::Reset => Some(chess_core::puzzle_app::PuzzleAction::Reset),
+            Self::Flip => Some(chess_core::puzzle_app::PuzzleAction::Flip),
+            Self::Refresh => None,
+            Self::Exit => Some(chess_core::puzzle_app::PuzzleAction::Exit),
+            Self::ToggleWorkspace => None,
+            Self::ReviewToggleFree => None,
+            Self::ReviewReset => None,
+            Self::ReviewToggleOrientationLock => None,
+            Self::ReviewFlip => None,
+            Self::ReviewPrevious => None,
+            Self::ReviewNext => None,
+            Self::OpenReviewGamePicker => None,
+            Self::ReviewGame(_) => None,
+            Self::ReviewGamePickerPreviousPage => None,
+            Self::ReviewGamePickerNextPage => None,
+            Self::CloseReviewGamePicker => None,
+            Self::Previous => Some(chess_core::puzzle_app::PuzzleAction::PreviousPuzzle),
+            Self::OpenPuzzleGoto => Some(chess_core::puzzle_app::PuzzleAction::OpenPuzzleGoto),
+            Self::PuzzleGotoDigit(digit) => {
+                Some(chess_core::puzzle_app::PuzzleAction::PuzzleGotoDigit(digit))
+            }
+            Self::PuzzleGotoBackspace => {
+                Some(chess_core::puzzle_app::PuzzleAction::PuzzleGotoBackspace)
+            }
+            Self::ConfirmPuzzleGoto => {
+                Some(chess_core::puzzle_app::PuzzleAction::ConfirmPuzzleGoto)
+            }
+            Self::CancelPuzzleGoto => Some(chess_core::puzzle_app::PuzzleAction::CancelPuzzleGoto),
+            Self::Next => Some(chess_core::puzzle_app::PuzzleAction::NextPuzzle),
+            Self::Promotion(choice) => Some(chess_core::puzzle_app::PuzzleAction::ChoosePromotion(
+                choice,
+            )),
+            Self::CancelPromotion => Some(chess_core::puzzle_app::PuzzleAction::CancelPromotion),
+            Self::OpenSettings => Some(chess_core::puzzle_app::PuzzleAction::OpenSettings),
+            Self::ToggleFreeModeSetting => {
+                Some(chess_core::puzzle_app::PuzzleAction::ToggleFreeModeSetting)
+            }
+            Self::ToggleNotesSetting => {
+                Some(chess_core::puzzle_app::PuzzleAction::ToggleNotesSetting)
+            }
+            Self::ToggleLockSetting => {
+                Some(chess_core::puzzle_app::PuzzleAction::ToggleLockSetting)
+            }
+            Self::ToggleFlipSetting => {
+                Some(chess_core::puzzle_app::PuzzleAction::ToggleFlipSetting)
+            }
+            Self::ToggleBoardSizeSetting => {
+                Some(chess_core::puzzle_app::PuzzleAction::ToggleBoardSizeSetting)
+            }
+            Self::CyclePhysicalBoardSeat => {
+                Some(chess_core::puzzle_app::PuzzleAction::CyclePhysicalBoardSeat)
+            }
+            Self::CloseSettings => Some(chess_core::puzzle_app::PuzzleAction::CloseSettings),
+            Self::OpenCollections => {
+                Some(chess_core::puzzle_app::PuzzleAction::OpenCollectionPicker)
+            }
+            Self::Collection(index) => Some(
+                chess_core::puzzle_app::PuzzleAction::SelectCollection(index),
+            ),
+            Self::CollectionPreviousPage => {
+                Some(chess_core::puzzle_app::PuzzleAction::CollectionPickerPreviousPage)
+            }
+            Self::CollectionNextPage => {
+                Some(chess_core::puzzle_app::PuzzleAction::CollectionPickerNextPage)
+            }
+            Self::CloseCollections => {
+                Some(chess_core::puzzle_app::PuzzleAction::CloseCollectionPicker)
+            }
+        }
+    }
+
+    pub fn into_review_action(self) -> Option<chess_core::review_app::ReviewAction> {
+        match self {
+            Self::ToggleBoardConnection => None,
+            Self::SendBoardPosition => None,
+
+            Self::Square(square) => Some(chess_core::review_app::ReviewAction::TapSquare(square)),
+            Self::AnalysisMove(node) => Some(
+                chess_core::review_app::ReviewAction::SelectAnalysisNode(node),
+            ),
+            Self::AnalysisPreviousPage => {
+                Some(chess_core::review_app::ReviewAction::AnalysisPreviousPage)
+            }
+            Self::AnalysisNextPage => Some(chess_core::review_app::ReviewAction::AnalysisNextPage),
+            Self::ToggleAnalysis => None,
+            Self::ToggleMode => None,
+            Self::ToggleDescription => None,
+            Self::ToggleOrientationLock => None,
+            Self::Reset => None,
+            Self::Flip => None,
+            Self::Refresh => None,
+            Self::Exit => Some(chess_core::review_app::ReviewAction::Exit),
+            Self::ToggleWorkspace => None,
+            Self::ReviewToggleFree => Some(chess_core::review_app::ReviewAction::ReviewToggleFree),
+            Self::ReviewReset => Some(chess_core::review_app::ReviewAction::ReviewReset),
+            Self::ReviewToggleOrientationLock => {
+                Some(chess_core::review_app::ReviewAction::ReviewToggleOrientationLock)
+            }
+            Self::ReviewFlip => Some(chess_core::review_app::ReviewAction::ReviewFlip),
+            Self::ReviewPrevious => Some(chess_core::review_app::ReviewAction::ReviewPrevious),
+            Self::ReviewNext => Some(chess_core::review_app::ReviewAction::ReviewNext),
+            Self::OpenReviewGamePicker => {
+                Some(chess_core::review_app::ReviewAction::OpenReviewGamePicker)
+            }
+            Self::ReviewGame(index) => Some(
+                chess_core::review_app::ReviewAction::SelectReviewGame(index),
+            ),
+            Self::ReviewGamePickerPreviousPage => {
+                Some(chess_core::review_app::ReviewAction::ReviewGamePickerPreviousPage)
+            }
+            Self::ReviewGamePickerNextPage => {
+                Some(chess_core::review_app::ReviewAction::ReviewGamePickerNextPage)
+            }
+            Self::CloseReviewGamePicker => {
+                Some(chess_core::review_app::ReviewAction::CloseReviewGamePicker)
+            }
+            Self::Previous => None,
+            Self::OpenPuzzleGoto => None,
+            Self::PuzzleGotoDigit(_) => None,
+            Self::PuzzleGotoBackspace => None,
+            Self::ConfirmPuzzleGoto => None,
+            Self::CancelPuzzleGoto => None,
+            Self::Next => None,
+            Self::Promotion(choice) => Some(chess_core::review_app::ReviewAction::ChoosePromotion(
+                choice,
+            )),
+            Self::CancelPromotion => Some(chess_core::review_app::ReviewAction::CancelPromotion),
+            Self::OpenSettings => Some(chess_core::review_app::ReviewAction::OpenSettings),
+            Self::ToggleFreeModeSetting => {
+                Some(chess_core::review_app::ReviewAction::ToggleFreeModeSetting)
+            }
+            Self::ToggleNotesSetting => {
+                Some(chess_core::review_app::ReviewAction::ToggleNotesSetting)
+            }
+            Self::ToggleLockSetting => {
+                Some(chess_core::review_app::ReviewAction::ToggleLockSetting)
+            }
+            Self::ToggleFlipSetting => {
+                Some(chess_core::review_app::ReviewAction::ToggleFlipSetting)
+            }
+            Self::ToggleBoardSizeSetting => {
+                Some(chess_core::review_app::ReviewAction::ToggleBoardSizeSetting)
+            }
+            Self::CyclePhysicalBoardSeat => None,
+            Self::CloseSettings => Some(chess_core::review_app::ReviewAction::CloseSettings),
+            Self::OpenCollections => None,
+            Self::Collection(_) => None,
+            Self::CollectionPreviousPage => None,
+            Self::CollectionNextPage => None,
+            Self::CloseCollections => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -231,7 +408,10 @@ impl Layout {
         )
     }
 
-    pub fn for_app(metrics: DisplayMetrics, state: &AppState) -> Result<Self, LayoutError> {
+    pub fn for_app(
+        metrics: DisplayMetrics,
+        state: &impl crate::screen::ScreenState,
+    ) -> Result<Self, LayoutError> {
         let alignment = if state.settings().small_board() {
             SMALL_TOOLBAR_ALIGNMENT
         } else {
@@ -242,7 +422,7 @@ impl Layout {
 
     pub fn for_app_with_alignment(
         metrics: DisplayMetrics,
-        state: &AppState,
+        state: &impl crate::screen::ScreenState,
         alignment: ToolbarAlignment,
     ) -> Result<Self, LayoutError> {
         Self::with_toolbar_visibility(
@@ -1027,7 +1207,12 @@ impl Layout {
         )
     }
 
-    pub fn hit_test_app(&self, x: u32, y: u32, state: &AppState) -> Option<HitTarget> {
+    pub fn hit_test_app(
+        &self,
+        x: u32,
+        y: u32,
+        state: &impl crate::screen::ScreenState,
+    ) -> Option<HitTarget> {
         if self.refresh.contains(x, y) {
             return Some(HitTarget::Refresh);
         }

@@ -23,7 +23,7 @@ name = "chess-render"
 version = "0.1.0"
 dependencies = [
  "chess-core",
- "fontdue",
+ "eink-ui",
  "serde_json",
 ]
 
@@ -43,6 +43,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51a4879eba9657d7cdb4f0206a411551b75158971661587682a34f600c9531bd"
 dependencies = [
  "thiserror",
+]
+
+[[package]]
+name = "eink-ui"
+version = "0.1.0"
+dependencies = [
+ "chess-model",
+ "fontdue",
+ "serde_json",
 ]
 
 [[package]]

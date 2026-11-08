@@ -62,7 +62,8 @@ The shared workspace currently contains these main crates:
 
 - **`chess-model`** — reusable FEN/UCI board model and generic authored analysis validation.
 - **`chess-core`** — puzzle/review parsing and state, collections, progress, versioned settings, and compatibility re-exports of the model.
-- **`chess-render`** — deterministic e-ink layout/rendering, hit testing, pieces, text, and damage regions.
+- **`eink-ui`** — shared deterministic Gray8 canvas, board/piece/text/analysis widgets and damage calculations.
+- **`chess-render`** — product screen layout/rendering and typed hit testing, plus the transitional combined screen.
 - **`kindle-platform`** — Kindle display presentation, Linux touch/pen input, paths, device lifecycle, and power integration.
 - **`fbink-sys`** — the raw FBInk FFI boundary.
 
