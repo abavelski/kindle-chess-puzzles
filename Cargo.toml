@@ -9,6 +9,8 @@ members = [
     "crates/kindle-platform",
     "crates/kindle-app",
     "app/kindle-chess",
+    "apps/kindle-puzzles",
+    "apps/kindle-game-review",
 ]
 resolver = "2"
 

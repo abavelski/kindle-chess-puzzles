@@ -108,11 +108,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "kindle-game-review"
+version = "0.1.0"
+dependencies = [
+ "kindle-app",
+]
+
+[[package]]
 name = "kindle-platform"
 version = "0.1.0"
 dependencies = [
  "eink-ui",
  "fbink-sys",
+]
+
+[[package]]
+name = "kindle-puzzles"
+version = "0.1.0"
+dependencies = [
+ "kindle-app",
 ]
 
 [[package]]

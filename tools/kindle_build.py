@@ -52,7 +52,7 @@ def run(args, **kwargs):
 
 def source_files():
     # Include local changes, including new task files, but no generated build output.
-    directories = ['support/chessnut-move/src', 'support/chessnut-move/native', 'support/chessnut-move/scripts', 'support/chessnut-move/licenses', 'support/chessnut-move/tests', 'app', 'crates', 'assets', 'scripts', 'tools', 'tests', 'packaging', '.github']
+    directories = ['support/chessnut-move/src', 'support/chessnut-move/native', 'support/chessnut-move/scripts', 'support/chessnut-move/licenses', 'support/chessnut-move/tests', 'app', 'apps', 'crates', 'assets', 'scripts', 'tools', 'tests', 'packaging', '.github']
     paths = [ROOT / name for name in ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'LICENSE', 'support/chessnut-move/Cargo.toml', 'support/chessnut-move/Cargo.lock', 'support/chessnut-move/BUILD_PINS.json', 'support/chessnut-move/SOURCE_PINS.json']]
     for directory in directories:
         paths.extend(p for p in (ROOT / directory).rglob('*')

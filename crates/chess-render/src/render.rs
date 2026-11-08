@@ -276,11 +276,13 @@ fn draw_header(
 
     draw_settings_button(frame, header_control_visual_rect(layout, layout.settings));
     draw_refresh_button(frame, header_control_visual_rect(layout, layout.refresh));
-    draw_workspace_button(
-        frame,
-        header_control_visual_rect(layout, layout.workspace),
-        state.workspace() == Workspace::Review,
-    );
+    if state.workspace_toggle_visible() {
+        draw_workspace_button(
+            frame,
+            header_control_visual_rect(layout, layout.workspace),
+            state.workspace() == Workspace::Review,
+        );
+    }
     draw_close_button(frame, header_control_visual_rect(layout, layout.exit));
 }
 

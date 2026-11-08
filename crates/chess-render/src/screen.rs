@@ -3,6 +3,9 @@ use chess_core::*;
 use chess_core::{puzzle_app::PuzzleState, review_app::ReviewApp};
 
 pub trait ScreenState {
+    fn workspace_toggle_visible(&self) -> bool {
+        false
+    }
     fn active_collection(&self) -> &ActiveCollection {
         unreachable!("product-specific screen accessor")
     }
@@ -122,6 +125,9 @@ pub trait ScreenState {
     }
 }
 impl ScreenState for AppState {
+    fn workspace_toggle_visible(&self) -> bool {
+        true
+    }
     fn active_collection(&self) -> &ActiveCollection {
         AppState::active_collection(self)
     }

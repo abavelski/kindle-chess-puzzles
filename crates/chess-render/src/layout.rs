@@ -1318,7 +1318,7 @@ impl Layout {
             return None;
         }
 
-        if self.workspace.contains(x, y) {
+        if self.workspace.contains(x, y) && state.workspace_toggle_visible() {
             return Some(HitTarget::ToggleWorkspace);
         }
         if self.settings.contains(x, y) {

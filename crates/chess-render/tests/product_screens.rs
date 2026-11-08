@@ -72,15 +72,15 @@ fn independent_screens_match_legacy_frames_and_map_only_own_actions() {
             legacy.dispatch(old);
             puzzle.dispatch(new);
         }
-        assert_eq!(
-            render(&legacy, metrics).unwrap().frame,
-            render_puzzles(&puzzle, metrics).unwrap().frame
+        compare_without_legacy_toggle(
+            render(&legacy, metrics).unwrap(),
+            render_puzzles(&puzzle, metrics).unwrap(),
         );
         legacy.dispatch(Action::ToggleWorkspace);
         legacy.dispatch(Action::ReviewNext);
         review.dispatch(R::ReviewNext);
         let frame = render_review(&review, metrics).unwrap();
-        assert_eq!(render(&legacy, metrics).unwrap().frame, frame.frame);
+        compare_without_legacy_toggle(render(&legacy, metrics).unwrap(), frame.clone());
         let next = frame.layout.next;
         assert_eq!(
             frame.hit_test_review(next.x + next.width / 2, next.y + next.height / 2, &review),
@@ -94,4 +94,15 @@ fn independent_screens_match_legacy_frames_and_map_only_own_actions() {
     assert_eq!(HitTarget::ToggleWorkspace.into_review_action(), None);
     let empty = ReviewApp::new(Vec::new(), WorkspaceSettings::default());
     assert!(render_review(&empty, metrics).is_ok());
+}
+
+fn compare_without_legacy_toggle(
+    mut legacy: chess_render::RenderOutput,
+    mut product: chess_render::RenderOutput,
+) {
+    // SPLIT-08 deliberately removes the workspace switch from standalone apps.
+    let mask = legacy.layout.workspace;
+    legacy.frame.fill_rect(mask, 255);
+    product.frame.fill_rect(mask, 255);
+    assert_eq!(legacy.frame, product.frame);
 }

@@ -25,8 +25,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Done | No |
 | SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Done | No |
 | SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Done | No |
-| SPLIT-08 | Two actual Cargo binaries | 07 | Ready | No |
-| SPLIT-09 | Separate state, settings and legacy migration | 08 | Blocked | No |
+| SPLIT-08 | Two actual Cargo binaries | 07 | Done | No |
+| SPLIT-09 | Separate state, settings and legacy migration | 08 | Ready | No |
 | SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Blocked | No |
 | SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Blocked | No |
 | SPLIT-12 | Dual-app CI and regression matrix | 10,11 | Blocked | No |
@@ -110,14 +110,16 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-08 — Real Cargo app entrypoints
 
-**Status:** Ready. **Read:** [architecture](ARCHITECTURE.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [architecture](ARCHITECTURE.md).  
 **Likely files:** Cargo.toml/Cargo.lock, new apps/kindle-puzzles and apps/kindle-game-review, old app/kindle-chess.  
 **First failing tests:** cargo build --locked -p kindle-puzzles and cargo build --locked -p kindle-game-review both work, and independent startup wiring never loads the other's library/state.  
 **Acceptance:** two distinct product binaries, one domain each; no hidden workspace switch, no puzzle data initialization in Review or game picker in Puzzles. Retire legacy entrypoint only when compatibility gates are green. **Fit:** Codex.
 
+**Evidence (implementation: this task commit, `feat(split): add independent Kindle product entrypoints`):** Added thin apps/kindle-puzzles and apps/kindle-game-review Cargo binaries, separate PuzzleRuntime/ReviewRuntime composition roots and a shared initial puzzle-selection helper. Puzzles opens only puzzle collections/progress/preferences/optional board service; Review opens only games/resume/preferences under /mnt/us/kindle-game-review and never constructs a puzzle state/progress store/board service. Standalone screens remove the workspace icon/target; all other STANDARD/SMALL pixels match the baseline (explicit switch-region mask in compatibility comparison); legacy snapshot hashes remain unchanged. Initial `cargo build --locked -p kindle-puzzles` failed on missing package. Both `cargo build --locked -p kindle-puzzles` and `cargo build --locked -p kindle-game-review` now pass. `cargo test --locked -p kindle-app --test products` → 1 passed (cross-library/state ignored, independent writes, Review creates no puzzle directory); product screen tests → 2 passed. Full scripts/check.sh via pinned build → exit 0; compatibility build/stage also pass after including apps/ in corresponding source. Both independent targets cross-built with pinned Zig/FBInk settings and passed validate_elf: Puzzles 3,473,136 bytes / SHA256 `df2032d62dc389e19678df48b85f76da0a571ffc136a8c3895b8a19a1c6e541a`; Review 3,175,348 bytes / SHA256 `dc0c1b495d1aed4c56ea062a4fca65c6661913de653219d1c79c099a9e45cf25`. The compatibility entrypoint/package stays available until SPLIT-10/11; app.sh review still fails closed until per-app packaging exists. No device claim.
+
 ### SPLIT-09 — Isolated data paths and safe migration
 
-**Status:** Blocked by 08. **Read:** [settings](SETTINGS.md), [review import](GAME_REVIEW_IMPORT.md).  
+**Status:** Ready. **Read:** [settings](SETTINGS.md), [review import](GAME_REVIEW_IMPORT.md).  
 **Likely files:** runtime/storage adapters, product settings/resume, migration tests, docs/BUILD_DEPLOY.md.  
 **First failing tests:** fresh install; legacy-only games and review resume; both old/new present; malformed/future schema; interrupted migration; rollback; stable game IDs; puzzle progress bytes identical.  
 **Decision required inside task:** choose and document a **tested one-time copy** or **read-only legacy fallback**, not silent relocation. Retain Puzzles root /mnt/us/kindle-chess and existing puzzles/progress/settings. Proposed separate Review root /mnt/us/kindle-game-review with games/, state/review-resume.json and its own settings.  
