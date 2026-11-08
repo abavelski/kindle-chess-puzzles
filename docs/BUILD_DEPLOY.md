@@ -329,7 +329,8 @@ no split package has yet been claimed verified on the physical Scribe.
 The tested local artifacts and pending installation/backup, data-preservation,
 launch/power/global-lock, update/uninstall and SSH rollback checklist are in the
 [2026-11-08 Scribe checkpoint](device/ks1-barolo.md#split-13--dual-app-scribe-checkpoint-prepared-2026-11-08).
-No split deployment or physical acceptance has been performed. Record current
-firmware, installed SHA256 values, observations and owner sign-off there before
+Both split apps were [deployed with verified data preservation](device/ks1-barolo.md#split-13-deployment--2026-11-08)
+on 2026-11-08. Physical launch/behavior acceptance remains pending. Record
+observations and owner sign-off there before
 marking SPLIT-13 Done or reintegrating `app-split`. Automatic Chessnut reply motion
 and historically ineffective STOP remain explicitly unverified.

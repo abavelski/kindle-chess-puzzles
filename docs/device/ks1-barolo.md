@@ -2286,8 +2286,8 @@ switch workspaces and exit/relaunch to check independently restored settings.
 ## SPLIT-13 — Dual-app Scribe checkpoint prepared 2026-11-08
 
 **Status: Waiting for device.** Branch `app-split`, implementation `0a183b0`.
-No split app has been deployed or launched for this checkpoint. Firmware 5.19.6
-is the historical measurement above; record the actual firmware again below.
+At preparation, neither split app had been deployed or launched. The deployment
+record below reconfirms firmware 5.19.6; physical launch/behavior remain pending.
 The local clean-source host suites, pinned ARMv7/glibc-2.35 builds, stages and
 release artifact verifiers passed for both products. GitHub CI execution remains
 unconfirmed. These results establish no physical panel, sleep or Bluetooth pass.
@@ -2349,7 +2349,7 @@ Both packages include matching receipt, checksums, source and licenses.
 
 | Check | Required observation/evidence | Status |
 | --- | --- | --- |
-| Device/artifact attestation | Current firmware, implementation/receipt/source hashes, installed binary hashes, backup verified | Pending |
+| Device/artifact attestation | Firmware 5.19.6 reconfirmed; both installed binaries/receipts/source archives match; device and off-device backups verified (deployment record below) | Passed, SSH verification 2026-11-08 |
 | Separate library launch/exit | Both scriptlets start the correct product, no workspace toggle; X exit restores touch, pen and native UI | Pending for both |
 | Puzzles | Exact-line grading, wrong-move rollback, promotion, FREE/reset, analysis/prose-reference taps, collections and persisted progress | Pending |
 | Product preferences | STANDARD/SMALL, flip/lock and optional controls persist independently after exit/relaunch | Pending for both |
@@ -2386,6 +2386,57 @@ Review's later resume/settings remain only in its own root. Do not overwrite
 current user data with a backup silently. An interrupted install must be handled
 using the [same-product runtime recovery contract](../BUILD_DEPLOY.md#independent-installation-and-recovery--split-11).
 
-**Observation date / firmware:** pending. **Recovery commands/results:** pending.
+**Deployment observation date / firmware:** 2026-11-08 / 5.19.6. **Physical observations and recovery commands/results:** pending.
 **Owner sign-off:** pending. SPLIT-13 remains Waiting for device; keep `app-split`
 unmerged until the observations, artifact attestation and approval are recorded.
+
+
+### SPLIT-13 deployment — 2026-11-08
+
+On the owner's explicit request, installed both prepared SPLIT-12 artifacts using
+`scripts/app.sh deploy puzzles --host root@192.168.1.20 --port 2222` followed by
+`deploy review` with the same transport. Empty-password authentication used an
+SSH control connection; no credential or authentication configuration was saved.
+No app, display-owner lock or install lock was active at preflight. Read-only SSH
+reconfirmed ARMv7 and Kindle firmware 5.19.6. Implementation is `0a183b0` on
+`app-split`; the selected artifact hashes above remain unchanged.
+
+Before installation, backed up the entire existing `/mnt/us/kindle-chess` root
+(including its historical backups, current runtime, libraries and state) and
+`/mnt/us/documents/kindle-chess.sh`. Review's root/scriptlet did not yet exist.
+Backup location on the Scribe:
+`/mnt/us/kindle-split-backups/20261108-app-split/pre-split.tar`.
+An off-device copy is retained locally under ignored
+`probe-output/split-deploy-20261108/device-backup/pre-split.tar`.
+Both copies match SHA256
+`48c215c61659ccfd5dc9c7e9ddd9a201b33e2b1c0c35025239210a3f8a91d0ff`.
+The local archive was opened and every one of the 243 protected non-runtime file
+payloads was checked against its pre-installation hash, along with the previous
+binary and the presence of its library scriptlet. No existing backup was removed.
+
+Both transactional installers succeeded. Installed binaries, build receipts and
+source archives matched their selected host stage SHA256 values. Both library
+scriptlets match the verified host stages. After both installations,
+`sha256sum -c` against the complete pre-installation non-runtime manifest passed:
+243 files preserved byte-for-byte, including all 120 active puzzle/game/state
+files and all older backup files. In particular, `state/progress.json` remained
+`c99f1d640ff01ebd1fb22cc0722e7b7971a4f49f0f852f2c799a1d7bbef939d4`.
+Puzzles remains under `/mnt/us/kindle-chess`; Review is independently installed
+under `/mnt/us/kindle-game-review` and contains no puzzle directory.
+
+`/lib/ld-linux-armhf.so.3 --list` resolved dependencies for both installed
+binaries. No app was launched; application/display/install locks were absent
+after verification. Existing games remain in the legacy root, available through
+Review's read-only fallback. Logs, complete manifests and transfer/backup checks
+are local under ignored `probe-output/split-deploy-20261108/`.
+
+For later cleanup, historical backups are in `/mnt/us/kindle-chess/backups/`
+(six dated folders, about 400 MiB in total). This deployment's separate backup
+also contains those historical copies. Retain the verified off-device archive
+and a tested rollback path before choosing what to remove. No cleanup is part
+of this deployment.
+
+Both library entries are ready for human launch/testing. Only SSH installation,
+artifact/loader checks and preservation checks are evidenced here. The remaining
+physical acceptance matrix, recovery exercise and owner sign-off are pending;
+SPLIT-13 remains Waiting for device and `app-split` remains unmerged.
