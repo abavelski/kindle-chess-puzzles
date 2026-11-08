@@ -39,7 +39,7 @@ Preserve coherent existing crates if interfaces are demonstrably clean; avoid a 
 
 Preserve Puzzles installation identity: the existing KPM ID kindle_chess, library scriptlet kindle-chess.sh and data root /mnt/us/kindle-chess. Proposed Review identity: kindle_game_review, kindle-game-review.sh and /mnt/us/kindle-game-review. Each needs its own executable, manifest, receipt, staged artifacts, install/uninstall lifecycle, state/settings, logs and process lock.
 
-The legacy combined app stores games at /mnt/us/kindle-chess/games and resume at /mnt/us/kindle-chess/state/review-resume.json. A standalone Review app needs a **tested, non-destructive** copy or read-only fallback that preserves existing game IDs, resume and review settings. Never move/delete/overwrite those files implicitly; preserve puzzle progress bytes and malformed/future-schema files.
+The legacy combined app stores games at /mnt/us/kindle-chess/games and resume at /mnt/us/kindle-chess/state/review-resume.json. Standalone Review uses the tested read-only legacy fallback documented in BUILD_DEPLOY.md: absent new library/settings/resume inputs may be read from the legacy root, while all writes go only to the new root. Existing malformed/future new files take precedence and stay protected. This preserves existing game IDs, resume and review settings. Never move/delete/overwrite those files implicitly; preserve puzzle progress bytes and malformed/future-schema files.
 
 The framebuffer and native UI are global hardware resources: install paths are independent but simultaneous launches must be rejected by a **shared display-owner lock**. Supervisors must restore native Xorg/awesome and support documented SSH recovery on all exits. Do not let two scripts seize the framebuffer.
 

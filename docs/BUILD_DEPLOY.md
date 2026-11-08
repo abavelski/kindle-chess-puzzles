@@ -239,3 +239,41 @@ updates retain generated game IDs and duplicate IDs fail. See
 and safe copying. Task 49 physical
 review-mode acceptance passed on 2026-10-07; see the device record for the
 tested build, preserved data hashes and accepted checklist.
+
+## Standalone Review data and legacy fallback — SPLIT-09
+
+The independent Review executable uses `/mnt/us/kindle-game-review/games`,
+`state/settings.json` and `state/review-resume.json` under that root. Puzzles keeps
+`/mnt/us/kindle-chess` and its existing progress/settings. Review never opens a
+puzzle progress store or initializes a puzzle directory.
+
+Migration is a **read-only legacy fallback**, not a move or a copy. With no matching
+files in Review's games directory, Review reads `/mnt/us/kindle-chess/games`.
+An existing matching new game file, including an invalid one, takes precedence
+and prevents fallback. A missing new settings or resume file independently falls
+back to the corresponding legacy file under `/mnt/us/kindle-chess/state`.
+Legacy settings use the existing Game Review profile, including migrated older
+flat preferences. Stable collection filenames/game IDs and authored move paths
+are retained. All subsequent preferences/resume writes target only Review's own
+state directory. Game JSON is always read-only.
+
+Malformed, partial or future-version new files take precedence too: they produce
+warnings and remain protected from writes. Invalid legacy bytes produce warnings
+and remain byte-identical; defaults may be edited into a separate new file. There
+is no migration marker or destructive intermediate state to recover. The fixture
+suite covers interrupted/partial state and both old/new roots present.
+
+`KINDLE_GAME_REVIEW_ROOT` overrides Review's root. Independent optional overrides
+are `KINDLE_GAME_REVIEW_GAME_DIR`, `KINDLE_GAME_REVIEW_SETTINGS_FILE`, and
+`KINDLE_GAME_REVIEW_RESUME_FILE`. `KINDLE_GAME_REVIEW_LEGACY_ROOT` selects a custom
+old root; an explicitly empty value disables fallback. For a custom legacy games
+location, set the Review game-directory override to that read-only library.
+
+For rollback, close both apps and retain a backup of the new Review root. The
+older combined app still reads the untouched legacy games/settings/resume and
+puzzle progress. New Review activity is saved only in the new root, so the old
+app resumes from its older saved position. To re-test fallback, back up and
+explicitly remove only the new app's settings/resume files while closed; never
+remove legacy files or puzzle progress. Keep game filenames and IDs stable when
+manually copying a library into the new games directory. Package/install
+isolation and real device recovery remain SPLIT-11/13 gates.

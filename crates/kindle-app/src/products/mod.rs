@@ -13,7 +13,24 @@ pub fn run_review() -> Result<(), Box<dyn std::error::Error>> {
     let root = std::env::var_os("KINDLE_GAME_REVIEW_ROOT")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| "/mnt/us/kindle-game-review".into());
-    crate::runtime::run(ReviewRuntime::open(review_paths(&root))?, start)
+    let mut paths = review_paths(&root);
+    for (name, target) in [
+        ("KINDLE_GAME_REVIEW_GAME_DIR", &mut paths.review_dir),
+        ("KINDLE_GAME_REVIEW_SETTINGS_FILE", &mut paths.settings_file),
+        (
+            "KINDLE_GAME_REVIEW_RESUME_FILE",
+            &mut paths.review_resume_file,
+        ),
+    ] {
+        if let Some(value) = std::env::var_os(name) {
+            *target = value.into();
+        }
+    }
+    let legacy = std::env::var_os("KINDLE_GAME_REVIEW_LEGACY_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| "/mnt/us/kindle-chess".into());
+    let legacy = (!legacy.as_os_str().is_empty()).then_some(legacy.as_path());
+    crate::runtime::run(ReviewRuntime::open_with_legacy(paths, legacy)?, start)
 }
 
 fn is_persistence_warning(message: &str) -> bool {

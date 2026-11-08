@@ -26,8 +26,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Done | No |
 | SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Done | No |
 | SPLIT-08 | Two actual Cargo binaries | 07 | Done | No |
-| SPLIT-09 | Separate state, settings and legacy migration | 08 | Ready | No |
-| SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Blocked | No |
+| SPLIT-09 | Separate state, settings and legacy migration | 08 | Done | No |
+| SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Ready | No |
 | SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Blocked | No |
 | SPLIT-12 | Dual-app CI and regression matrix | 10,11 | Blocked | No |
 | SPLIT-13 | Physical Scribe dual-app acceptance | 12 | Blocked | Yes |
@@ -119,15 +119,17 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-09 — Isolated data paths and safe migration
 
-**Status:** Ready. **Read:** [settings](SETTINGS.md), [review import](GAME_REVIEW_IMPORT.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Decision:** read-only legacy fallback for games and absent Review settings/resume; all future writes target only the new Review root. Existing new files always take precedence, including protected malformed/future bytes. **Read:** [settings](SETTINGS.md), [review import](GAME_REVIEW_IMPORT.md).  
 **Likely files:** runtime/storage adapters, product settings/resume, migration tests, docs/BUILD_DEPLOY.md.  
 **First failing tests:** fresh install; legacy-only games and review resume; both old/new present; malformed/future schema; interrupted migration; rollback; stable game IDs; puzzle progress bytes identical.  
 **Decision required inside task:** choose and document a **tested one-time copy** or **read-only legacy fallback**, not silent relocation. Retain Puzzles root /mnt/us/kindle-chess and existing puzzles/progress/settings. Proposed separate Review root /mnt/us/kindle-game-review with games/, state/review-resume.json and its own settings.  
 **Acceptance:** preserves old games at /mnt/us/kindle-chess/games, old review resume/settings and puzzle data without rewriting/deleting; validates ID paths and backup/recovery. **Fit:** Codex.
 
+**Evidence (implementation: this task commit, `feat(split): preserve legacy review data through read-only fallback`):** Selected/documented read-only fallback, no copy/move/marker. Independent root and settings/resume/game-directory overrides use KINDLE_GAME_REVIEW_*; default legacy root is /mnt/us/kindle-chess. Absent new inputs may read legacy sources; any matching new game file or existing new state file (including corrupt/future) takes precedence. All future state writes go only to the new root. First `cargo test --locked -p kindle-app --test review_migration` failed on missing open_with_legacy; final → 6 passed. [Migration fixtures](../tests/fixtures/review-migration/README.md) cover fresh, legacy-only, both-present, malformed/future source and destination, interrupted state, rollback and path traversal. Every legacy game/settings/resume/progress byte remains identical; own malformed/future bytes survive attempted saves; IDs/resume/review settings restore. Full scripts/check.sh via pinned scripts/build-kindle.sh → exit 0; both standalone targets independently cross-built and validated; compatibility stage → exit 0. Puzzles 3,475,872 bytes / SHA256 `9e3b7ea4037d7ba5c9109f5272c1e10138dc500cc9bd48857554e449f117c039`; Review 3,183,924 bytes / SHA256 `0e0c92f51b36f73233adc63f889d8ce324c730faf518a08085436a1b4d633d15`. [Paths, precedence and rollback](BUILD_DEPLOY.md#standalone-review-data-and-legacy-fallback--split-09). No device claim.
+
 ### SPLIT-10 — Product-aware pinned build and staging
 
-**Status:** Blocked by 08,09. **Read:** [build/deploy](BUILD_DEPLOY.md).  
+**Status:** Ready. **Read:** [build/deploy](BUILD_DEPLOY.md).  
 **Likely files:** tools/kindle_build.py, tools/chessnut_build.py, scripts/app.sh and wrapper scripts, tests/test_packaging.py.  
 **First failing tests:** app.sh build/stage puzzles and app.sh build/stage review produce different validated ELF binaries, unique receipt app IDs, artifacts and stages; a cross-app binary/receipt substitution is rejected.  
 **Implementation:** replace the current intentional Review guard with an explicit product registry (Cargo package, binary, source digest, receipt, stage, manifest, runtime root), preserving pinned Zig/FBInk/glibc 2.35 and source licensing. Review must not bundle Chessnut worker if unused.  
