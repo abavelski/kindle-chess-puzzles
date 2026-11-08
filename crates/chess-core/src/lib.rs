@@ -20,6 +20,7 @@ pub mod progress;
 pub mod puzzle;
 pub mod puzzle_app;
 pub mod review;
+pub mod review_app;
 pub mod review_resume;
 pub mod review_state;
 pub mod settings;

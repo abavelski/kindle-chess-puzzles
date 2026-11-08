@@ -21,8 +21,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-01 | Freeze golden compatibility baseline | 00 | Done | No |
 | SPLIT-02 | Generic chess model and analysis validation | 01 | Done | No |
 | SPLIT-03 | Puzzle-only product state/actions | 02 | Done | No |
-| SPLIT-04 | Review-only product state/actions | 02 | Ready | No |
-| SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Blocked | No |
+| SPLIT-04 | Review-only product state/actions | 02 | Done | No |
+| SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Ready | No |
 | SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Blocked | No |
 | SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Blocked | No |
 | SPLIT-08 | Two actual Cargo binaries | 07 | Blocked | No |
@@ -72,14 +72,16 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-04 — Review-only state machine and effects
 
-**Status:** Ready. **Read:** [review behavior](GAME_REVIEW.md), [review format](GAME_REVIEW_FORMAT.md), [review import](GAME_REVIEW_IMPORT.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [review behavior](GAME_REVIEW.md), [review format](GAME_REVIEW_FORMAT.md), [review import](GAME_REVIEW_IMPORT.md).  
 **Likely files:** chess-core review.rs/review_state.rs/review_resume.rs/app.rs; new crates/review-app.  
 **First failing tests:** construct/dispatch review from games only; PREV/NEXT, variation preview, FREE/RESET, missing-library warnings and resume work without puzzle AppState or Progress.  
 **Acceptance:** independent review actions and persistence contract; no grading/solved-ID state or platform coupling. **Fit:** Codex.
 
+**Evidence (implementation: this task commit, `refactor(split): isolate games-only review product`):** `review_app::ReviewApp/ReviewAction/ReviewEffect` constructs from games/preferences only and owns library/picker errors, navigation, authored selection, scratch board, preferences and resume. It has no puzzle/progress/grading state or platform imports. Combined AppState now only composes/delegates both products and retains the legacy settings envelope; both product state representations are private. Initial `cargo test --locked -p chess-core --test review_product` failed on missing review_app; after implementation → 2 passed (games-only main-line/variation resume round-trip and transient FREE/reset/empty-library warning). Full core suite and compile-fail doctest rejecting `ReviewEffect::ProgressChanged` pass. `PATH=/tmp/kindle-split-venv/bin:$PATH scripts/check.sh` → exit 0, including unchanged STANDARD/SMALL snapshots, all import/damage/persistence and runtime tests. No schema or device claim.
+
 ### SPLIT-05 — Shared e-ink UI, product-specific screens
 
-**Status:** Blocked by 03,04. **Read:** [architecture](ARCHITECTURE.md), [testing](TESTING.md).  
+**Status:** Ready. **Read:** [architecture](ARCHITECTURE.md), [testing](TESTING.md).  
 **Likely files:** chess-render canvas.rs, geometry.rs, pieces.rs, font.rs, analysis_panel.rs, layout.rs, render.rs, button.rs, damage.rs; new generic eink-ui and product screen modules.  
 **First failing tests:** generic board/analysis components render without importing any product action type; product-specific hit testing maps to only that product's actions, preserving old STANDARD/SMALL snapshots and damage reconstruction.  
 **Acceptance:** no puzzle or review actions in shared UI; retain monochrome readability, touch targets, text pagination, explicit move-ref interactions. **Fit:** Codex.
