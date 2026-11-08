@@ -7,7 +7,6 @@ publish.workspace = true
 
 [dependencies]
 kindle-app = { path = "../../crates/kindle-app" }
-signal-hook = "=0.3.18"
 chess-core = { path = "../../crates/chess-core" }
 chess-render = { path = "../../crates/chess-render" }
 kindle-platform = { path = "../../crates/kindle-platform" }

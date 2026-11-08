@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class InputBridgeTests(unittest.TestCase):
     def test_foreground_startup_requires_grab_without_an_opt_in_flag(self):
-        source = (ROOT / 'app/kindle-chess/src/main.rs').read_text()
+        source = (ROOT / 'crates/kindle-app/src/runtime.rs').read_text()
         self.assertNotIn('--exclusive-input', source)
         self.assertNotIn('if exclusive_input', source)
         self.assertLess(source.index('input.take_exclusive()?'), source.index('display.present_damage('))

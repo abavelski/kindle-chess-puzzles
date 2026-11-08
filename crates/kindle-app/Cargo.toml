@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 [dependencies]
+signal-hook = "=0.3.18"
 chess-core = { path = "../chess-core" }
 chess-render = { path = "../chess-render" }
 kindle-platform = { path = "../kindle-platform" }

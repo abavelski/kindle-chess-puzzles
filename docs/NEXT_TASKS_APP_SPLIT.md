@@ -24,8 +24,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-04 | Review-only product state/actions | 02 | Done | No |
 | SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Done | No |
 | SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Done | No |
-| SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Ready | No |
-| SPLIT-08 | Two actual Cargo binaries | 07 | Blocked | No |
+| SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Done | No |
+| SPLIT-08 | Two actual Cargo binaries | 07 | Ready | No |
 | SPLIT-09 | Separate state, settings and legacy migration | 08 | Blocked | No |
 | SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Blocked | No |
 | SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Blocked | No |
@@ -100,15 +100,17 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-07 — Runtime composition and exclusive display ownership
 
-**Status:** Ready. **Read:** [lifecycle](EINK_LIFECYCLE.md), [physical board](PHYSICAL_BOARD.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [lifecycle](EINK_LIFECYCLE.md), [physical board](PHYSICAL_BOARD.md).  
 **Likely files:** app/kindle-chess/src/main.rs, scripts/kindle_launch.sh, common runtime helper, tests/test_lifecycle.py.  
 **First failing tests:** two product processes cannot simultaneously own framebuffer/paused Xorg; second launch refuses safely without disturbing first, and abnormal exits restore device ownership.  
 **Implementation:** reuse event/input/power/present/shutdown wiring; add one global display lock plus namespaced app locks. Keep Puzzles-only Chessnut process lifecycle.  
 **Acceptance:** scoped cleanup on all exits; no duplicated supervisor or two display writers; documented SSH recovery. **Fit:** Codex/high risk.
 
+**Evidence (implementation: this task commit, `refactor(split): share runtime and lock global display ownership`):** Extracted shared device event/input/power/damage/presentation/shutdown loop behind kindle-app::runtime::Application callbacks. Combined runtime is now a product adapter; Puzzles board service stays outside the generic loop. Supervisor acquires a global display lock before any native handoff, preserves app locks, rejects all known unsupervised product binaries and uses selected-process wake identity. Runtime requires the recorded supervisor and claims a nested framebuffer lock; scoped Drop/supervisor cleanup releases ownership. First `python3 -m unittest tests.test_lifecycle.LauncherTests.test_distinct_apps_share_display_owner_and_second_cannot_resume_first` failed because the second app exited 0; after implementation, lifecycle suite → 13 passed, including refusal without STOP/CONT/repaint, abnormal child cleanup and PID-reuse checks. Runtime ownership unit test → 1 passed; existing binary runtime tests → 6 passed. Input-grab ordering source test moved to shared runtime (same assertion); focused 2 passed. Final `scripts/build-kindle.sh` (with external host venv on PATH) and `scripts/stage-kindle.sh` → exit 0, full host gate + pinned worker/native/release/stage checks. Release 3,593,824 bytes; binary SHA256 `37da96d2be42400137ae557db14a7594d4ecb5182d27d4540458c59a83170ccd`, source SHA256 `7e17a105931c5c9f6cc2cd14c58ff09fe000f6cbd2ba4d34fb795f6f1c9646c2`. [SSH recovery](EINK_LIFECYCLE.md#split-runtime-and-global-ownership--split-07-2026-11-08) covers stale locks/supervisor SIGKILL; no physical acceptance claim.
+
 ### SPLIT-08 — Real Cargo app entrypoints
 
-**Status:** Blocked by 07. **Read:** [architecture](ARCHITECTURE.md).  
+**Status:** Ready. **Read:** [architecture](ARCHITECTURE.md).  
 **Likely files:** Cargo.toml/Cargo.lock, new apps/kindle-puzzles and apps/kindle-game-review, old app/kindle-chess.  
 **First failing tests:** cargo build --locked -p kindle-puzzles and cargo build --locked -p kindle-game-review both work, and independent startup wiring never loads the other's library/state.  
 **Acceptance:** two distinct product binaries, one domain each; no hidden workspace switch, no puzzle data initialization in Review or game picker in Puzzles. Retire legacy entrypoint only when compatibility gates are green. **Fit:** Codex.
