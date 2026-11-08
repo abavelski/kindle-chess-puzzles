@@ -26,6 +26,12 @@ jobs:
         run: scripts/check.sh
 
   kindle-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: puzzles
+          - app: review
     # Zig pins the target glibc baseline to 2.35 independently of runner libc.
     runs-on: ubuntu-24.04
     steps:
@@ -44,16 +50,18 @@ jobs:
       - name: Install host tooling dependencies
         run: python3 -m pip install -r requirements-tools.txt
       - name: Build tested pinned Scribe release
-        run: scripts/build-kindle.sh
+        run: scripts/app.sh build ${{ matrix.app }}
       - name: Stage runtime and KPM package
-        run: scripts/stage-kindle.sh
+        run: scripts/app.sh stage ${{ matrix.app }}
+      - name: Verify selected product artifacts
+        run: python3 tools/verify_app_artifacts.py --app ${{ matrix.app }}
       - name: Publish inspectable installation artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kindle-chess-armv7-glibc235
+          name: kindle-${{ matrix.app }}-armv7-glibc235
           path: |
-            target/kindle/kindle-chess.tar
-            target/kindle/kindle_chess_0.1.0_kindlehf.kpkg
-            target/kindle/build.json
+            target/kindle/${{ matrix.app }}/*.tar
+            target/kindle/${{ matrix.app }}/*.kpkg
+            target/kindle/${{ matrix.app }}/build.json
           if-no-files-found: error
           retention-days: 14

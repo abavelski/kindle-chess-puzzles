@@ -535,6 +535,19 @@ fn draw_status(
     let show_analysis = state.workspace() == Workspace::Review || state.analysis_browser_open();
     if show_analysis {
         if let Some(view) = analysis_view(state) {
+            if state.workspace() == Workspace::Review {
+                if let Some(message) = state.transient_message() {
+                    let height =
+                        (crate::font::text_line_height(scale) * 2 + 16).min(content.height / 3);
+                    let warning = Rect::new(content.x, content.y, content.width, height);
+                    frame.fill_rounded_rect(warning, 8, SOFT_GRAY);
+                    frame.stroke_rect(warning, 2, INK);
+                    draw_wrapped_text(frame, warning.inset(8), &format!("! {message}"), scale, INK);
+                    let bottom = content.bottom();
+                    content.y = warning.bottom().saturating_add(8);
+                    content.height = bottom.saturating_sub(content.y);
+                }
+            }
             return draw_analysis_panel(frame, view, layout, content, analysis_scale);
         }
     }
@@ -547,6 +560,8 @@ fn draw_status(
         frame.fill_rounded_rect(content, 8, SOFT_GRAY);
         frame.stroke_rect(content, 2, INK);
         draw_wrapped_text(frame, content.inset(8), &format!("! {message}"), scale, INK);
+    } else if state.workspace() == Workspace::Review {
+        draw_wrapped_text(frame, content, "No review games installed.", scale, INK);
     } else {
         let puzzle = state.active_puzzle();
         if let Some(description) = state

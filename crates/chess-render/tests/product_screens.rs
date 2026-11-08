@@ -106,3 +106,57 @@ fn compare_without_legacy_toggle(
     product.frame.fill_rect(mask, 255);
     assert_eq!(legacy.frame, product.frame);
 }
+
+#[test]
+fn empty_review_remains_renderable_after_transient_warning_is_cleared() {
+    let mut empty = ReviewApp::new(Vec::new(), WorkspaceSettings::default());
+    empty.dispatch(chess_core::review_app::ReviewAction::SetTransientMessage(
+        None,
+    ));
+    let metrics = DisplayMetrics {
+        width: 1860,
+        height: 2480,
+        dpi: 300,
+    };
+    assert!(render_review(&empty, metrics).is_ok());
+}
+
+#[test]
+fn review_persistence_warnings_remain_visible_alongside_authored_analysis() {
+    let game = parse_review_file(include_bytes!(
+        "../../../tests/fixtures/game-review/valid-standard.json"
+    ))
+    .unwrap()
+    .games
+    .remove(0);
+    let mut review = ReviewApp::new(
+        vec![ReviewGameEntry::new("games.json", game)],
+        WorkspaceSettings::default(),
+    );
+    let metrics = DisplayMetrics {
+        width: 1860,
+        height: 2480,
+        dpi: 300,
+    };
+    let before = render_review(&review, metrics).unwrap();
+    review.dispatch(chess_core::review_app::ReviewAction::SetTransientMessage(
+        Some("Review resume warning: protected future-schema file preserved.".into()),
+    ));
+    let after = render_review(&review, metrics).unwrap();
+    assert!(after.analysis.is_some());
+    assert_ne!(before.frame.checksum64(), after.frame.checksum64());
+    let mut replay = before.frame.clone();
+    for rect in chess_render::calculate_damage(Some(&before.frame), &after.frame) {
+        for y in rect.y..rect.bottom() {
+            for x in rect.x..rect.right() {
+                replay.set_pixel(
+                    x.try_into().unwrap(),
+                    y.try_into().unwrap(),
+                    after.frame.pixel(x, y).unwrap(),
+                );
+            }
+        }
+    }
+    assert_eq!(replay, after.frame);
+    std::fs::write("../../target/review-warning.pgm", after.frame.to_pgm()).unwrap();
+}

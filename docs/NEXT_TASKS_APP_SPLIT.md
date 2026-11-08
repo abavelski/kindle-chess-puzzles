@@ -29,8 +29,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-09 | Separate state, settings and legacy migration | 08 | Done | No |
 | SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Done | No |
 | SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Done | No |
-| SPLIT-12 | Dual-app CI and regression matrix | 10,11 | Blocked | No |
-| SPLIT-13 | Physical Scribe dual-app acceptance | 12 | Blocked | Yes |
+| SPLIT-12 | Dual-app CI and regression matrix | 10,11 | Done | No |
+| SPLIT-13 | Physical Scribe dual-app acceptance | 12 | Ready | Yes |
 
 SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not collide; SPLIT-07 integrates the shared runtime. All other tasks should follow dependencies rather than numeric convenience.
 
@@ -149,14 +149,16 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-12 — Host/CI two-product matrix
 
-**Status:** Ready. **Read:** [testing](TESTING.md), [build/deploy](BUILD_DEPLOY.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [testing](TESTING.md), [build/deploy](BUILD_DEPLOY.md).
 **Likely files:** .github/workflows/ci.yml, scripts/check.sh, product tests and packaging tests.  
 **First failing tests:** CI fails if one artifact/receipt/manifest missing, wrong app selected, wrong binary staged or Review unexpectedly bundles puzzle/Chessnut assets.  
 **Acceptance:** single host regression suite and both product ARMv7/glibc-2.35 build/stage jobs pass from clean checkout; publish distinct package names/receipts; no physical claim. **Fit:** Codex.
 
+**Evidence (implementation: this task commit, `test(split): gate both product release artifacts in CI`):** CI now independently builds/stages/verifies Puzzles and Review before publishing distinct artifacts. The release guard requires selected identity, pinned receipt/current source, manifest, binary and complete byte-matching tar/KPM payloads; Review rejects puzzle/board runtime assets. Initial matrix contract failed against the single-product workflow; focused `python3 -m unittest tests/test_release_matrix.py` → 6 passed, including missing files, wrong selection/source, unexpected assets and corrupt archives. Two added product-screen tests first failed (empty Review reached a puzzle accessor; analysis hid protected-file warnings); corrected rendering preserves authored analysis and damage reconstruction. `cargo test --locked -p chess-render --test product_screens` → 4 passed; inspected warning frame; existing golden hashes unchanged. Full host gate and Puzzles pinned build passed in the workspace. Extracted packaged source into an isolated tree without Git or compiled artifacts, reused only checksum-verified download caches, then ran `scripts/app.sh build/stage puzzles`, `build/stage review` and `python3 tools/verify_app_artifacts.py --app` for each → all exit 0. Each build includes scripts/check.sh (fmt, clippy, workspace, tooling/lifecycle/package gates). Copied verified outputs back to target/kindle and reverified both against this source. Clean Puzzles: 3,477,112 bytes, binary SHA256 `fc47d509771f375840074c1d051a568eff9f28db2c237cab125d350b128ad089`, source `7fe237b986da69fb2545a2fe02275a0d6914799a305b038eb166d039a8cd274b`, KPM `59dca24fc21c111076095857273a1584857707546e91accd396a3ad48089159b`. Clean Review: 3,185,252 bytes, binary `cf4adc3d4ec93acc9112667929336411b8c9c4ac8ec64cdb2a7cacc6bacbd3f5`, source `2f399919105af26c8c51e839105e78cafede1faa1ac4bcf2780264f3c754a860`, KPM `41b627fdc7bff53478fc2832ce3986749227ef2d56c64b1458c205a4267d7497`. Pinned ARMv7/glibc 2.35, Rust 1.85.1, Zig 0.13.0 and FBInk checks pass. These are local clean-source results; GitHub runner execution/link remains pending, as does SPLIT-00 CI confirmation. No deployment or device claim.
+
 ### SPLIT-13 — Human Scribe checkpoint for both apps
 
-**Status:** Blocked by 12. **Human required:** yes. **Read:** [device record](device/ks1-barolo.md), [lifecycle](EINK_LIFECYCLE.md), [physical board](PHYSICAL_BOARD.md).  
+**Status:** Ready. **Human required:** yes. **Read:** [device record](device/ks1-barolo.md), [lifecycle](EINK_LIFECYCLE.md), [physical board](PHYSICAL_BOARD.md).
 **Change:** append dated acceptance matrix and artifact hashes to docs/device/ks1-barolo.md; update BUILD_DEPLOY.md and mark tracker Done only when signed off.  
 **Device checklist:** firmware/commit/checksum; install both, independently library-launch/exit; Puzzles grading/Free Board/analysis/persisted progress/settings and opt-in Chessnut Send/seat/input; Review imported games/PREV/NEXT/variations/FREE/resume/migration; pause/sleep/repeated wake/native repaint; global double-launch refusal; update/uninstall each while preserving the other's runtime and data; roll back using backup and SSH recovery. Clearly mark automatic Chessnut reply motion/STOP and any other unverified item as pending, never assumed.  
 **Acceptance:** real hardware observations recorded with commands, results, hashes and user approval. **Fit:** Codex + owner.

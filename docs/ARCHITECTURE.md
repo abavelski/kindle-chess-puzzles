@@ -14,16 +14,16 @@ The ten Cargo workspace members are chess-model, eink-ui, chess-core, chess-rend
 
 ## Target product-first monorepo
 
-A reasonable dependency shape, without forcing every name change at once:
+Implemented dependency boundaries retain coherent product modules in chess-core while generic model/UI and device mechanics are separate crates:
 
-| Layer | Proposed location | Owns |
+| Layer | Current location | Owns |
 | --- | --- | --- |
 | Reusable chess model | crates/chess-model | Board, FEN, UCI, generic analysis tree and validation |
 | Reusable UI | crates/eink-ui | Gray8 canvas, geometry, piece artwork, board/text/analysis widgets, damage |
-| Puzzles | crates/puzzle-app | Puzzle format, grading, collection/progress, actions, puzzle screen |
-| Review | crates/review-app | Review format, navigation, resume, actions, review screen |
+| Puzzles | crates/chess-core product modules (puzzle_app, puzzle, progress, collection, board_input/session) | Puzzle format, grading, collection/progress, actions, puzzle screen |
+| Review | crates/chess-core product modules (review_app, review, review_state/resume) | Review format, navigation, resume, actions, review screen |
 | Device | crates/kindle-platform and fbink-sys | FBInk, input, power, generic paths/files, raw BLE transport |
-| Products on Kindle | apps/kindle-puzzles and apps/kindle-game-review | Thin runtime composition and application identity |
+| Products on Kindle | apps/kindle-puzzles, apps/kindle-game-review and crates/kindle-app composition | Thin product entrypoints, repositories and shared device runtime |
 
 Preserve coherent existing crates if interfaces are demonstrably clean; avoid a forest of tiny crates. Binaries must be **different entrypoints**, not duplicate names or a hidden workspace toggle in the old binary.
 
