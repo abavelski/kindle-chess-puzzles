@@ -1,129 +1,10 @@
-//! Pure application state for puzzle solving and game-review workspaces.
-
-use crate::{
-    parse_uci_move, AnalysisNodeIndex, Board, BoardIntent, BoardSessionStatus, CollectionEntry,
-    Color, PieceKind, Progress, Puzzle, PuzzleCollection, ReviewFileError, ReviewGame,
-    ReviewGameEntry, ReviewGameKey, ReviewState, Settings, TapResult, UciMove, Workspace,
-    WorkspaceSettings,
+//! Transitional combined composition; puzzle behavior lives in puzzle_app.
+pub use crate::interaction::{PendingPromotion, PromotionChoice};
+pub use crate::puzzle_app::{
+    ActiveCollection, AnalysisBrowserState, BoardMode, SolutionFeedback, COLLECTIONS_PER_PAGE,
 };
-
-pub const COLLECTIONS_PER_PAGE: usize = 6;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActiveCollection {
-    key: String,
-    title: Option<String>,
-    puzzles: Vec<Puzzle>,
-}
-
-impl ActiveCollection {
-    pub fn from_collection(key: impl Into<String>, collection: PuzzleCollection) -> Self {
-        Self {
-            key: key.into(),
-            title: collection.title,
-            puzzles: collection.puzzles,
-        }
-    }
-
-    pub fn key(&self) -> &str {
-        &self.key
-    }
-
-    pub fn title(&self) -> Option<&str> {
-        self.title.as_deref()
-    }
-
-    pub fn puzzles(&self) -> &[Puzzle] {
-        &self.puzzles
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum BoardMode {
-    #[default]
-    Solution,
-    FreeBoard,
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum SolutionFeedback {
-    #[default]
-    None,
-    Correct,
-    Wrong,
-    Complete,
-}
-
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct AnalysisBrowserState {
-    selected_node: Option<AnalysisNodeIndex>,
-    page: usize,
-}
-
-impl AnalysisBrowserState {
-    pub const fn selected_node(&self) -> Option<AnalysisNodeIndex> {
-        self.selected_node
-    }
-
-    pub const fn page(&self) -> usize {
-        self.page
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PromotionChoice {
-    Queen,
-    Rook,
-    Bishop,
-    Knight,
-}
-
-impl PromotionChoice {
-    pub const fn piece_kind(self) -> PieceKind {
-        match self {
-            Self::Queen => PieceKind::Queen,
-            Self::Rook => PieceKind::Rook,
-            Self::Bishop => PieceKind::Bishop,
-            Self::Knight => PieceKind::Knight,
-        }
-    }
-}
-
-impl TryFrom<usize> for PromotionChoice {
-    type Error = ();
-
-    fn try_from(value: usize) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::Queen),
-            1 => Ok(Self::Rook),
-            2 => Ok(Self::Bishop),
-            3 => Ok(Self::Knight),
-            _ => Err(()),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PendingPromotion {
-    pub(crate) before: Board,
-    pub(crate) from: usize,
-    pub(crate) to: usize,
-    pub(crate) color: Color,
-}
-
-impl PendingPromotion {
-    pub const fn from(&self) -> usize {
-        self.from
-    }
-
-    pub const fn to(&self) -> usize {
-        self.to
-    }
-
-    pub const fn color(&self) -> Color {
-        self.color
-    }
-}
+use crate::puzzle_app::{PuzzleAction, PuzzleEffect, PuzzleState};
+use crate::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Action {
@@ -195,105 +76,40 @@ pub enum Effect {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct BoardInput {
-    collection: String,
-    puzzle: String,
-    mode: BoardMode,
-    expected: Board,
-    ready: bool,
-    correction: bool,
-    rotated: bool,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AppState {
-    board_status: BoardSessionStatus,
-    board_target: Option<String>,
-    board_input: Option<BoardInput>,
-    active_collection: ActiveCollection,
-    puzzle_index: usize,
-    board: Board,
-    mode: BoardMode,
-    solution_ply: usize,
-    feedback: SolutionFeedback,
-    pending_promotion: Option<PendingPromotion>,
-    flipped: bool,
-    orientation_locked: bool,
-    description_visible: bool,
+    puzzle: PuzzleState,
     settings: Settings,
-    settings_open: bool,
-    progress: Progress,
-    transient_message: Option<String>,
-    collection_entries: Vec<CollectionEntry>,
-    collection_picker_open: bool,
-    collection_picker_page: usize,
-    puzzle_goto_input: Option<String>,
-    analysis_browser: Option<AnalysisBrowserState>,
-    analysis_preview_board: Option<Board>,
     workspace: Workspace,
     review_games: Vec<ReviewGameEntry>,
     review_file_errors: Vec<ReviewFileError>,
     review_state: Option<ReviewState>,
 }
-
 impl AppState {
     pub fn new(active_collection: ActiveCollection, progress: Progress) -> Self {
         Self::new_with_settings(active_collection, progress, Settings::default())
     }
-
     pub fn new_with_settings(
         active_collection: ActiveCollection,
         progress: Progress,
         settings: Settings,
     ) -> Self {
-        let puzzle_index = remembered_puzzle_index(&active_collection, &progress);
-        let puzzle = active_collection
-            .puzzles
-            .get(puzzle_index)
-            .expect("parsed puzzle collections are non-empty");
-        let board = Board::from_fen(&puzzle.fen).expect("parsed puzzle FEN remains valid");
-        let flipped = puzzle.side_to_move() == Color::Black;
-        let key = active_collection.key.clone();
-        let puzzle_id = puzzle.id.clone();
-        let mut progress = progress;
-        progress.set_active_file(&key);
-        progress.remember_puzzle(&key, &puzzle_id);
-
         Self {
-            board_status: BoardSessionStatus::Disconnected,
-            board_target: None,
-            board_input: None,
-            active_collection,
-            puzzle_index,
-            board,
-            mode: BoardMode::Solution,
-            solution_ply: 0,
-            feedback: SolutionFeedback::None,
-            pending_promotion: None,
-            flipped,
-            orientation_locked: false,
-            description_visible: false,
+            puzzle: PuzzleState::new_with_settings(
+                active_collection,
+                progress,
+                settings.for_workspace(Workspace::Puzzles).clone(),
+                settings.physical_board_seat(),
+            ),
             settings,
-            settings_open: false,
-            progress,
-            transient_message: None,
-            collection_entries: Vec::new(),
-            collection_picker_open: false,
-            collection_picker_page: 0,
-            puzzle_goto_input: None,
-            analysis_browser: None,
-            analysis_preview_board: None,
             workspace: Workspace::Puzzles,
             review_games: Vec::new(),
             review_file_errors: Vec::new(),
             review_state: None,
         }
     }
-
     pub const fn workspace(&self) -> Workspace {
         self.workspace
     }
-
     pub fn set_review_games(&mut self, games: Vec<ReviewGameEntry>) {
         let previous_key = self.active_review_game().map(|entry| entry.key().clone());
         self.review_games = games;
@@ -302,7 +118,7 @@ impl AppState {
             self.review_state = None;
             if self.workspace == Workspace::Review {
                 self.workspace = Workspace::Puzzles;
-                self.transient_message = Some("No review games are available.".to_owned());
+                self.puzzle.transient_message = Some("No review games are available.".to_owned());
             }
             return;
         }
@@ -320,7 +136,6 @@ impl AppState {
             self.review_games[active_game_index].game(),
         ));
     }
-
     pub fn review_resume(&self) -> Option<crate::ReviewResume> {
         let entry = self.active_review_game()?;
         Some(crate::ReviewResume::capture(
@@ -329,8 +144,6 @@ impl AppState {
             self.review_state.as_ref()?,
         ))
     }
-
-    /// Restore only review state. Missing content never changes puzzle state or progress.
     pub fn restore_review_resume(&mut self, resume: &crate::ReviewResume) -> Option<String> {
         let Some(index) = self.review_games.iter().position(|entry| {
             entry.key().collection_id() == resume.collection_id
@@ -353,116 +166,94 @@ impl AppState {
         self.review_state = Some(state);
         warning
     }
-
     pub fn review_games(&self) -> &[ReviewGameEntry] {
         &self.review_games
     }
-
     pub fn set_review_file_errors(&mut self, errors: Vec<ReviewFileError>) {
         self.review_file_errors = errors;
     }
-
     pub fn review_file_errors(&self) -> &[ReviewFileError] {
         &self.review_file_errors
     }
-
     pub fn review_picker_entry_count(&self) -> usize {
         self.review_games.len() + self.review_file_errors.len()
     }
-
     pub fn review_picker_game(&self, picker_index: usize) -> Option<&ReviewGameEntry> {
         self.review_games.get(picker_index)
     }
-
     pub fn review_picker_error(&self, picker_index: usize) -> Option<&ReviewFileError> {
         picker_index
             .checked_sub(self.review_games.len())
             .and_then(|index| self.review_file_errors.get(index))
     }
-
     pub fn review_state(&self) -> Option<&ReviewState> {
         self.review_state.as_ref()
     }
-
     pub fn active_review_game(&self) -> Option<&ReviewGameEntry> {
         let index = self.review_state.as_ref()?.active_game_index();
         self.review_games.get(index)
     }
-
     pub fn active_collection(&self) -> &ActiveCollection {
-        &self.active_collection
+        self.puzzle.active_collection()
     }
-
     pub const fn active_puzzle_index(&self) -> usize {
-        self.puzzle_index
+        self.puzzle.active_puzzle_index()
     }
-
     pub const fn can_previous_puzzle(&self) -> bool {
-        self.puzzle_index > 0
+        self.puzzle.can_previous_puzzle()
     }
-
     pub fn can_next_puzzle(&self) -> bool {
-        self.puzzle_index + 1 < self.active_collection.puzzles.len()
+        self.puzzle.can_next_puzzle()
     }
-
     pub const fn puzzle_goto_open(&self) -> bool {
-        self.puzzle_goto_input.is_some()
+        self.puzzle.puzzle_goto_open()
     }
-
     pub fn puzzle_goto_input(&self) -> Option<&str> {
-        self.puzzle_goto_input.as_deref()
+        self.puzzle.puzzle_goto_input()
     }
-
     pub fn puzzle_goto_number(&self) -> Option<usize> {
-        self.puzzle_goto_input
-            .as_deref()
-            .filter(|input| !input.is_empty())
-            .and_then(|input| input.parse::<usize>().ok())
-            .filter(|number| *number > 0 && *number <= self.active_collection.puzzles.len())
+        self.puzzle.puzzle_goto_number()
     }
-
     pub fn active_puzzle(&self) -> &Puzzle {
-        &self.active_collection.puzzles[self.puzzle_index]
+        self.puzzle.active_puzzle()
     }
-
     pub fn board(&self) -> &Board {
         if self.workspace == Workspace::Review {
             if let Some(review) = self.review_state.as_ref() {
                 return review.board();
             }
         }
-        self.analysis_preview_board.as_ref().unwrap_or(&self.board)
+        self.puzzle
+            .analysis_preview_board
+            .as_ref()
+            .unwrap_or(&self.puzzle.board)
     }
-
     pub const fn live_board(&self) -> &Board {
-        &self.board
+        self.puzzle.live_board()
     }
-
     pub fn analysis_available(&self) -> bool {
-        self.active_puzzle().analysis.is_some()
+        self.puzzle.analysis_available()
     }
-
     pub const fn analysis_browser_open(&self) -> bool {
-        self.analysis_browser.is_some()
+        self.puzzle.analysis_browser_open()
     }
-
     pub fn analysis_browser(&self) -> Option<&AnalysisBrowserState> {
-        self.analysis_browser.as_ref()
+        self.puzzle.analysis_browser()
     }
-
     pub fn selected_analysis_node(&self) -> Option<AnalysisNodeIndex> {
         match self.workspace {
             Workspace::Puzzles => self
+                .puzzle
                 .analysis_browser
                 .as_ref()
                 .and_then(|browser| browser.selected_node()),
             Workspace::Review => self.review_state.as_ref().map(ReviewState::selected_node),
         }
     }
-
     pub fn analysis_page(&self) -> usize {
         match self.workspace {
             Workspace::Puzzles => self
+                .puzzle
                 .analysis_browser
                 .as_ref()
                 .map_or(0, AnalysisBrowserState::page),
@@ -472,10 +263,10 @@ impl AppState {
                 .map_or(0, ReviewState::analysis_page),
         }
     }
-
     pub fn analysis_can_previous_page(&self) -> bool {
         match self.workspace {
             Workspace::Puzzles => self
+                .puzzle
                 .analysis_browser
                 .as_ref()
                 .is_some_and(|browser| browser.page() > 0),
@@ -485,322 +276,211 @@ impl AppState {
                 .is_some_and(|review| review.analysis_page() > 0),
         }
     }
-
     pub const fn mode(&self) -> BoardMode {
-        self.mode
+        self.puzzle.mode()
     }
-
     pub const fn solution_ply(&self) -> usize {
-        self.solution_ply
+        self.puzzle.solution_ply()
     }
-
     pub const fn feedback(&self) -> SolutionFeedback {
-        self.feedback
+        self.puzzle.feedback()
     }
-
     pub fn pending_promotion(&self) -> Option<&PendingPromotion> {
         match self.workspace {
-            Workspace::Puzzles => self.pending_promotion.as_ref(),
+            Workspace::Puzzles => self.puzzle.pending_promotion.as_ref(),
             Workspace::Review => self
                 .review_state
                 .as_ref()
                 .and_then(ReviewState::pending_promotion),
         }
     }
-
     pub fn flipped(&self) -> bool {
         match self.workspace {
-            Workspace::Puzzles => self.flipped,
+            Workspace::Puzzles => self.puzzle.flipped,
             Workspace::Review => self.review_state.as_ref().is_some_and(ReviewState::flipped),
         }
     }
-
     pub fn orientation_locked(&self) -> bool {
         match self.workspace {
-            Workspace::Puzzles => self.orientation_locked,
+            Workspace::Puzzles => self.puzzle.orientation_locked,
             Workspace::Review => self
                 .review_state
                 .as_ref()
                 .is_some_and(ReviewState::orientation_locked),
         }
     }
-
     pub const fn description_visible(&self) -> bool {
-        self.description_visible
+        self.puzzle.description_visible()
     }
-
     pub const fn settings(&self) -> &WorkspaceSettings {
-        self.settings.for_workspace(self.workspace)
+        match self.workspace {
+            Workspace::Puzzles => self.puzzle.settings(),
+            Workspace::Review => self.settings.for_workspace(Workspace::Review),
+        }
     }
-
-    /// Both workspace profiles for durable storage, regardless of the active view.
     pub const fn persisted_settings(&self) -> &Settings {
         &self.settings
     }
-
-    fn settings_mut(&mut self) -> &mut WorkspaceSettings {
-        self.settings.for_workspace_mut(self.workspace)
-    }
-
     pub const fn settings_open(&self) -> bool {
-        self.settings_open
+        self.puzzle.settings_open()
     }
-
     pub const fn progress(&self) -> &Progress {
-        &self.progress
+        self.puzzle.progress()
     }
-
     pub fn transient_message(&self) -> Option<&str> {
-        self.transient_message.as_deref()
+        self.puzzle.transient_message()
     }
-
     pub fn is_current_solved(&self) -> bool {
-        self.progress
-            .is_solved(self.active_collection.key(), &self.active_puzzle().id)
+        self.puzzle.is_current_solved()
     }
-
     pub fn set_collection_entries(&mut self, entries: Vec<CollectionEntry>) {
-        self.collection_entries = entries;
-        self.collection_picker_open = false;
-        self.collection_picker_page = 0;
+        self.puzzle.set_collection_entries(entries)
     }
-
     pub fn collection_entries(&self) -> &[CollectionEntry] {
-        &self.collection_entries
+        self.puzzle.collection_entries()
     }
-
     pub const fn collection_picker_open(&self) -> bool {
-        self.collection_picker_open
+        self.puzzle.collection_picker_open()
     }
-
     pub const fn collection_picker_page(&self) -> usize {
-        self.collection_picker_page
+        self.puzzle.collection_picker_page()
     }
-
     pub fn collection_picker_page_count(&self) -> usize {
-        self.collection_entries.len().div_ceil(COLLECTIONS_PER_PAGE)
+        self.puzzle.collection_picker_page_count()
     }
-
     pub fn collection_picker_visible_range(&self) -> std::ops::Range<usize> {
-        let start = self
-            .collection_picker_page
-            .saturating_mul(COLLECTIONS_PER_PAGE)
-            .min(self.collection_entries.len());
-        let end = start
-            .saturating_add(COLLECTIONS_PER_PAGE)
-            .min(self.collection_entries.len());
-        start..end
+        self.puzzle.collection_picker_visible_range()
     }
-
     pub const fn collection_picker_can_previous_page(&self) -> bool {
-        self.collection_picker_page > 0
+        self.puzzle.collection_picker_can_previous_page()
     }
-
     pub fn collection_picker_can_next_page(&self) -> bool {
-        self.collection_picker_page + 1 < self.collection_picker_page_count()
+        self.puzzle.collection_picker_can_next_page()
     }
-
     pub fn board_status(&self) -> &BoardSessionStatus {
-        &self.board_status
+        self.puzzle.board_status()
     }
     pub fn board_target(&self) -> Option<&str> {
-        self.board_target.as_deref()
+        self.puzzle.board_target()
     }
     pub fn can_send_position(&self) -> bool {
         self.workspace == Workspace::Puzzles
-            && self.board_status.idle()
-            && self.pending_promotion().is_none()
-            && !self.settings_open
-            && !self.collection_picker_open
+            && self.puzzle.board_status.idle()
+            && self.puzzle.pending_promotion().is_none()
+            && !self.puzzle.settings_open
+            && !self.puzzle.collection_picker_open
             && !self.puzzle_goto_open()
     }
-
     pub const fn physical_board_seat(&self) -> crate::PhysicalBoardSeat {
-        self.settings.physical_board_seat()
+        self.puzzle.physical_board_seat()
     }
-
     pub fn board_input_status(&self) -> crate::BoardInputStatus {
-        use crate::BoardInputStatus as Input;
-        match self.board_input.as_ref() {
-            None => Input::Off,
-            Some(input) if input.ready => Input::Listening,
-            Some(input) if input.correction => Input::MatchKindle,
-            Some(_) => Input::WaitingForPosition,
+        self.puzzle.board_input_status()
+    }
+    fn toggle_workspace(&mut self) {
+        match self.workspace {
+            Workspace::Puzzles => {
+                if self.review_state.is_some() {
+                    self.workspace = Workspace::Review;
+                    self.puzzle.transient_message = None;
+                } else {
+                    self.puzzle.transient_message =
+                        Some("No review games are available.".to_owned());
+                }
+            }
+            Workspace::Review => {
+                self.workspace = Workspace::Puzzles;
+            }
         }
     }
+    fn navigate_review(&mut self, forward: bool) {
+        let (games, review_state) = (&self.review_games, &mut self.review_state);
+        let Some(review) = review_state.as_mut() else {
+            return;
+        };
+        let Some(entry) = games.get(review.active_game_index()) else {
+            return;
+        };
+        review.navigate_main_line(entry.game(), forward);
+    }
+    fn select_review_node(&mut self, index: AnalysisNodeIndex) {
+        let (games, review_state) = (&self.review_games, &mut self.review_state);
+        let Some(review) = review_state.as_mut() else {
+            return;
+        };
+        let Some(entry) = games.get(review.active_game_index()) else {
+            return;
+        };
+        review.select_node(entry.game(), index);
+    }
+    fn open_review_game_picker(&mut self) {
+        let total = self.review_picker_entry_count();
+        if let Some(review) = self.review_state.as_mut() {
+            review.open_game_picker(total);
+        }
+    }
+    fn request_review_game(&self, index: usize) -> Vec<Effect> {
+        let total = self.review_picker_entry_count();
+        let Some(review) = self.review_state.as_ref() else {
+            return Vec::new();
+        };
+        if !review.game_picker_open() || !review.game_picker_visible_range(total).contains(&index) {
+            return Vec::new();
+        }
 
-    fn handle_board_position(&mut self, placement: &str) -> Vec<Effect> {
-        let Some(mut input) = self.board_input.take() else {
-            return Vec::new();
+        self.review_games
+            .get(index)
+            .map(|entry| vec![Effect::ReviewGameRequested(entry.key().clone())])
+            .unwrap_or_default()
+    }
+    fn activate_review_game(&mut self, key: &ReviewGameKey, game: ReviewGame) {
+        let total = self.review_picker_entry_count();
+        let (games, review_state) = (&mut self.review_games, &mut self.review_state);
+        let Some(review) = review_state.as_mut() else {
+            return;
         };
-        if self.board_status.busy() {
-            self.board_input = Some(input);
-            return Vec::new();
-        }
-        if !self.board_status.connected()
-            || self.workspace != Workspace::Puzzles
-            || self.analysis_browser_open()
-            || self.collection_picker_open
-            || self.puzzle_goto_open()
-            || self.pending_promotion.is_some()
-            || input.collection != self.active_collection.key
-            || input.puzzle != self.active_puzzle().id
-            || input.mode != self.mode
-            || input.expected.placement() != self.board.placement()
-        {
-            return Vec::new();
-        }
-        let physical = (placement.len() <= 71)
-            .then(|| Board::from_fen(&format!("{placement} w - - 0 1")))
-            .and_then(Result::ok);
-        let Some(physical) = physical else {
-            self.board_input = Some(input);
-            return Vec::new();
+        let Some(index) = games.iter().position(|entry| entry.key() == key) else {
+            return;
         };
-        let physical = if input.rotated {
-            // Sensor coordinates remain physical; grading stays canonical.
-            Board::from_fen(&format!("{} w - - 0 1", physical.placement_rotated(true)))
-                .expect("rotating a valid placement preserves FEN syntax")
-        } else {
-            physical
-        };
-        if physical.placement() == input.expected.placement() {
-            input.ready = true;
-            input.correction = false;
-            self.board_input = Some(input);
-            return Vec::new();
+        if !review.game_picker_open() || !review.game_picker_visible_range(total).contains(&index) {
+            return;
         }
-        let movement = input
-            .ready
-            .then(|| crate::infer_board_move(&input.expected, &physical))
-            .flatten();
-        let Some(movement) = movement else {
-            self.board_input = Some(input);
-            return Vec::new();
-        };
-        if self.mode == BoardMode::Solution && self.feedback == SolutionFeedback::Complete {
-            self.board_input = Some(input);
-            return Vec::new();
+
+        let replacement = ReviewGameEntry::new(key.collection_id().to_owned(), game);
+        if replacement.key() != key {
+            return;
         }
-        let before = self.board.clone();
-        let original_ply = self.solution_ply;
-        self.board.apply_uci_move(movement);
-        let changed = self.mode == BoardMode::Solution && self.check_solver_move(before, movement);
-        input.expected = self.board.clone();
-        input.ready = input.expected.placement() == physical.placement();
-        input.correction = !input.ready;
-        let mut effects = Self::progress_effect(changed);
-        if self.mode == BoardMode::Solution && self.solution_ply == original_ply + 2 {
-            // Only an accepted physical solver move can authorize this reply.
-            // Freeze input until the reply's exact placement is observed; its
-            // motor echoes must never become another graded solver move.
-            let target = input.expected.placement_rotated(input.rotated);
-            input.ready = false;
-            input.correction = false;
-            self.board_target = Some(target.clone());
-            self.board_status = BoardSessionStatus::Sending;
-            effects.push(Effect::Board(BoardIntent::Send(target)));
-        }
-        self.board_input = Some(input);
-        effects
+        games[index] = replacement;
+        review.activate_game(index, games[index].game());
     }
 
+    fn sync_puzzle_settings(&mut self) {
+        *self.settings.for_workspace_mut(Workspace::Puzzles) = self.puzzle.settings().clone();
+        self.settings
+            .set_physical_board_seat(self.puzzle.physical_board_seat());
+    }
     pub fn dispatch(&mut self, action: Action) -> Vec<Effect> {
-        // Board-editing/navigation actions invalidate a physical transaction.
-        // Flip and Settings preserve absolute sensor coordinates and listening.
+        // Global board transport status must reach Puzzles even while Review is visible.
+        if matches!(action, Action::BoardStatus(_) | Action::PauseBoardInput) {
+            return self.dispatch_puzzle(action);
+        }
+        if self.workspace == Workspace::Puzzles && !matches!(action, Action::ToggleWorkspace) {
+            return self.dispatch_puzzle(action);
+        }
+        // Switching and review interactions invalidate physical input as before.
         if matches!(
             action,
-            Action::PauseBoardInput
+            Action::ToggleWorkspace
                 | Action::TapSquare(_)
                 | Action::ChoosePromotion(_)
                 | Action::CancelPromotion
-                | Action::ToggleWorkspace
-                | Action::PreviousPuzzle
-                | Action::NextPuzzle
-                | Action::Reset
-                | Action::ToggleMode
-                | Action::ToggleAnalysis
-                | Action::OpenAnalysis
-                | Action::CloseAnalysis
                 | Action::SelectAnalysisNode(_)
-                | Action::OpenCollectionPicker
-                | Action::ActivateCollection(_)
-                | Action::OpenPuzzleGoto
-                | Action::ConfirmPuzzleGoto
         ) {
-            self.board_input = None;
+            self.puzzle.dispatch(PuzzleAction::PauseBoardInput);
         }
-        // Session updates pass through ordinary modals. A sent target is an
-        // immutable snapshot independent of subsequent board navigation.
-        let intent = match &action {
-            Action::CyclePhysicalBoardSeat => {
-                if self.workspace != Workspace::Puzzles || !self.settings_open {
-                    return Vec::new();
-                }
-                let seat = self.physical_board_seat().next();
-                self.settings.set_physical_board_seat(seat);
-                self.board_input = None;
-                return vec![Effect::SettingsChanged];
-            }
-            Action::BoardPosition(placement) => return self.handle_board_position(placement),
-            Action::PauseBoardInput => return Vec::new(),
-            Action::BoardStatus(status) => {
-                if !status.connected() {
-                    self.board_input = None;
-                }
-                if status.busy() && self.board_target.is_none() {
-                    return Vec::new();
-                }
-                self.board_status = status.clone();
-                if !status.busy() {
-                    self.board_target = None;
-                }
-                return Vec::new();
-            }
-            Action::ToggleBoardConnection if self.workspace == Workspace::Puzzles => {
-                if self.board_status.connected() {
-                    self.board_status = BoardSessionStatus::Disconnected;
-                    self.board_target = None;
-                    self.board_input = None;
-                    Some(BoardIntent::Disconnect)
-                } else if matches!(
-                    self.board_status,
-                    BoardSessionStatus::Disconnected | BoardSessionStatus::Error(_)
-                ) {
-                    self.board_status = BoardSessionStatus::Connecting;
-                    Some(BoardIntent::Connect)
-                } else {
-                    None
-                }
-            }
-            Action::SendBoardPosition if self.can_send_position() && !self.settings_open => {
-                let rotated = self
-                    .physical_board_seat()
-                    .rotates(self.active_puzzle().side_to_move());
-                let target = self.board().placement_rotated(rotated);
-                self.board_input = (!self.analysis_browser_open()).then(|| BoardInput {
-                    collection: self.active_collection.key.clone(),
-                    puzzle: self.active_puzzle().id.clone(),
-                    mode: self.mode,
-                    expected: self.board().clone(),
-                    ready: false,
-                    correction: false,
-                    rotated,
-                });
-                self.board_target = Some(target.clone());
-                self.board_status = BoardSessionStatus::Sending;
-                Some(BoardIntent::Send(target))
-            }
-            Action::ToggleBoardConnection | Action::SendBoardPosition => return Vec::new(),
-            _ => None,
-        };
-        if let Some(intent) = intent {
-            return vec![Effect::Board(intent)];
-        }
-
-        if self.settings_open
+        if self.puzzle.settings_open
             && !matches!(
-                &action,
+                action,
                 Action::Exit
                     | Action::CloseSettings
                     | Action::ToggleFreeModeSetting
@@ -813,42 +493,15 @@ impl AppState {
         {
             return Vec::new();
         }
-
-        if self.puzzle_goto_input.is_some()
-            && !matches!(
-                &action,
-                Action::Exit
-                    | Action::PuzzleGotoDigit(_)
-                    | Action::PuzzleGotoBackspace
-                    | Action::ConfirmPuzzleGoto
-                    | Action::CancelPuzzleGoto
-                    | Action::SetTransientMessage(_)
-            )
-        {
+        if self.puzzle.puzzle_goto_open() || self.puzzle.collection_picker_open() {
             return Vec::new();
         }
-
-        if self.collection_picker_open
-            && !matches!(
-                &action,
-                Action::Exit
-                    | Action::CloseCollectionPicker
-                    | Action::CollectionPickerPreviousPage
-                    | Action::CollectionPickerNextPage
-                    | Action::SelectCollection(_)
-                    | Action::ActivateCollection(_)
-                    | Action::SetTransientMessage(_)
-            )
-        {
-            return Vec::new();
-        }
-
         if self
             .review_state
             .as_ref()
             .is_some_and(ReviewState::game_picker_open)
             && !matches!(
-                &action,
+                action,
                 Action::Exit
                     | Action::CloseReviewGamePicker
                     | Action::ReviewGamePickerPreviousPage
@@ -860,235 +513,111 @@ impl AppState {
         {
             return Vec::new();
         }
-
-        if self.workspace == Workspace::Puzzles
-            && self.analysis_browser.is_some()
-            && matches!(
-                &action,
-                Action::TapSquare(_) | Action::ChoosePromotion(_) | Action::CancelPromotion
-            )
-        {
-            return Vec::new();
-        }
-
-        if self.workspace == Workspace::Puzzles
-            && matches!(
-                &action,
-                Action::ReviewPrevious
-                    | Action::ReviewNext
-                    | Action::ReviewReset
-                    | Action::ReviewFlip
-                    | Action::ReviewToggleFree
-                    | Action::ReviewToggleOrientationLock
-                    | Action::OpenReviewGamePicker
-                    | Action::CloseReviewGamePicker
-                    | Action::ReviewGamePickerPreviousPage
-                    | Action::ReviewGamePickerNextPage
-                    | Action::SelectReviewGame(_)
-                    | Action::ActivateReviewGame(_, _)
-            )
-        {
-            return Vec::new();
-        }
-
-        if self.workspace == Workspace::Review
-            && !matches!(
-                &action,
-                Action::Exit
-                    | Action::ToggleWorkspace
-                    | Action::TapSquare(_)
-                    | Action::ChoosePromotion(_)
-                    | Action::CancelPromotion
-                    | Action::SelectAnalysisNode(_)
-                    | Action::AnalysisPreviousPage
-                    | Action::AnalysisNextPage
-                    | Action::ReviewPrevious
-                    | Action::ReviewNext
-                    | Action::ReviewReset
-                    | Action::ReviewFlip
-                    | Action::ReviewToggleFree
-                    | Action::ReviewToggleOrientationLock
-                    | Action::OpenReviewGamePicker
-                    | Action::CloseReviewGamePicker
-                    | Action::ReviewGamePickerPreviousPage
-                    | Action::ReviewGamePickerNextPage
-                    | Action::SelectReviewGame(_)
-                    | Action::ActivateReviewGame(_, _)
-                    | Action::OpenSettings
-                    | Action::CloseSettings
-                    | Action::ToggleFreeModeSetting
-                    | Action::ToggleNotesSetting
-                    | Action::ToggleLockSetting
-                    | Action::ToggleFlipSetting
-                    | Action::ToggleBoardSizeSetting
-                    | Action::SetTransientMessage(_)
-            )
-        {
-            return Vec::new();
-        }
-
         match action {
-            Action::ToggleBoardConnection
-            | Action::SendBoardPosition
-            | Action::BoardStatus(_)
-            | Action::BoardPosition(_)
-            | Action::PauseBoardInput
-            | Action::CyclePhysicalBoardSeat => Vec::new(),
             Action::Exit => vec![Effect::ExitRequested],
             Action::ToggleWorkspace => {
                 self.toggle_workspace();
                 Vec::new()
             }
             Action::OpenSettings => {
-                self.open_settings();
+                if self.pending_promotion().is_none() {
+                    self.puzzle.settings_open = true;
+                }
                 Vec::new()
             }
             Action::CloseSettings => {
-                self.settings_open = false;
+                self.puzzle.settings_open = false;
+                Vec::new()
+            }
+            Action::SetTransientMessage(message) => {
+                self.puzzle.transient_message = message;
                 Vec::new()
             }
             Action::ToggleFreeModeSetting => {
                 let enabled = !self.settings().show_free_mode_button();
-                self.settings_mut().set_show_free_mode_button(enabled);
+                self.settings
+                    .for_workspace_mut(Workspace::Review)
+                    .set_show_free_mode_button(enabled);
                 if !enabled {
-                    if self.workspace == Workspace::Puzzles && self.mode == BoardMode::FreeBoard {
-                        self.toggle_mode();
-                    }
-                    if self.workspace == Workspace::Review {
-                        if let Some(review) = self.review_state.as_mut() {
-                            review.set_free_enabled(false);
-                        }
+                    if let Some(review) = self.review_state.as_mut() {
+                        review.set_free_enabled(false);
                     }
                 }
                 vec![Effect::SettingsChanged]
             }
             Action::ToggleNotesSetting => {
                 let enabled = !self.settings().show_notes_button();
-                self.settings_mut().set_show_notes_button(enabled);
-                if !enabled && self.workspace == Workspace::Puzzles {
-                    self.description_visible = false;
-                }
+                self.settings
+                    .for_workspace_mut(Workspace::Review)
+                    .set_show_notes_button(enabled);
                 vec![Effect::SettingsChanged]
             }
             Action::ToggleLockSetting => {
                 let enabled = !self.settings().show_lock_button();
-                self.settings_mut().set_show_lock_button(enabled);
+                self.settings
+                    .for_workspace_mut(Workspace::Review)
+                    .set_show_lock_button(enabled);
                 vec![Effect::SettingsChanged]
             }
             Action::ToggleFlipSetting => {
                 let enabled = !self.settings().show_flip_button();
-                self.settings_mut().set_show_flip_button(enabled);
+                self.settings
+                    .for_workspace_mut(Workspace::Review)
+                    .set_show_flip_button(enabled);
                 vec![Effect::SettingsChanged]
             }
             Action::ToggleBoardSizeSetting => {
-                let small = !self.settings().small_board();
-                self.settings_mut().set_small_board(small);
+                let enabled = !self.settings().small_board();
+                self.settings
+                    .for_workspace_mut(Workspace::Review)
+                    .set_small_board(enabled);
                 vec![Effect::SettingsChanged]
             }
-            Action::OpenCollectionPicker => {
-                self.open_collection_picker();
-                Vec::new()
-            }
-            Action::CloseCollectionPicker => {
-                self.collection_picker_open = false;
-                Vec::new()
-            }
-            Action::CollectionPickerPreviousPage => {
-                self.collection_picker_page = self.collection_picker_page.saturating_sub(1);
-                Vec::new()
-            }
-            Action::CollectionPickerNextPage => {
-                if self.collection_picker_can_next_page() {
-                    self.collection_picker_page += 1;
+            Action::TapSquare(square) => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.handle_square_tap(square);
                 }
                 Vec::new()
             }
-            Action::SelectCollection(index) => self.request_collection(index),
-            Action::TapSquare(square) => match self.workspace {
-                Workspace::Puzzles => Self::progress_effect(self.handle_square_tap(square)),
-                Workspace::Review => {
-                    if let Some(review) = self.review_state.as_mut() {
-                        review.handle_square_tap(square);
-                    }
-                    Vec::new()
+            Action::ChoosePromotion(choice) => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.finish_promotion(choice.piece_kind());
                 }
-            },
-            Action::ChoosePromotion(choice) => match self.workspace {
-                Workspace::Puzzles => Self::progress_effect(self.finish_promotion(choice)),
-                Workspace::Review => {
-                    if let Some(review) = self.review_state.as_mut() {
-                        review.finish_promotion(choice.piece_kind());
-                    }
-                    Vec::new()
-                }
-            },
+                Vec::new()
+            }
             Action::CancelPromotion => {
-                match self.workspace {
-                    Workspace::Puzzles => self.cancel_promotion(),
-                    Workspace::Review => {
-                        if let Some(review) = self.review_state.as_mut() {
-                            review.cancel_promotion();
-                        }
-                    }
-                }
-                Vec::new()
-            }
-            Action::ToggleAnalysis => {
-                if self.analysis_browser_open() {
-                    self.close_analysis();
-                } else {
-                    self.open_analysis();
-                }
-                Vec::new()
-            }
-            Action::OpenAnalysis => {
-                self.open_analysis();
-                Vec::new()
-            }
-            Action::CloseAnalysis => {
-                self.close_analysis();
-                Vec::new()
-            }
-            Action::SelectAnalysisNode(index) => {
-                match self.workspace {
-                    Workspace::Puzzles => self.select_analysis_node(index),
-                    Workspace::Review => self.select_review_node(index),
+                if let Some(review) = self.review_state.as_mut() {
+                    review.cancel_promotion();
                 }
                 Vec::new()
             }
             Action::AnalysisPreviousPage => {
-                match self.workspace {
-                    Workspace::Puzzles => self.analysis_previous_page(),
-                    Workspace::Review => {
-                        if let Some(review) = self.review_state.as_mut() {
-                            review.analysis_previous_page();
-                        }
-                    }
+                if let Some(review) = self.review_state.as_mut() {
+                    review.analysis_previous_page();
                 }
                 Vec::new()
             }
             Action::AnalysisNextPage => {
-                match self.workspace {
-                    Workspace::Puzzles => self.analysis_next_page(),
-                    Workspace::Review => {
-                        if let Some(review) = self.review_state.as_mut() {
-                            review.analysis_next_page();
-                        }
-                    }
+                if let Some(review) = self.review_state.as_mut() {
+                    review.analysis_next_page();
                 }
-                Vec::new()
-            }
-            Action::ReviewPrevious => {
-                self.navigate_review(false);
-                Vec::new()
-            }
-            Action::ReviewNext => {
-                self.navigate_review(true);
                 Vec::new()
             }
             Action::ReviewReset => {
                 if let Some(review) = self.review_state.as_mut() {
                     review.reset_scratch();
+                }
+                Vec::new()
+            }
+            Action::CloseReviewGamePicker => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.close_game_picker();
+                }
+                Vec::new()
+            }
+            Action::ReviewGamePickerPreviousPage => {
+                if let Some(review) = self.review_state.as_mut() {
+                    review.game_picker_previous_page();
                 }
                 Vec::new()
             }
@@ -1116,20 +645,20 @@ impl AppState {
                 }
                 Vec::new()
             }
+            Action::ReviewPrevious => {
+                self.navigate_review(false);
+                Vec::new()
+            }
+            Action::ReviewNext => {
+                self.navigate_review(true);
+                Vec::new()
+            }
+            Action::SelectAnalysisNode(index) => {
+                self.select_review_node(index);
+                Vec::new()
+            }
             Action::OpenReviewGamePicker => {
                 self.open_review_game_picker();
-                Vec::new()
-            }
-            Action::CloseReviewGamePicker => {
-                if let Some(review) = self.review_state.as_mut() {
-                    review.close_game_picker();
-                }
-                Vec::new()
-            }
-            Action::ReviewGamePickerPreviousPage => {
-                if let Some(review) = self.review_state.as_mut() {
-                    review.game_picker_previous_page();
-                }
                 Vec::new()
             }
             Action::ReviewGamePickerNextPage => {
@@ -1144,519 +673,71 @@ impl AppState {
                 self.activate_review_game(&key, *game);
                 Vec::new()
             }
-            Action::OpenPuzzleGoto => {
-                self.open_puzzle_goto();
-                Vec::new()
-            }
-            Action::PuzzleGotoDigit(digit) => {
-                self.append_puzzle_goto_digit(digit);
-                Vec::new()
-            }
-            Action::PuzzleGotoBackspace => {
-                self.puzzle_goto_backspace();
-                Vec::new()
-            }
-            Action::ConfirmPuzzleGoto => Self::progress_effect(self.confirm_puzzle_goto()),
-            Action::CancelPuzzleGoto => {
-                self.puzzle_goto_input = None;
-                Vec::new()
-            }
-            Action::PreviousPuzzle => Self::progress_effect(self.turn_puzzle(false)),
-            Action::NextPuzzle => Self::progress_effect(self.turn_puzzle(true)),
-            Action::Reset => {
-                self.board.reset();
-                self.reset_attempt();
-                self.transient_message = None;
-                Vec::new()
-            }
-            Action::Flip => {
-                if self.settings().show_flip_button() {
-                    self.flipped = !self.flipped;
-                }
-                Vec::new()
-            }
-            Action::ToggleMode => {
-                if self.settings().show_free_mode_button() {
-                    self.toggle_mode();
-                }
-                Vec::new()
-            }
-            Action::ToggleOrientationLock => {
-                if self.settings().show_lock_button() {
-                    self.orientation_locked = !self.orientation_locked;
-                }
-                Vec::new()
-            }
-            Action::ToggleDescription => {
-                if self.settings.show_notes_button() {
-                    self.description_visible = !self.description_visible;
-                }
-                Vec::new()
-            }
-            Action::ActivateCollection(collection) => {
-                let changed = self.activate_collection(collection);
-                self.collection_picker_open = false;
-                Self::progress_effect(changed)
-            }
-            Action::SetTransientMessage(message) => {
-                self.transient_message = message;
-                Vec::new()
-            }
+            _ => Vec::new(),
         }
     }
-
-    fn toggle_workspace(&mut self) {
-        match self.workspace {
-            Workspace::Puzzles => {
-                if self.review_state.is_some() {
-                    self.workspace = Workspace::Review;
-                    self.transient_message = None;
-                } else {
-                    self.transient_message = Some("No review games are available.".to_owned());
-                }
-            }
-            Workspace::Review => {
-                self.workspace = Workspace::Puzzles;
-            }
-        }
-    }
-
-    fn navigate_review(&mut self, forward: bool) {
-        let (games, review_state) = (&self.review_games, &mut self.review_state);
-        let Some(review) = review_state.as_mut() else {
-            return;
-        };
-        let Some(entry) = games.get(review.active_game_index()) else {
-            return;
-        };
-        review.navigate_main_line(entry.game(), forward);
-    }
-
-    fn select_review_node(&mut self, index: AnalysisNodeIndex) {
-        let (games, review_state) = (&self.review_games, &mut self.review_state);
-        let Some(review) = review_state.as_mut() else {
-            return;
-        };
-        let Some(entry) = games.get(review.active_game_index()) else {
-            return;
-        };
-        review.select_node(entry.game(), index);
-    }
-
-    fn open_review_game_picker(&mut self) {
-        let total = self.review_picker_entry_count();
-        if let Some(review) = self.review_state.as_mut() {
-            review.open_game_picker(total);
-        }
-    }
-
-    fn request_review_game(&self, index: usize) -> Vec<Effect> {
-        let total = self.review_picker_entry_count();
-        let Some(review) = self.review_state.as_ref() else {
+    fn dispatch_puzzle(&mut self, action: Action) -> Vec<Effect> {
+        let Some(action) = puzzle_action(action) else {
             return Vec::new();
         };
-        if !review.game_picker_open() || !review.game_picker_visible_range(total).contains(&index) {
-            return Vec::new();
-        }
-
-        self.review_games
-            .get(index)
-            .map(|entry| vec![Effect::ReviewGameRequested(entry.key().clone())])
-            .unwrap_or_default()
-    }
-
-    fn activate_review_game(&mut self, key: &ReviewGameKey, game: ReviewGame) {
-        let total = self.review_picker_entry_count();
-        let (games, review_state) = (&mut self.review_games, &mut self.review_state);
-        let Some(review) = review_state.as_mut() else {
-            return;
-        };
-        let Some(index) = games.iter().position(|entry| entry.key() == key) else {
-            return;
-        };
-        if !review.game_picker_open() || !review.game_picker_visible_range(total).contains(&index) {
-            return;
-        }
-
-        let replacement = ReviewGameEntry::new(key.collection_id().to_owned(), game);
-        if replacement.key() != key {
-            return;
-        }
-        games[index] = replacement;
-        review.activate_game(index, games[index].game());
-    }
-
-    fn progress_effect(changed: bool) -> Vec<Effect> {
-        if changed {
-            vec![Effect::ProgressChanged]
-        } else {
-            Vec::new()
-        }
-    }
-
-    fn open_settings(&mut self) {
-        if self.settings_open
-            || self.pending_promotion().is_some()
-            || self.collection_picker_open
-            || self.puzzle_goto_input.is_some()
-            || self
-                .review_state
-                .as_ref()
-                .is_some_and(ReviewState::game_picker_open)
-        {
-            return;
-        }
-        self.settings_open = true;
-    }
-
-    fn open_analysis(&mut self) {
-        if self.analysis_browser.is_some()
-            || self.pending_promotion.is_some()
-            || !self.analysis_available()
-        {
-            return;
-        }
-
-        self.analysis_browser = Some(AnalysisBrowserState::default());
-        self.analysis_preview_board = None;
-    }
-
-    fn close_analysis(&mut self) {
-        self.analysis_browser = None;
-        self.analysis_preview_board = None;
-    }
-
-    fn select_analysis_node(&mut self, index: AnalysisNodeIndex) {
-        if self.analysis_browser.is_none() {
-            return;
-        }
-
-        let preview_board = self
-            .active_puzzle()
-            .analysis
-            .as_ref()
-            .and_then(|analysis| analysis.node(index))
-            .map(|node| Board::from_fen(&node.fen).expect("parsed analysis FEN remains valid"));
-        let Some(preview_board) = preview_board else {
-            return;
-        };
-
-        if let Some(browser) = self.analysis_browser.as_mut() {
-            browser.selected_node = Some(index);
-        }
-        self.analysis_preview_board = Some(preview_board);
-    }
-
-    fn analysis_previous_page(&mut self) {
-        if let Some(browser) = self.analysis_browser.as_mut() {
-            browser.page = browser.page.saturating_sub(1);
-        }
-    }
-
-    fn analysis_next_page(&mut self) {
-        if let Some(browser) = self.analysis_browser.as_mut() {
-            browser.page = browser.page.saturating_add(1);
-        }
-    }
-
-    fn open_puzzle_goto(&mut self) {
-        if self.puzzle_goto_input.is_some()
-            || self.pending_promotion.is_some()
-            || self.collection_picker_open
-            || self.settings_open
-        {
-            return;
-        }
-        self.puzzle_goto_input = Some(String::new());
-    }
-
-    fn append_puzzle_goto_digit(&mut self, digit: u8) {
-        if digit > 9 {
-            return;
-        }
-        let max_puzzle = self.active_collection.puzzles.len();
-        let Some(input) = self.puzzle_goto_input.as_mut() else {
-            return;
-        };
-        if input.is_empty() && digit == 0 {
-            return;
-        }
-
-        let mut candidate = input.clone();
-        candidate.push(char::from(b'0' + digit));
-        if candidate
-            .parse::<usize>()
-            .is_ok_and(|number| number > 0 && number <= max_puzzle)
-        {
-            *input = candidate;
-        }
-    }
-
-    fn puzzle_goto_backspace(&mut self) {
-        if let Some(input) = self.puzzle_goto_input.as_mut() {
-            input.pop();
-        }
-    }
-
-    fn confirm_puzzle_goto(&mut self) -> bool {
-        let Some(number) = self.puzzle_goto_number() else {
-            return false;
-        };
-        let index = number - 1;
-        self.puzzle_goto_input = None;
-        if index == self.puzzle_index {
-            return false;
-        }
-
-        self.select_puzzle(index);
-        self.remember_current_puzzle()
-    }
-
-    fn open_collection_picker(&mut self) {
-        if self.collection_entries.is_empty()
-            || self.pending_promotion.is_some()
-            || self.settings_open
-        {
-            return;
-        }
-
-        self.collection_picker_open = true;
-        self.collection_picker_page = self
-            .collection_entries
-            .iter()
-            .position(|entry| entry.key() == self.active_collection.key())
-            .map(|index| index / COLLECTIONS_PER_PAGE)
-            .unwrap_or(0);
-    }
-
-    fn request_collection(&self, index: usize) -> Vec<Effect> {
-        if !self.collection_picker_open || !self.collection_picker_visible_range().contains(&index)
-        {
-            return Vec::new();
-        }
-
-        self.collection_entries
-            .get(index)
-            .map(|entry| vec![Effect::CollectionRequested(entry.key().to_owned())])
-            .unwrap_or_default()
-    }
-
-    fn handle_square_tap(&mut self, square: usize) -> bool {
-        if (self.mode == BoardMode::Solution && self.feedback == SolutionFeedback::Complete)
-            || self.pending_promotion.is_some()
-        {
-            return false;
-        }
-
-        let before = self.board.clone();
-        match self.board.tap(square) {
-            TapResult::NoChange | TapResult::SelectionChanged => false,
-            TapResult::Moved { from, to } => {
-                if self.mode == BoardMode::Solution {
-                    let attempted =
-                        UciMove::new(from, to, None).expect("board tap returns distinct squares");
-                    self.check_solver_move(before, attempted)
-                } else {
-                    false
-                }
-            }
-            TapResult::Promotion { from, to, color } => {
-                self.pending_promotion = Some(PendingPromotion {
-                    before,
-                    from,
-                    to,
-                    color,
-                });
-                false
-            }
-        }
-    }
-
-    fn finish_promotion(&mut self, choice: PromotionChoice) -> bool {
-        let Some(pending) = self.pending_promotion.take() else {
-            return false;
-        };
-
-        let before = pending.before;
-        self.board = before.clone();
-        self.board.clear_selection();
-        let kind = choice.piece_kind();
-        if !self.board.promote_pawn(pending.from, pending.to, kind) {
-            self.board = before;
-            self.board.clear_selection();
-            self.transient_message =
-                Some("The staged pawn promotion could not be applied.".to_owned());
-            return false;
-        }
-
-        if self.mode == BoardMode::Solution {
-            let attempted = UciMove::new(pending.from, pending.to, Some(kind))
-                .expect("promotion choice produces valid UCI");
-            self.check_solver_move(before, attempted)
-        } else {
-            false
-        }
-    }
-
-    fn cancel_promotion(&mut self) {
-        let Some(pending) = self.pending_promotion.take() else {
-            return;
-        };
-        self.board = pending.before;
-        self.board.clear_selection();
-    }
-
-    fn check_solver_move(&mut self, before: Board, attempted: UciMove) -> bool {
-        let original_ply = self.solution_ply;
-        let expected = self.active_puzzle().solution.get(original_ply).cloned();
-        let Some(expected) = expected else {
-            self.restore_wrong_move(before);
-            return false;
-        };
-        let Ok(expected) = parse_uci_move(&expected) else {
-            self.restore_invalid_stored_move(before, original_ply, &expected);
-            return false;
-        };
-
-        if attempted != expected {
-            self.restore_wrong_move(before);
-            return false;
-        }
-
-        self.solution_ply += 1;
-        let reply = self
-            .active_puzzle()
-            .solution
-            .get(self.solution_ply)
-            .cloned();
-        if let Some(reply) = reply {
-            let Ok(parsed) = parse_uci_move(&reply) else {
-                self.restore_invalid_stored_move(before, original_ply, &reply);
-                return false;
-            };
-            if !self.board.apply_uci_move(parsed) {
-                self.restore_invalid_stored_move(before, original_ply, &reply);
-                return false;
-            }
-            self.solution_ply += 1;
-        }
-
-        let complete = self.solution_ply >= self.active_puzzle().solution.len();
-        self.feedback = if complete {
-            SolutionFeedback::Complete
-        } else {
-            SolutionFeedback::Correct
-        };
-        if complete {
-            self.description_visible = self.settings.show_notes_button();
-            return self.mark_current_solved();
-        }
-        false
-    }
-
-    fn restore_wrong_move(&mut self, before: Board) {
-        self.board = before;
-        self.board.clear_selection();
-        self.feedback = SolutionFeedback::Wrong;
-    }
-
-    fn restore_invalid_stored_move(&mut self, before: Board, original_ply: usize, movement: &str) {
-        self.board = before;
-        self.board.clear_selection();
-        self.solution_ply = original_ply;
-        self.feedback = SolutionFeedback::None;
-        let puzzle_id = self.active_puzzle().id.clone();
-        self.transient_message = Some(format!(
-            "Puzzle {puzzle_id}: stored move {movement} could not be applied."
-        ));
-    }
-
-    fn toggle_mode(&mut self) {
-        self.board_input = None;
-        self.close_analysis();
-        self.pending_promotion = None;
-        self.description_visible = false;
-        self.board.clear_selection();
-        match self.mode {
-            BoardMode::Solution => {
-                self.mode = BoardMode::FreeBoard;
-                self.feedback = SolutionFeedback::None;
-            }
-            BoardMode::FreeBoard => {
-                self.board.reset();
-                self.reset_attempt();
-                self.mode = BoardMode::Solution;
-            }
-        }
-    }
-
-    fn turn_puzzle(&mut self, forward: bool) -> bool {
-        let next = if forward {
-            self.puzzle_index
-                .checked_add(1)
-                .filter(|&index| index < self.active_collection.puzzles.len())
-        } else {
-            self.puzzle_index.checked_sub(1)
-        };
-        let Some(next) = next else {
-            return false;
-        };
-
-        self.select_puzzle(next);
-        self.remember_current_puzzle()
-    }
-
-    fn activate_collection(&mut self, collection: ActiveCollection) -> bool {
-        let mut progress_changed = self.remember_current_puzzle();
-        let puzzle_index = remembered_puzzle_index(&collection, &self.progress);
-        self.active_collection = collection;
-        self.select_puzzle(puzzle_index);
-
-        let key = self.active_collection.key.clone();
-        let puzzle_id = self.active_puzzle().id.clone();
-        progress_changed |= self.progress.set_active_file(&key);
-        progress_changed |= self.progress.remember_puzzle(&key, &puzzle_id);
-        progress_changed
-    }
-
-    fn select_puzzle(&mut self, index: usize) {
-        let puzzle = &self.active_collection.puzzles[index];
-        self.board = Board::from_fen(&puzzle.fen).expect("parsed puzzle FEN remains valid");
-        if !self.orientation_locked {
-            self.flipped = puzzle.side_to_move() == Color::Black;
-        }
-        self.puzzle_index = index;
-        self.reset_attempt();
-        self.transient_message = None;
-    }
-
-    fn reset_attempt(&mut self) {
-        self.close_analysis();
-        self.description_visible = false;
-        self.solution_ply = 0;
-        self.feedback = SolutionFeedback::None;
-        self.pending_promotion = None;
-        self.puzzle_goto_input = None;
-        self.board.clear_selection();
-    }
-
-    fn remember_current_puzzle(&mut self) -> bool {
-        let key = self.active_collection.key.clone();
-        let puzzle_id = self.active_puzzle().id.clone();
-        self.progress.remember_puzzle(&key, &puzzle_id)
-    }
-
-    fn mark_current_solved(&mut self) -> bool {
-        let key = self.active_collection.key.clone();
-        let puzzle_id = self.active_puzzle().id.clone();
-        self.progress.mark_solved(&key, &puzzle_id)
+        let effects = self.puzzle.dispatch(action);
+        self.sync_puzzle_settings();
+        effects
+            .into_iter()
+            .map(|effect| match effect {
+                PuzzleEffect::Board(intent) => Effect::Board(intent),
+                PuzzleEffect::ExitRequested => Effect::ExitRequested,
+                PuzzleEffect::ProgressChanged => Effect::ProgressChanged,
+                PuzzleEffect::SettingsChanged => Effect::SettingsChanged,
+                PuzzleEffect::CollectionRequested(key) => Effect::CollectionRequested(key),
+            })
+            .collect()
     }
 }
-
-fn remembered_puzzle_index(collection: &ActiveCollection, progress: &Progress) -> usize {
-    progress
-        .file(collection.key())
-        .and_then(|file| file.current_puzzle_id.as_deref())
-        .and_then(|id| collection.puzzles.iter().position(|puzzle| puzzle.id == id))
-        .unwrap_or(0)
+fn puzzle_action(action: Action) -> Option<PuzzleAction> {
+    Some(match action {
+        Action::ToggleBoardConnection => PuzzleAction::ToggleBoardConnection,
+        Action::SendBoardPosition => PuzzleAction::SendBoardPosition,
+        Action::BoardStatus(value) => PuzzleAction::BoardStatus(value),
+        Action::BoardPosition(value) => PuzzleAction::BoardPosition(value),
+        Action::PauseBoardInput => PuzzleAction::PauseBoardInput,
+        Action::Exit => PuzzleAction::Exit,
+        Action::TapSquare(value) => PuzzleAction::TapSquare(value),
+        Action::ChoosePromotion(value) => PuzzleAction::ChoosePromotion(value),
+        Action::CancelPromotion => PuzzleAction::CancelPromotion,
+        Action::ToggleAnalysis => PuzzleAction::ToggleAnalysis,
+        Action::OpenAnalysis => PuzzleAction::OpenAnalysis,
+        Action::CloseAnalysis => PuzzleAction::CloseAnalysis,
+        Action::SelectAnalysisNode(value) => PuzzleAction::SelectAnalysisNode(value),
+        Action::AnalysisPreviousPage => PuzzleAction::AnalysisPreviousPage,
+        Action::AnalysisNextPage => PuzzleAction::AnalysisNextPage,
+        Action::OpenPuzzleGoto => PuzzleAction::OpenPuzzleGoto,
+        Action::PuzzleGotoDigit(value) => PuzzleAction::PuzzleGotoDigit(value),
+        Action::PuzzleGotoBackspace => PuzzleAction::PuzzleGotoBackspace,
+        Action::ConfirmPuzzleGoto => PuzzleAction::ConfirmPuzzleGoto,
+        Action::CancelPuzzleGoto => PuzzleAction::CancelPuzzleGoto,
+        Action::PreviousPuzzle => PuzzleAction::PreviousPuzzle,
+        Action::NextPuzzle => PuzzleAction::NextPuzzle,
+        Action::Reset => PuzzleAction::Reset,
+        Action::Flip => PuzzleAction::Flip,
+        Action::ToggleMode => PuzzleAction::ToggleMode,
+        Action::ToggleOrientationLock => PuzzleAction::ToggleOrientationLock,
+        Action::ToggleDescription => PuzzleAction::ToggleDescription,
+        Action::OpenSettings => PuzzleAction::OpenSettings,
+        Action::CloseSettings => PuzzleAction::CloseSettings,
+        Action::ToggleFreeModeSetting => PuzzleAction::ToggleFreeModeSetting,
+        Action::ToggleNotesSetting => PuzzleAction::ToggleNotesSetting,
+        Action::ToggleLockSetting => PuzzleAction::ToggleLockSetting,
+        Action::ToggleFlipSetting => PuzzleAction::ToggleFlipSetting,
+        Action::ToggleBoardSizeSetting => PuzzleAction::ToggleBoardSizeSetting,
+        Action::CyclePhysicalBoardSeat => PuzzleAction::CyclePhysicalBoardSeat,
+        Action::OpenCollectionPicker => PuzzleAction::OpenCollectionPicker,
+        Action::CloseCollectionPicker => PuzzleAction::CloseCollectionPicker,
+        Action::CollectionPickerPreviousPage => PuzzleAction::CollectionPickerPreviousPage,
+        Action::CollectionPickerNextPage => PuzzleAction::CollectionPickerNextPage,
+        Action::SelectCollection(value) => PuzzleAction::SelectCollection(value),
+        Action::ActivateCollection(value) => PuzzleAction::ActivateCollection(value),
+        Action::SetTransientMessage(value) => PuzzleAction::SetTransientMessage(value),
+        _ => return None,
+    })
 }

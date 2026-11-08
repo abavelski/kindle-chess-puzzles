@@ -20,7 +20,7 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-00 | Documentation/archive and guarded CLI selector | — | Done (CI verification pending) | No |
 | SPLIT-01 | Freeze golden compatibility baseline | 00 | Done | No |
 | SPLIT-02 | Generic chess model and analysis validation | 01 | Done | No |
-| SPLIT-03 | Puzzle-only product state/actions | 02 | Ready | No |
+| SPLIT-03 | Puzzle-only product state/actions | 02 | Done | No |
 | SPLIT-04 | Review-only product state/actions | 02 | Ready | No |
 | SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Blocked | No |
 | SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Blocked | No |
@@ -63,10 +63,12 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-03 — Puzzle-only state machine and effects
 
-**Status:** Ready. **Read:** [puzzle format](PUZZLE_FORMAT.md), [physical board](PHYSICAL_BOARD.md), [settings](SETTINGS.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Boundary decision:** establish typed product modules in chess-core first; extract Cargo crates once shared UI/preferences interfaces settle, preserving compatibility composition during the transition. **Read:** [puzzle format](PUZZLE_FORMAT.md), [physical board](PHYSICAL_BOARD.md), [settings](SETTINGS.md).  
 **Likely files:** chess-core app.rs, puzzle.rs, progress.rs, collection.rs, board_input.rs, board_session.rs, settings.rs; new crates/puzzle-app.  
 **First failing tests:** create/dispatch puzzle state with no review file/library or review actions; exact stored-line grading, wrong-move rollback, promotions, solved IDs, FREE board, collections, physical-board intent and puzzle preferences still work.  
 **Acceptance:** puzzle product cannot own review picker/resume/toggle; preserves v1 data/progress; no platform dependency. **Fit:** Codex.
+
+**Evidence (implementation: this task commit, `refactor(split): isolate puzzle product state and actions`):** `puzzle_app::PuzzleState/PuzzleAction/PuzzleEffect` owns grading, collections/progress, analysis preview, FREE, preferences and physical-board input/intent without review fields/actions. Existing combined AppState delegates Puzzles dispatch to this implementation; it retains workspace composition and the legacy multi-profile settings document. Shared promotion values moved to interaction.rs. First `cargo test --locked -p chess-core --test puzzle_product` failed on missing puzzle_app; after extraction → 2 passed, covering construction/grading and promotion rollback, FREE/analysis, preferences/seat, opt-in connect/Send/input pause/exit. Compile-fail doctest rejects `PuzzleAction::ToggleWorkspace`. All existing core tests pass, including authored replies, solved IDs, collection navigation and physical seating. `cargo clippy --locked --workspace --all-targets -- -D warnings` and full `PATH=/tmp/kindle-split-venv/bin:$PATH scripts/check.sh` → exit 0, unchanged reviewed grayscale/damage/persistence baselines. No device claim.
 
 ### SPLIT-04 — Review-only state machine and effects
 
