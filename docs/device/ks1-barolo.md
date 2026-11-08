@@ -2478,8 +2478,11 @@ have not been rechecked; there is no new deployed version or physical result.
 
 Host preparation removes normal Review legacy reads and adds
 `tools/migrate_app_data.py`, with local shell/temporary-directory tests.
-[DATA-01 / DATA-02](../DATA_SEPARATION_PLAN.md) record implementation and host
-validation evidence. When authorized, with both apps closed, run:
+Implementation: DATA-01 `69b0749`, DATA-02 `15bc2e8`. All four focused migration
+tests and `scripts/check.sh` passed locally. Both products passed pinned
+ARMv7/glibc 2.35 build, stage and artifact verification after adding the tool.
+[DATA-01 / DATA-02](../DATA_SEPARATION_PLAN.md) record the host validation evidence.
+When authorized, with both apps closed, run:
 
 ```sh
 python3 tools/migrate_app_data.py --host root@DEVICE_IP --port 2222

@@ -1,6 +1,6 @@
 # App data separation plan
 
-Date: 2026-11-08. Status: DATA-01 Done; DATA-02 in progress. Device migration has not started.
+Date: 2026-11-08. Status: DATA-01 Done; DATA-02 Waiting for device. Device migration has not started.
 Follow-up to the [completed app split](../archive/tasks/implemented/app-split.md).
 
 ## Goal and current state
@@ -28,7 +28,7 @@ protections against overwriting existing files or touching unrelated puzzle data
 | ID | Deliverable | Depends on | Status |
 | --- | --- | --- | --- |
 | DATA-01 | Independent app data access, tests and builds | — | Done |
-| DATA-02 | Device migration script and result verification | DATA-01 | In progress |
+| DATA-02 | Device migration script and result verification | DATA-01 | Waiting for device |
 
 Use a task branch. Update the table and task status together, recording the
 implementation commit and test results. DATA-01 owner: Codex; branch: `task/data-01-independent-storage`; started 2026-11-08.
@@ -73,7 +73,21 @@ record the results. Once these pass, DATA-01 is Done. Device migration is DATA-0
 
 ## DATA-02 — Implement the migration script and verify the result
 
-**Status:** In progress. Owner: Codex; branch: `task/data-02-migration-script`; started 2026-11-08. Device access is explicitly deferred by the owner.
+**Status:** Waiting for device (2026-11-08). Owner: Codex; branch: `task/data-02-migration-script`; started 2026-11-08. Device access is explicitly deferred by the owner.
+
+Implementation: `15bc2e8` (on top of DATA-01 `69b0749` and evidence `8c20e54`).
+The migration test initially failed because the tool was absent; all four focused
+tests now pass: ordinary migration/rerun, newer Review state/identical game,
+conflicting game/invalid state, and active-app refusal. Tests execute the actual
+shell file operations against temporary local directories, use the existing Rust
+settings/resume parsers, and assert unrelated Puzzles bytes stay unchanged.
+`scripts/check.sh` passed, including these tests. Both apps were rebuilt, staged
+and verified again locally with the pinned toolchain because the new helper,
+tool, tests and check script change the source receipts. Final artifacts are in
+`target/kindle/{puzzles,review}`. No device command, SSH connection, migration,
+deployment or launch was performed. The remaining authorized work is complete;
+physical work awaits explicit owner authorization and the observations listed in
+[the device notes](device/ks1-barolo.md#app-data-separation--host-preparation-2026-11-08).
 
 Provide one host-run command, proposed as:
 
