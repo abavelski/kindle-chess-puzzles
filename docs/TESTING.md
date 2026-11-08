@@ -1,6 +1,6 @@
 # Testing strategy
 
-> **Split gate (2026-11-08):** scripts/check.sh now includes transitional app-selector tests. The Review selector intentionally rejects any build/stage/deploy until its own binary and package exist. SPLIT-12 requires independent release/stage CI checks for both apps, and [SPLIT-13](NEXT_TASKS_APP_SPLIT.md) is the separate human hardware gate.
+> **Split gate (2026-11-08):** scripts/check.sh runs the shared host suite, independent product startup/persistence tests and artifact/CI negative contracts. CI builds, stages and verifies Puzzles and Review separately with pinned ARMv7/glibc 2.35 jobs. The owner accepted physical dual-app behavior on 2026-11-08; see the [device record](device/ks1-barolo.md#split-13-owner-acceptance--2026-11-08) and [archived SPLIT-13](../archive/tasks/implemented/app-split.md).
 
 
 The app should be mostly testable without an e-reader.
@@ -196,3 +196,35 @@ accepted after inspecting their Gray8 frames; inspectable copies are emitted as
 
 Run `scripts/check.sh` and `scripts/build-kindle.sh` for the complete gates.
 These automated checks do not replace Task 49's physical Scribe acceptance.
+
+## Independent release matrix — SPLIT-12
+
+Run `scripts/check.sh` with requirements-tools.txt installed. Then, for each of
+`puzzles` and `review`, run:
+
+```sh
+scripts/app.sh build puzzles
+scripts/app.sh stage puzzles
+python3 tools/verify_app_artifacts.py --app puzzles
+scripts/app.sh build review
+scripts/app.sh stage review
+python3 tools/verify_app_artifacts.py --app review
+```
+
+The verifier requires the selected binary, pinned receipt, complete stage/manifest,
+tar and KPM package. It checks product identity/source, staged equality and every
+archive payload byte against the stage. Review cannot bundle puzzle examples or
+board runtime assets. CI runs it before uploading uniquely named app artifacts;
+missing one file, the wrong app/source, corrupt archive or unexpected assets must
+fail. The host suite also covers independent libraries/state, migration/rollback,
+co-install/update/uninstall and global display-owner exclusion. Review warning
+frames retain authored analysis and reconstruct through pixel damage; an empty
+library remains renderable even after its transient message is cleared.
+
+For clean-source reproduction, extract runtime/source.tar into an isolated tree,
+install host tooling dependencies, and run the same host and per-app build/stage/
+verify commands there. The source bundle includes locked vendored Rust dependencies
+and the pinned FBInk source manifest; toolchain/download caches may be reused only
+through the existing checksum verification. This is automated build evidence, not
+a physical Scribe or Bluetooth result. GitHub runner results should be linked
+when that workflow is actually executed; local matrix runs must be labelled local.

@@ -1,4 +1,4 @@
-"""The selector must fail closed until each app has a distinct binary and installer."""
+"""The selector binds a real product; unfinished deployment must fail closed."""
 import importlib.util
 from pathlib import Path
 import sys
@@ -25,22 +25,18 @@ class AppCliTests(unittest.TestCase):
                     tool.main()
                 build.assert_called_once_with()
 
-    def test_review_rejected_before_any_build_stage_or_deploy_side_effect(self):
+    def test_review_build_dispatches_to_real_product(self):
         tool = load_tool()
-        for action in ('build', 'stage', 'deploy'):
-            with self.subTest(action=action):
-                with mock.patch.object(sys, 'argv',
-                                       ['kindle_build.py', action, '--app', 'review']):
-                    with mock.patch.object(tool, 'build') as build, \
-                         mock.patch.object(tool, 'stage') as stage, \
-                         mock.patch.object(tool, 'deploy') as deploy, \
-                         mock.patch('sys.stderr'):
-                        with self.assertRaises(SystemExit) as result:
-                            tool.main()
-                        self.assertEqual(result.exception.code, 2)
-                        build.assert_not_called()
-                        stage.assert_not_called()
-                        deploy.assert_not_called()
+        with mock.patch.object(sys, 'argv', ['kindle_build.py', 'build', '--app', 'review']), mock.patch.object(tool, 'build') as build:
+            tool.main()
+            build.assert_called_once_with('review')
+
+    def test_review_deploy_dispatches_only_to_selected_product(self):
+        tool = load_tool()
+        with mock.patch.object(sys, 'argv', ['kindle_build.py', 'deploy', '--app', 'review', '--host', 'root@device']), mock.patch.object(tool, 'deploy') as deploy:
+            tool.main()
+            self.assertEqual(deploy.call_args.kwargs, {'app': 'review'})
+            self.assertEqual(deploy.call_args.args[0], tool.output_dir('review') / 'stage')
 
     def test_unknown_app_fails_validation(self):
         tool = load_tool()

@@ -271,3 +271,38 @@ without supervisor display ownership have no wake hook. User confirmed the
 revised repeated-cycle behavior on 2026-10-05; device logs corroborate native
 completion on wake and X exit 0 with both processes resumed. This also closes
 the button-sleep overlay appearance/removal review described under Task 36.
+
+## Split runtime and global ownership — SPLIT-07, 2026-11-08
+
+`kindle-app::runtime` now owns the common input/power/display/presentation loop.
+Products provide their read-only screen plus tap, asynchronous update, pause-input
+and persistence callbacks. Review does not need to construct a board service.
+Sleep discards taps and pauses physical input; native wake still completes before
+a full redraw. Refresh waveform capabilities and input grabbing are unchanged.
+
+Every supervisor acquires `/tmp/kindle-chess-display.lock` before pausing native
+UI, in addition to its app lock. A competing product must fail before issuing
+STOP/CONT or repaint commands. The shared directory records `launcher.pid`,
+`child.pid` and `binary`. The runtime requires the supervisor's recorded owner
+and claims `framebuffer/` beneath that directory before opening FBInk; duplicate
+writers under one supervisor also fail. Direct binary launches must use the
+supervisor. `KINDLE_CHESS_DISPLAY_LOCK` exists for isolated host tests; production
+products must use the same default. Wake process identity uses the selected
+binary's Linux comm name (15-byte limit) plus the existing process-start checks.
+
+Normal/nonzero child exit, child SIGKILL and supervisor INT/TERM/HUP restore only
+owned Xorg/awesome processes, repaint, and release both locks. SIGKILL of the
+supervisor itself cannot run a trap: the retained global lock deliberately blocks
+another handoff, and SSH recovery is required. Host tests cover ownership and
+cleanup mechanics, not physical panel or Bluetooth behavior.
+
+For SSH recovery, first inspect both shared PID files and the recorded binary,
+plus the selected app's lock. Verify live process identity/start times before
+signalling anything. TERM the verified supervisor (or its verified app child if
+the supervisor has died), escalating only for an unresponsive child. Confirm both
+are gone; resume only the previously owned, still-identical Xorg and awesome
+processes in that order, then run `xrefresh -display :0.0`. Remove the stale
+`framebuffer/pid` and empty `framebuffer/`, then the three shared metadata files
+and empty display directory. Remove only the matching stale app lock afterward.
+Never delete another live owner's lock or use a broad service restart. Device
+acceptance of the split and these recovery steps remains SPLIT-13.

@@ -1,29 +1,29 @@
-# Architecture — current state and two-app target
+# Architecture — independent Kindle chess apps
 
-Updated 2026-11-08. This describes a target and does **not** claim a completed split. Follow [the task tracker](NEXT_TASKS_APP_SPLIT.md) for implementation. The [former architecture](../archive/docs/ARCHITECTURE_PRE_SPLIT.md) is retained for provenance.
+Updated 2026-11-08. The split is implemented and device-accepted by the owner. See [the archived implementation](../archive/tasks/implemented/app-split.md) for evidence. The [former architecture](../archive/docs/ARCHITECTURE_PRE_SPLIT.md) is retained for provenance.
 
 ## Current system (from source)
 
-The five Cargo workspace members are chess-core, chess-render, fbink-sys, kindle-platform, and app/kindle-chess. The only shipped executable is kindle-chess. Its main.rs opens puzzle collections and review games, creates puzzle progress and review-resume stores, routes both workspaces through one AppState, handles Chessnut, and owns the Kindle input/display loop.
+The ten Cargo workspace members are chess-model, eink-ui, chess-core, chess-render, fbink-sys, kindle-platform, kindle-app, the compatibility app/kindle-chess, and independent apps/kindle-puzzles and apps/kindle-game-review. SPLIT-02 extracts Board/FEN/UCI and generic analysis graph validation into chess-model, which depends only on serde_json; chess-core re-exports those types for compatibility. Puzzle legacy-solution projection stays in puzzle.rs and the non-empty review main-line rule stays in review.rs. Two distinct product entrypoints now construct only their own product repositories/state and call the common runtime. The product-aware pipeline now stages both independently: Puzzles keeps installed binary kindle-chess and its legacy package identity, while Review uses kindle-game-review and its own package/root. The combined Cargo entrypoint is retained only as a regression target. Standalone screens have no workspace switch; combined regression snapshots retain it. Its combined product adapter now runs through kindle-app::runtime, which owns the shared input/power/display loop; the common supervisor and runtime enforce global display ownership. The compatibility main.rs still opens both libraries/stores and routes one AppState for regression testing, while the shared runtime owns the device loop. Standalone Review never constructs puzzle state/progress or a board service; standalone Puzzles never loads review games/resume.
 
-- crates/chess-core/src/app.rs mixes puzzle grading, review navigation, workspace switching and actions; review_state.rs and review_resume.rs offer separation seams. Its analysis.rs includes validation that must be divided into generic tree validation and puzzle-only solution compatibility.
-- crates/chess-render/src/layout.rs and render.rs mix generic Gray8, typography/board, damage tracking and product-specific targets.
-- crates/kindle-platform/src/storage.rs knows puzzles, review libraries and progress; refresh.rs contains board-specific policy; chessnut.rs contains chess semantics mixed with a platform transport.
-- tools/kindle_build.py and packaging/kindle currently pin one executable, output directory, build receipt, KPM ID, scriptlet, root path and runtime.
+- crates/chess-core/src/puzzle_app.rs owns puzzle state, typed actions/effects, grading, collections/progress and physical-board intent without a review library/session. crates/chess-core/src/review_app.rs owns a separate games-only ReviewApp with typed actions, library/picker, scratch board, preferences and resume; neither product state owns the other. The transitional app.rs delegates to both and retains only workspace composition plus the legacy settings envelope; review_state.rs and review_resume.rs offer separation seams. Its analysis.rs now re-exports the generic model; product parsers own their additional validation.
+- crates/eink-ui owns product-neutral Gray8/geometry, embedded fonts/pieces, board and analysis widgets and damage calculations. It depends only on chess-model/fontdue. chess-render owns product layouts and hit targets, with read-only ScreenState implementations for PuzzleState, ReviewApp and the transitional AppState. Typed product hit mappings reject workspace toggles and actions from the other product; the legacy combined API stays available for regression snapshots.
+- crates/kindle-platform now depends only on eink-ui and fbink-sys and provides display/input/power, opaque atomic file operations and generic refresh requests. kindle-app owns puzzle/review repositories, protected progress/settings/resume stores, chess-aware refresh decisions and the Puzzles board-session adapter over the native worker transport. Product state remains platform-neutral in chess-core.
+- tools/kindle_build.py and packaging/kindle select product-specific executables, output directories, build receipts, KPM IDs, scriptlets, roots and runtimes; both use the shared display-owner lock.
 - support/chessnut-move is a separately built native worker, excluded from the Cargo workspace.
 
-## Target product-first monorepo
+## Product-first monorepo
 
-A reasonable dependency shape, without forcing every name change at once:
+Implemented dependency boundaries retain coherent product modules in chess-core while generic model/UI and device mechanics are separate crates:
 
-| Layer | Proposed location | Owns |
+| Layer | Current location | Owns |
 | --- | --- | --- |
 | Reusable chess model | crates/chess-model | Board, FEN, UCI, generic analysis tree and validation |
 | Reusable UI | crates/eink-ui | Gray8 canvas, geometry, piece artwork, board/text/analysis widgets, damage |
-| Puzzles | crates/puzzle-app | Puzzle format, grading, collection/progress, actions, puzzle screen |
-| Review | crates/review-app | Review format, navigation, resume, actions, review screen |
+| Puzzles | crates/chess-core product modules (puzzle_app, puzzle, progress, collection, board_input/session) | Puzzle format, grading, collection/progress, actions, puzzle screen |
+| Review | crates/chess-core product modules (review_app, review, review_state/resume) | Review format, navigation, resume, actions, review screen |
 | Device | crates/kindle-platform and fbink-sys | FBInk, input, power, generic paths/files, raw BLE transport |
-| Products on Kindle | apps/kindle-puzzles and apps/kindle-game-review | Thin runtime composition and application identity |
+| Products on Kindle | apps/kindle-puzzles, apps/kindle-game-review and crates/kindle-app composition | Thin product entrypoints, repositories and shared device runtime |
 
 Preserve coherent existing crates if interfaces are demonstrably clean; avoid a forest of tiny crates. Binaries must be **different entrypoints**, not duplicate names or a hidden workspace toggle in the old binary.
 
@@ -37,9 +37,9 @@ Preserve coherent existing crates if interfaces are demonstrably clean; avoid a 
 
 ### Separate identities and migration
 
-Preserve Puzzles installation identity: the existing KPM ID kindle_chess, library scriptlet kindle-chess.sh and data root /mnt/us/kindle-chess. Proposed Review identity: kindle_game_review, kindle-game-review.sh and /mnt/us/kindle-game-review. Each needs its own executable, manifest, receipt, staged artifacts, install/uninstall lifecycle, state/settings, logs and process lock.
+Preserve Puzzles installation identity: the existing KPM ID kindle_chess, library scriptlet kindle-chess.sh and data root /mnt/us/kindle-chess. Review identity: kindle_game_review, kindle-game-review.sh and /mnt/us/kindle-game-review. Each needs its own executable, manifest, receipt, staged artifacts, install/uninstall lifecycle, state/settings, logs and process lock.
 
-The legacy combined app stores games at /mnt/us/kindle-chess/games and resume at /mnt/us/kindle-chess/state/review-resume.json. A standalone Review app needs a **tested, non-destructive** copy or read-only fallback that preserves existing game IDs, resume and review settings. Never move/delete/overwrite those files implicitly; preserve puzzle progress bytes and malformed/future-schema files.
+The legacy combined app stores games at /mnt/us/kindle-chess/games and resume at /mnt/us/kindle-chess/state/review-resume.json. Standalone Review uses the tested read-only legacy fallback documented in BUILD_DEPLOY.md: absent new library/settings/resume inputs may be read from the legacy root, while all writes go only to the new root. Existing malformed/future new files take precedence and stay protected. This preserves existing game IDs, resume and review settings. Never move/delete/overwrite those files implicitly; preserve puzzle progress bytes and malformed/future-schema files.
 
 The framebuffer and native UI are global hardware resources: install paths are independent but simultaneous launches must be rejected by a **shared display-owner lock**. Supervisors must restore native Xorg/awesome and support documented SSH recovery on all exits. Do not let two scripts seize the framebuffer.
 
@@ -49,4 +49,4 @@ The currently stable target remains Scribe gen 1, ARMv7 hard float, glibc 2.35, 
 
 Kobo and other devices are a second axis. Only then introduce platform events such as tap, page-forward/back, sleep/wake, and independent framebuffer/device profiles. Do not infer rotation, input geometry, button mappings or FBInk ABI from product descriptions: probe hardware and record findings.
 
-[Portability decisions](PORTABILITY_AND_APP_REUSE.md) | [Task sequence](NEXT_TASKS_APP_SPLIT.md) | [Build/deploy](BUILD_DEPLOY.md)
+[Portability decisions](PORTABILITY_AND_APP_REUSE.md) | [Task sequence](../archive/tasks/implemented/app-split.md) | [Build/deploy](BUILD_DEPLOY.md)

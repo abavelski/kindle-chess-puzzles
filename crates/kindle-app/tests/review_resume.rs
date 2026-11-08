@@ -1,5 +1,5 @@
 use chess_core::*;
-use kindle_platform::{ReviewResumeStore, StoragePaths};
+use kindle_app::{ReviewResumeStore, StoragePaths};
 use std::fs;
 
 fn resume() -> ReviewResume {

@@ -15,7 +15,7 @@ class LauncherTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name)
-        self.env = dict(os.environ, KINDLE_CHESS_CLEANUP_GRACE_SECONDS='2', KINDLE_CHESS_DISPLAY_HANDOFF='0', KINDLE_CHESS_XREFRESH='', KINDLE_CHESS_LOCK=str(self.directory / 'lock'), KINDLE_CHESS_LOG=str(self.directory / 'log'))
+        self.env = dict(os.environ, KINDLE_CHESS_CLEANUP_GRACE_SECONDS='2', KINDLE_CHESS_DISPLAY_HANDOFF='0', KINDLE_CHESS_XREFRESH='', KINDLE_CHESS_DISPLAY_LOCK=str(self.directory / 'display-lock'), KINDLE_CHESS_LOCK=str(self.directory / 'lock'), KINDLE_CHESS_LOG=str(self.directory / 'log'))
 
     def child(self, body):
         path = self.directory / 'app'
@@ -39,6 +39,7 @@ class LauncherTests(unittest.TestCase):
             proc = self.launch(self.child(f'exit {code}'))
             self.assertEqual(proc.wait(timeout=4), code)
             self.assertFalse((self.directory / 'lock').exists())
+            self.assertFalse((self.directory / 'display-lock').exists())
 
     def test_duplicate_launch_preserves_first_instances_lock(self):
         child = self.child('while :; do sleep 1; done')
@@ -53,6 +54,31 @@ class LauncherTests(unittest.TestCase):
             first.wait(timeout=10)
         self.assertFalse((self.directory / 'lock').exists())
 
+    def test_distinct_apps_share_display_owner_and_second_cannot_resume_first(self):
+        _, signals = self.wm_fixture()
+        ready = self.directory / 'first-ready'
+        second_ready = self.directory / 'second-ready'
+        first = self.launch(self.child(f'touch "{ready}"\nexec sleep 30'))
+        second_binary = self.directory / 'review-app'
+        second_binary.write_text(f'#!/bin/sh\ntouch "{second_ready}"\n')
+        second_binary.chmod(0o755)
+        try:
+            self.wait_for(ready)
+            before = signals.read_bytes()
+            second_env = dict(self.env, KINDLE_CHESS_LOCK=str(self.directory / 'review-lock'))
+            second = subprocess.run(['sh', str(LAUNCHER), str(second_binary)], env=second_env,
+                                    capture_output=True, timeout=4)
+            self.assertNotEqual(second.returncode, 0)
+            self.assertFalse(second_ready.exists())
+            self.assertEqual(signals.read_bytes(), before)
+            self.assertTrue((self.directory / 'display-lock').is_dir())
+            self.assertFalse((self.directory / 'review-lock').exists())
+        finally:
+            first.terminate()
+            first.wait(timeout=10)
+        self.assertFalse((self.directory / 'display-lock').exists())
+        self.assertEqual(signals.read_text().splitlines(), ['-STOP 123', '-STOP 456', '-CONT 456', '-CONT 123'])
+
     def test_term_int_and_killed_child_cleanup(self):
         for mode in ['term', 'int', 'kill']:
             child = self.child('while :; do sleep 1; done')
@@ -66,6 +92,7 @@ class LauncherTests(unittest.TestCase):
                     proc.send_signal(signal.SIGTERM if mode == 'term' else signal.SIGINT)
                 self.assertNotEqual(proc.wait(timeout=10), 0)
                 self.assertFalse((self.directory / 'lock').exists())
+                self.assertFalse((self.directory / 'display-lock').exists())
             finally:
                 if proc.poll() is None:
                     proc.kill()

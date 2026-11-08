@@ -11,6 +11,8 @@ mod geometry;
 mod layout;
 mod pieces;
 mod render;
+mod screen;
+pub use screen::ScreenState;
 
 pub use analysis_panel::{AnalysisMoveChip, AnalysisMoveChipSource, AnalysisPanelOutput};
 pub use button::{ButtonIcon, ButtonSpec, ButtonType};
@@ -22,3 +24,16 @@ pub use layout::{
     APP_TOOLBAR_ALIGNMENT, MIN_TOUCH_MM,
 };
 pub use render::{draw_sleeping_overlay, render, RenderOutput};
+
+pub fn render_puzzles(
+    state: &chess_core::puzzle_app::PuzzleState,
+    metrics: DisplayMetrics,
+) -> Result<RenderOutput, LayoutError> {
+    render(state, metrics)
+}
+pub fn render_review(
+    state: &chess_core::review_app::ReviewApp,
+    metrics: DisplayMetrics,
+) -> Result<RenderOutput, LayoutError> {
+    render(state, metrics)
+}

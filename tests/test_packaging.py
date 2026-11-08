@@ -21,12 +21,12 @@ def workflow():
     return module
 
 
-def elf():
+def elf(app='puzzles'):
     data = bytearray(52)
     data[:7] = b'\x7fELF\x01\x01\x01'
     struct.pack_into('<H', data, 18, 40)
     struct.pack_into('<I', data, 36, 0x05000400)
-    return bytes(data) + b'/lib/ld-linux-armhf.so.3\x00GLIBC_2.35\x00'
+    return bytes(data) + b'/lib/ld-linux-armhf.so.3\x00GLIBC_2.35\x00' + f'KINDLE_CHESS_PRODUCT:{app}:v1'.encode()
 
 
 class PackageTests(unittest.TestCase):
@@ -50,10 +50,109 @@ class PackageTests(unittest.TestCase):
         self.chessnut = {'artifacts': {p.name: self.w.sha256(p) for p in bundle.iterdir()},
                         'elf': {name: board.helpers.inspect_elf((bundle / name).read_bytes(), name == 'kindlebt-worker')
                                 for name in ['kindlebt-worker', 'libkindlebt.so']}}
-        self.receipt.write_text(json.dumps({'chessnut': self.chessnut, 'binary_sha256': self.w.sha256(self.binary),
+        self.receipt.write_text(json.dumps({'app': 'puzzles', 'binary': 'kindle-chess', 'package_id': 'kindle_chess', 'runtime_root': '/mnt/us/kindle-chess', 'chessnut': self.chessnut, 'binary_sha256': self.w.sha256(self.binary),
                                            'source_sha256': self.w.source_digest(),
                                            'target': self.w.TARGET, 'checks': 'passed'}))
         self.stage = self.base / 'stage'
+
+    def test_review_stage_is_independent_and_rejects_cross_app_substitution(self):
+        review_binary = self.base / 'review-binary'
+        review_binary.write_bytes(elf('review'))
+        receipt = {'app': 'review', 'binary': 'kindle-game-review',
+                   'package_id': 'kindle_game_review', 'runtime_root': '/mnt/us/kindle-game-review',
+                   'binary_sha256': self.w.sha256(review_binary),
+                   'source_sha256': self.w.source_digest('review'), 'target': self.w.TARGET, 'checks': 'passed'}
+        review_receipt = self.base / 'review.json'
+        review_receipt.write_text(json.dumps(receipt))
+        review_stage = self.base / 'review-stage'
+        self.w.stage(review_binary, review_receipt, review_stage, app='review')
+        self.w.verify_stage(review_stage, app='review')
+        self.assertFalse((review_stage / 'runtime/kindlebt-worker').exists())
+        self.assertFalse((review_stage / 'runtime/lib/libkindlebt.so').exists())
+        self.assertFalse((review_stage / 'runtime/kindle-chess').exists())
+        self.assertEqual(json.loads((review_stage / 'manifest.json').read_text())['id'], 'kindle_game_review')
+        with self.assertRaises(ValueError):
+            self.w.stage(review_binary, review_receipt, self.base / 'wrong-stage', app='puzzles')
+        with self.assertRaises(ValueError):
+            self.w.verify_stage(review_stage, app='puzzles')
+
+    def test_receipt_cannot_relabel_another_products_binary(self):
+        self.binary.write_bytes(elf('review'))
+        receipt = json.loads(self.receipt.read_text())
+        receipt['binary_sha256'] = self.w.sha256(self.binary)
+        self.receipt.write_text(json.dumps(receipt))
+        with self.assertRaises(ValueError): self.stage_build()
+        self.assertNotEqual(self.w.output_dir('puzzles'), self.w.output_dir('review'))
+        self.assertNotEqual(self.w.source_digest('puzzles'), self.w.source_digest('review'))
+
+    def test_coinstall_update_uninstall_preserve_the_other_product_and_its_data(self):
+        self.stage_build()
+        binary = self.base / 'review-binary'
+        binary.write_bytes(elf('review'))
+        receipt_path = self.base / 'review.json'
+        receipt = {'app': 'review', 'binary': 'kindle-game-review',
+                   'package_id': 'kindle_game_review', 'runtime_root': '/mnt/us/kindle-game-review',
+                   'binary_sha256': self.w.sha256(binary), 'source_sha256': self.w.source_digest('review'),
+                   'target': self.w.TARGET, 'checks': 'passed'}
+        receipt_path.write_text(json.dumps(receipt))
+        review_stage = self.base / 'review-stage'
+        self.w.stage(binary, receipt_path, review_stage, app='review')
+        roots = [self.base / 'puzzles-root', self.base / 'review-root']
+        stages = [self.stage, review_stage]
+        scriptlets = ['kindle-chess.sh', 'kindle-game-review.sh']
+        def install(stage, root):
+            return subprocess.run(['sh', str(stage / 'install.sh'), str(root)], capture_output=True, text=True)
+        def snapshot(root):
+            return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in root.rglob('*') if p.is_file()}
+        for stage, root in zip(stages, roots):
+            for directory in ['puzzles', 'games', 'state', 'logs']:
+                (root / directory).mkdir(parents=True)
+                (root / directory / 'user-file').write_bytes(b'opaque user data')
+            result = install(stage, root)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        for selected in [0, 1]:
+            other = 1 - selected
+            before = snapshot(roots[other])
+            document = self.base / 'documents' / scriptlets[other]
+            document_bytes = document.read_bytes()
+            artifact = self.binary if selected == 0 else binary
+            attestation = self.receipt if selected == 0 else receipt_path
+            artifact.write_bytes(artifact.read_bytes() + b' updated product')
+            updated = json.loads(attestation.read_text())
+            updated['binary_sha256'] = self.w.sha256(artifact)
+            attestation.write_text(json.dumps(updated))
+            self.w.stage(artifact, attestation, stages[selected], app='puzzles' if selected == 0 else 'review')
+            self.assertEqual(install(stages[selected], roots[selected]).returncode, 0)
+            # Even an explicitly misrouted root must not overwrite the other app.
+            self.assertNotEqual(install(stages[selected], roots[other]).returncode, 0)
+            wrong_uninstall = subprocess.run(['sh', str(stages[selected] / 'uninstall.sh'), str(roots[other])], capture_output=True)
+            self.assertNotEqual(wrong_uninstall.returncode, 0)
+            subprocess.run(['sh', str(stages[selected] / 'uninstall.sh'), str(roots[selected])], check=True, capture_output=True)
+            self.assertEqual(snapshot(roots[other]), before)
+            self.assertEqual(document.read_bytes(), document_bytes)
+            for directory in ['puzzles', 'games', 'state', 'logs']:
+                self.assertEqual((roots[selected] / directory / 'user-file').read_bytes(), b'opaque user data')
+            self.assertEqual(install(stages[selected], roots[selected]).returncode, 0)
+        with mock.patch.object(self.w, 'run') as remote:
+            self.w.deploy(review_stage, 'root@device', 2222, app='review')
+            command = remote.call_args_list[-1].args[0][-1]
+            self.assertIn('/mnt/us/kindle-game-review/runtime/source.tar', command)
+            self.assertIn('sha256sum -c -', command)
+            self.assertNotIn('/mnt/us/kindle-chess/', command)
+        before = snapshot(roots[1])
+        (review_stage / 'runtime/kindle-game-review').write_bytes(b'corrupt payload')
+        self.assertNotEqual(install(review_stage, roots[1]).returncode, 0)
+        self.assertEqual(snapshot(roots[1]), before)
+        bad_archive = self.base / 'corrupt.tar'
+        bad_archive.write_bytes(b'corrupt archive bytes')
+        incoming = self.base / 'incoming'
+        incoming.mkdir()
+        failed = subprocess.run(['sh', '-c', 'tar xf "$1" && sh ./install.sh "$2"',
+                                 'sh', str(bad_archive), str(roots[1])], cwd=incoming, capture_output=True)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertEqual(snapshot(roots[1]), before)
+
 
     def test_board_bundle_checksums_and_private_sources(self):
         self.stage_build()
@@ -203,6 +302,52 @@ class PackageTests(unittest.TestCase):
         subprocess.run(['sh', str(self.stage / 'uninstall.sh'), str(root)], check=True)
         self.assertEqual(document.read_text(), 'someone else owns this document')
 
+    def test_verified_pre_marker_stage_can_upgrade_but_cannot_publish_as_new(self):
+        self.stage_build()
+        (self.stage / 'runtime/app-id').unlink()
+        sums = self.stage / 'SHA256SUMS'
+        sums.write_text(''.join(line + '\n' for line in sums.read_text().splitlines() if not line.endswith('  runtime/app-id')))
+        with self.assertRaises((ValueError, OSError)): self.w.verify_stage(self.stage)
+        self.stage_build()
+        self.w.verify_stage(self.stage)
+        self.assertEqual((self.stage / 'runtime/app-id').read_text().strip(), 'puzzles')
+
+    def test_legacy_upgrade_failed_scriptlet_swap_and_unknown_runtime_recovery(self):
+        self.stage_build()
+        root = self.base / 'legacy-root'
+        (root / 'runtime').mkdir(parents=True)
+        (root / 'runtime/kindle-chess').write_bytes(b'pre-split combined runtime')
+        (root / 'state').mkdir()
+        (root / 'state/progress.json').write_bytes(b'future progress bytes')
+        self.assertEqual(self.install(root).returncode, 0)
+        self.assertEqual((root / '.kindle-app-id').read_text().strip(), 'puzzles')
+        before = {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+        binary = self.binary.read_bytes() + b' updated'
+        self.binary.write_bytes(binary)
+        receipt = json.loads(self.receipt.read_text())
+        receipt['binary_sha256'] = self.w.sha256(self.binary)
+        self.receipt.write_text(json.dumps(receipt))
+        self.stage_build()
+        commands = self.base / 'commands'
+        commands.mkdir()
+        (commands / 'mv').write_text('#!/bin/sh\n[ "$2" != "$FAIL_DOCUMENT" ] || exit 9\nexec /bin/mv "$@"\n')
+        (commands / 'mv').chmod(0o755)
+        result = subprocess.run(['sh', str(self.stage / 'install.sh'), str(root)], capture_output=True,
+                                env=dict(os.environ, PATH=str(commands) + os.pathsep + os.environ['PATH'],
+                                         FAIL_DOCUMENT=str(root.parent / 'documents/kindle-chess.sh')))
+        self.assertNotEqual(result.returncode, 0)
+        after = {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+        self.assertEqual(after, before, 'failed final swap restores the prior complete runtime')
+        unknown = root / 'runtime.new'
+        unknown.mkdir()
+        (unknown / 'user-file').write_bytes(b'unknown bytes')
+        self.assertNotEqual(self.install(root).returncode, 0)
+        self.assertEqual((unknown / 'user-file').read_bytes(), b'unknown bytes')
+        (unknown / 'user-file').unlink()
+        unknown.rmdir()
+        self.assertEqual(self.install(root).returncode, 0)
+        self.assertEqual((root / 'state/progress.json').read_bytes(), b'future progress bytes')
+
     def test_launcher_logs_architecture_failure_before_running_binary(self):
         self.stage_build()
         root = self.base / 'installed'
@@ -226,7 +371,8 @@ class BuildGateTests(unittest.TestCase):
         w = workflow()
         with tempfile.TemporaryDirectory() as temporary:
             build_dir = Path(temporary)
-            (build_dir / 'build.json').write_text('old receipt')
+            (build_dir / 'puzzles').mkdir()
+            (build_dir / 'puzzles/build.json').write_text('old receipt')
             with mock.patch.object(w, 'BUILD', build_dir), mock.patch.object(w, 'verify_vendor'), \
                     mock.patch.object(w, 'run', side_effect=subprocess.CalledProcessError(1, 'checks')) as run, \
                     mock.patch.object(w, 'zig_tools') as zig:
@@ -234,7 +380,7 @@ class BuildGateTests(unittest.TestCase):
                     w.build()
                 self.assertEqual(run.call_args.args[0], ['sh', 'scripts/check.sh'])
                 zig.assert_not_called()
-                self.assertFalse((build_dir / 'build.json').exists())
+                self.assertFalse((build_dir / 'puzzles/build.json').exists())
 
     def test_cross_bridge_rebuilds_when_toolchain_changes(self):
         with tempfile.TemporaryDirectory() as temporary:

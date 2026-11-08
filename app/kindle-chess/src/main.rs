@@ -3,24 +3,20 @@
 
 #![forbid(unsafe_code)]
 
-use chess_core::{
-    parse_puzzle_file, Action, ActiveCollection, AppState, Effect, Progress, PuzzleCollection,
+#[cfg(test)]
+use chess_core::{parse_puzzle_file, Progress};
+use chess_core::{Action, ActiveCollection, AppState, Effect};
+use chess_render::HitTarget;
+use kindle_app::{
+    DiscoveredCollection, KindleStorage, ProgressStore, ReviewResumeStore, SettingsStore,
+    StoragePaths,
 };
-use chess_render::{
-    calculate_damage, compact_damage, draw_sleeping_overlay, render, DisplayMetrics, HitTarget,
-};
-use kindle_platform::{
-    clean_regions_for_board_change, DeviceEvent, DiscoveredCollection, KindleDisplay,
-    KindleStorage, PowerEvent, PowerEvents, ProgressStore, RefreshPolicy, ReviewResumeStore,
-    ScribeInput, SettingsStore, StoragePaths, TapPolicy, SCRIBE_DPI,
-};
+#[cfg(test)]
+use kindle_platform::{DeviceEvent, PowerEvent};
 use std::collections::VecDeque;
 use std::time::Instant;
 
-const BUNDLED_PUZZLES: &[u8] = include_bytes!("../../../tests/fixtures/parity-puzzles.json");
-const BUNDLED_FALLBACK_KEY: &str = "bundled-examples.json";
-
-type InitialCollection = (String, PuzzleCollection, bool, Option<String>);
+use kindle_app::startup::{select_initial_collection, BUNDLED_PUZZLES};
 
 fn main() {
     if let Err(error) = run() {
@@ -30,26 +26,16 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let shutdown = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    for signal in [
-        signal_hook::consts::SIGINT,
-        signal_hook::consts::SIGTERM,
-        signal_hook::consts::SIGHUP,
-    ] {
-        signal_hook::flag::register(signal, shutdown.clone())?;
-    }
     let process_start = Instant::now();
     eprintln!("kindle-chess: timing process_start=0ms");
-    let force_full = std::env::args().skip(1).any(|arg| arg == "--full-refresh");
     let storage = KindleStorage::new(StoragePaths::from_env());
     let discovered = storage.prepare_collections(BUNDLED_PUZZLES)?;
     let review_library = storage.discover_review_library()?;
     let (mut progress_store, progress_load) =
         ProgressStore::open(storage.paths().progress_file.clone());
-    let (mut settings_store, settings_load) =
+    let (settings_store, settings_load) =
         SettingsStore::open(storage.paths().settings_file.clone());
-    let (mut review_store, review_load) =
-        ReviewResumeStore::open(&storage.paths().review_resume_file);
+    let (review_store, review_load) = ReviewResumeStore::open(&storage.paths().review_resume_file);
     let loaded_progress = progress_load.progress.clone();
 
     let (active_key, collection, persistence_enabled, collection_warning) =
@@ -96,21 +82,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         app.dispatch(Action::SetTransientMessage(Some(message)));
     }
 
-    let mut display = KindleDisplay::open()?;
-    eprintln!(
-        "kindle-chess: timing fbink_initialized={}ms",
-        process_start.elapsed().as_millis()
-    );
-    let display_state = display.state();
-    let metrics = DisplayMetrics {
-        width: display_state.width,
-        height: display_state.height,
-        dpi: SCRIBE_DPI,
-    };
-    let mut input = ScribeInput::discover(metrics, TapPolicy::scribe_default())?;
-    input.take_exclusive()?;
-    eprintln!("kindle-chess: exclusive finger input acquired before first frame");
-
     eprintln!(
         "kindle-chess: puzzles={} reviews={} progress={} active={} review_games={} persistent={}",
         storage.paths().puzzle_dir.display(),
@@ -147,271 +118,105 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             error.error()
         );
     }
-    eprintln!(
-        "kindle-chess: FBInk {} at {}x{} stride={} bpp={} rotation={}",
-        display.fbink_version()?,
-        display_state.width,
-        display_state.height,
-        display_state.scanline_stride,
-        display_state.bpp,
-        display_state.rotation
-    );
-    for diagnostic in input.diagnostics() {
-        eprintln!("kindle-chess: input candidate {diagnostic}");
-    }
-    eprintln!(
-        "kindle-chess: selected /dev/input/{} ({})",
-        input.selected().event_name,
-        input.selected().name
-    );
-    eprintln!(
-        "kindle-chess: selected pen /dev/input/{} ({})",
-        input.selected_pen().event_name,
-        input.selected_pen().name
-    );
-    eprintln!("kindle-chess: tap FILES in the header to switch collections");
+    kindle_app::runtime::run(
+        CombinedRuntime {
+            app,
+            storage,
+            progress_store,
+            settings_store,
+            review_store,
+            persistence_enabled,
+            board_service: kindle_app::chessnut::BoardService::new(),
+        },
+        process_start,
+    )
+}
+#[cfg(test)]
+use kindle_app::runtime::awake_tap;
 
-    let board_service = kindle_platform::chessnut::BoardService::new();
-    let mut power = PowerEvents::open()?;
-    let mut sleeping = false;
-    let mut previous = None;
-    let mut policy = RefreshPolicy::default();
-    let mut touch_received: Option<Instant> = None;
-    let mut clean_regions = Vec::new();
-    let mut force_full_next = false;
-    loop {
-        let mut output = render(&app, metrics)?;
-        if sleeping {
-            draw_sleeping_overlay(&mut output.frame, output.layout, metrics);
-        }
-        output.damage = compact_damage(
-            &calculate_damage(previous.as_ref(), &output.frame),
-            output.layout,
-        );
-        let timing = display.present_damage(
-            &output.frame,
-            previous.as_ref(),
-            &output.damage,
-            &clean_regions,
-            &mut policy,
-            force_full || force_full_next,
-        )?;
-        force_full_next = false;
-        if previous.is_none() {
-            eprintln!(
-                "kindle-chess: timing first_usable_frame={}ms",
-                process_start.elapsed().as_millis()
-            );
-        }
-        if timing.regions > 0 {
-            let touch_to_submit = touch_received.map(|start| {
-                start
-                    .elapsed()
-                    .saturating_sub(timing.complete)
-                    .saturating_add(timing.submit)
-            });
-            eprintln!("kindle-chess: timing regions={} full={} submit={}ms complete={}ms recognized_touch_to_submit={:?}", timing.regions, timing.full, timing.submit.as_millis(), timing.complete.as_millis(), touch_to_submit);
-        }
-        previous = Some(output.frame.clone());
-        clean_regions.clear();
-        let event = loop {
-            if shutdown.load(std::sync::atomic::Ordering::Relaxed) {
-                retry_dirty_state(
-                    &mut app,
-                    &mut progress_store,
-                    &mut settings_store,
-                    &mut review_store,
-                    persistence_enabled,
-                );
-                return Ok(());
-            }
-            let mut changed = false;
-            loop {
-                match board_service.poll() {
-                    Ok(Some(update)) => {
-                        let board_before = app.board().clone();
-                        let flipped_before = app.flipped();
-                        let action = match update {
-                            kindle_platform::chessnut::BoardUpdate::Status(status) => {
-                                Action::BoardStatus(status)
-                            }
-                            kindle_platform::chessnut::BoardUpdate::Position(placement) => {
-                                Action::BoardPosition(placement)
-                            }
-                        };
-                        let effects = app.dispatch(action);
-                        let effects = route_board_effects(&mut app, effects, |intent| {
-                            board_service.send(intent)
-                        });
-                        if apply_effects(
-                            &mut app,
-                            &storage,
-                            &mut progress_store,
-                            &mut settings_store,
-                            &mut review_store,
-                            persistence_enabled,
-                            effects,
-                        ) {
-                            return Ok(());
+struct CombinedRuntime {
+    app: AppState,
+    storage: KindleStorage,
+    progress_store: ProgressStore,
+    settings_store: SettingsStore,
+    review_store: ReviewResumeStore,
+    persistence_enabled: bool,
+    board_service: kindle_app::chessnut::BoardService,
+}
+impl CombinedRuntime {
+    fn effects(&mut self, effects: Vec<Effect>) -> bool {
+        let effects = route_board_effects(&mut self.app, effects, |intent| {
+            self.board_service.send(intent)
+        });
+        apply_effects(
+            &mut self.app,
+            &self.storage,
+            &mut self.progress_store,
+            &mut self.settings_store,
+            &mut self.review_store,
+            self.persistence_enabled,
+            effects,
+        )
+    }
+}
+impl kindle_app::runtime::Application for CombinedRuntime {
+    fn screen(&self) -> &impl chess_render::ScreenState {
+        &self.app
+    }
+    fn poll(&mut self) -> kindle_app::runtime::Poll {
+        let mut changed = false;
+        loop {
+            match self.board_service.poll() {
+                Ok(Some(update)) => {
+                    let action = match update {
+                        kindle_app::chessnut::BoardUpdate::Status(status) => {
+                            Action::BoardStatus(status)
                         }
-                        clean_regions.extend(clean_regions_for_board_change(
-                            &board_before,
-                            app.board(),
-                            flipped_before,
-                            app.flipped(),
-                            output.layout,
-                        ));
+                        kindle_app::chessnut::BoardUpdate::Position(position) => {
+                            Action::BoardPosition(position)
+                        }
+                    };
+                    let effects = self.app.dispatch(action);
+                    if self.effects(effects) {
+                        return kindle_app::runtime::Poll::Exit;
+                    }
+                    changed = true;
+                }
+                Ok(None) => break,
+                Err(reason) => {
+                    let status = chess_core::BoardSessionStatus::Error(reason);
+                    if self.app.board_status() != &status {
+                        self.app.dispatch(Action::BoardStatus(status));
                         changed = true;
                     }
-                    Ok(None) => break,
-                    Err(reason) => {
-                        let status = chess_core::BoardSessionStatus::Error(reason);
-                        if app.board_status() != &status {
-                            app.dispatch(Action::BoardStatus(status));
-                            changed = true;
-                        }
-                        break;
-                    }
+                    break;
                 }
             }
-            if changed {
-                break None;
-            }
-            if let Some(event) = input.poll_event(&mut power, 100)? {
-                break Some(event);
-            }
-        };
-        let Some(event) = event else {
-            continue;
-        };
-        if event == DeviceEvent::Power(PowerEvent::Sleeping) {
-            app.dispatch(Action::PauseBoardInput);
         }
-        // Sleep/wake does not deliberately close the user's board connection.
-        // Real link loss is reported by the service; wake never replays a target.
-        if matches!(event, DeviceEvent::Power(_)) {
-            touch_received = None;
-        }
-        if event == DeviceEvent::Power(PowerEvent::Awake) {
-            // Native wake can repaint any pixels while Xorg is briefly resumed.
-            force_full_next = kindle_platform::complete_native_wake(&mut power)?;
-        }
-        let Some((x, y)) = awake_tap(event, &mut sleeping) else {
-            continue;
-        };
-        touch_received = Some(Instant::now());
-        let target = output.hit_test_app(x, y, &app);
-
-        if let Some(target) = target {
-            eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
-            if target == HitTarget::Refresh {
-                force_full_next = true;
-                eprintln!("kindle-chess: full-screen refresh requested");
-                continue;
-            }
-            let board_before = app.board().clone();
-            let flipped_before = app.flipped();
-            let effects = app.dispatch(
-                target
-                    .into_action()
-                    .expect("non-refresh hit targets map to app actions"),
-            );
-            let effects =
-                route_board_effects(&mut app, effects, |intent| board_service.send(intent));
-            if apply_effects(
-                &mut app,
-                &storage,
-                &mut progress_store,
-                &mut settings_store,
-                &mut review_store,
-                persistence_enabled,
-                effects,
-            ) {
-                eprintln!("kindle-chess: Exit requested; releasing display and input");
-                return Ok(());
-            }
-            clean_regions = clean_regions_for_board_change(
-                &board_before,
-                app.board(),
-                flipped_before,
-                app.flipped(),
-                output.layout,
-            );
+        if changed {
+            kindle_app::runtime::Poll::Changed
         } else {
-            eprintln!("kindle-chess: tap ({x},{y}) -> no target");
-            retry_dirty_state(
-                &mut app,
-                &mut progress_store,
-                &mut settings_store,
-                &mut review_store,
-                persistence_enabled,
-            );
+            kindle_app::runtime::Poll::Idle
         }
     }
-}
-
-fn awake_tap(event: DeviceEvent, sleeping: &mut bool) -> Option<(u32, u32)> {
-    match event {
-        DeviceEvent::Power(PowerEvent::NativeWakeComplete) => None,
-        DeviceEvent::Power(event) => {
-            *sleeping = event == PowerEvent::Sleeping;
-            eprintln!("kindle-chess: power {event:?}");
-            None
-        }
-        DeviceEvent::Tap(_, _) if *sleeping => None,
-        DeviceEvent::Tap(x, y) => Some((x, y)),
+    fn tap(&mut self, target: HitTarget) -> bool {
+        let effects = self
+            .app
+            .dispatch(target.into_action().expect("non-refresh app action"));
+        self.effects(effects)
     }
-}
-
-fn select_initial_collection(
-    storage: &KindleStorage,
-    discovered: &[DiscoveredCollection],
-    progress: &Progress,
-) -> Result<InitialCollection, Box<dyn std::error::Error>> {
-    let mut valid = discovered
-        .iter()
-        .filter(|entry| entry.is_valid())
-        .map(|entry| entry.filename.as_str())
-        .collect::<Vec<_>>();
-
-    if let Some(preferred) = progress.active_file.as_deref() {
-        if let Some(index) = valid.iter().position(|filename| *filename == preferred) {
-            valid.swap(0, index);
-        }
+    fn pause_input(&mut self) {
+        self.app.dispatch(Action::PauseBoardInput);
     }
-
-    let mut load_errors = Vec::new();
-    for filename in valid {
-        match storage.load_collection(filename) {
-            Ok(collection) => {
-                let warning = progress
-                    .active_file
-                    .as_deref()
-                    .filter(|remembered| *remembered != filename)
-                    .map(|remembered| {
-                        format!(
-                            "Remembered collection {remembered} is missing or invalid; using {filename}."
-                        )
-                    });
-                return Ok((filename.to_owned(), collection, true, warning));
-            }
-            Err(error) => load_errors.push(error.to_string()),
-        }
+    fn flush(&mut self) {
+        retry_dirty_state(
+            &mut self.app,
+            &mut self.progress_store,
+            &mut self.settings_store,
+            &mut self.review_store,
+            self.persistence_enabled,
+        );
     }
-
-    let collection = parse_puzzle_file(BUNDLED_PUZZLES)?;
-    let mut warning =
-        "No valid puzzle collection could be loaded. Bundled examples are shown in memory; existing matching files were not overwritten.".to_owned();
-    if !load_errors.is_empty() {
-        warning.push(' ');
-        warning.push_str(&load_errors.join(" | "));
-    }
-    Ok((
-        BUNDLED_FALLBACK_KEY.to_owned(),
-        collection,
-        false,
-        Some(warning),
-    ))
 }
 
 fn route_board_effects(
@@ -841,7 +646,7 @@ mod tests {
         let (mut progress_store, _) = ProgressStore::open(&storage.paths().progress_file);
         let (mut settings_store, _) = SettingsStore::open(&storage.paths().settings_file);
         let (mut review_store, _) =
-            kindle_platform::ReviewResumeStore::open(&storage.paths().review_resume_file);
+            kindle_app::ReviewResumeStore::open(&storage.paths().review_resume_file);
         app.dispatch(Action::ToggleWorkspace);
         app.dispatch(Action::ReviewNext);
         let effects = app.dispatch(Action::ReviewNext);
@@ -888,8 +693,7 @@ mod tests {
             effects
         ));
         assert!(!review_store.dirty());
-        let (_, loaded) =
-            kindle_platform::ReviewResumeStore::open(&storage.paths().review_resume_file);
+        let (_, loaded) = kindle_app::ReviewResumeStore::open(&storage.paths().review_resume_file);
         let mut restored = make_app();
         assert!(restored
             .restore_review_resume(&loaded.resume.unwrap())

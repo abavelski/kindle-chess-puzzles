@@ -1,7 +1,5 @@
 use chess_core::{Progress, ReviewGameKey};
-use kindle_platform::{
-    KindleStorage, ProgressStore, StoragePaths, DEFAULT_REVIEW_DIR, REVIEW_DIR_ENV,
-};
+use kindle_app::{KindleStorage, ProgressStore, StoragePaths, DEFAULT_REVIEW_DIR, REVIEW_DIR_ENV};
 use std::{
     fs,
     path::{Path, PathBuf},

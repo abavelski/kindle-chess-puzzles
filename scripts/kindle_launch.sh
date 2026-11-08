@@ -15,6 +15,8 @@ case "$cleanup_grace" in ''|*[!0-9]*) cleanup_grace=65;; esac
 if [ "$cleanup_grace" -lt 1 ] || [ "$cleanup_grace" -gt 65 ]; then cleanup_grace=65; fi
 child=
 owned=0
+display_owned=0
+display_lock=${KINDLE_CHESS_DISPLAY_LOCK:-/tmp/kindle-chess-display.lock}
 child_started=0
 wm_pid=
 wm_start=
@@ -62,7 +64,7 @@ case "$binary" in
         case "$x_pid" in ''|*[!0-9]*) exit 1;; esac
         display_identity "$x_pid" Xorg "$x_start" || exit 1
         app_start=$(awk '{print $22}' "$proc_root/$app_pid/stat") || exit 1
-        display_identity "$app_pid" kindle-chess "$app_start" || exit 1
+        display_identity "$app_pid" "${KINDLE_CHESS_WAKE_APP_NAME:-kindle-chess}" "$app_start" || exit 1
         case "$binary" in
             --wake-display)
                 echo "lifecycle: beginning wake handoff Xorg pid=$x_pid" >&2
@@ -111,6 +113,12 @@ cleanup() {
         rm -f "$lock/child.pid" "$lock/launcher.pid"
         rmdir "$lock" || true
     fi
+    if [ "$display_owned" -eq 1 ]; then
+        rm -f "$display_lock/framebuffer/pid"
+        rmdir "$display_lock/framebuffer" 2>/dev/null || true
+        rm -f "$display_lock/child.pid" "$display_lock/launcher.pid" "$display_lock/binary"
+        rmdir "$display_lock" || true
+    fi
     echo "lifecycle: exit=$code; overlay released" >&2
     exit "$code"
 }
@@ -129,10 +137,23 @@ if [ ! -x "$binary" ]; then
     echo "lifecycle: executable missing: $binary" >&2
     exit 1
 fi
-# Also refuse an app started outside this supervisor on the Kindle.
-if command -v pidof >/dev/null 2>&1 && pidof kindle-chess >/dev/null 2>&1; then
-    echo "lifecycle: an unsupervised kindle-chess instance is already running" >&2
+# Framebuffer, Xorg and awesome are global resources shared by all products.
+# Acquire before any display handoff; failed acquisition must never repaint/resume.
+if ! mkdir "$display_lock" 2>/dev/null; then
+    echo "lifecycle: display owned: $display_lock; inspect recorded PIDs before recovery" >&2
     exit 1
+fi
+display_owned=1
+printf '%s\n' "$$" > "$display_lock/launcher.pid"
+printf '%s\n' "$binary" > "$display_lock/binary"
+# Also refuse an app started outside this supervisor on the Kindle.
+if command -v pidof >/dev/null 2>&1; then
+    for app_process in kindle-chess kindle-puzzles kindle-game-review; do
+        if pidof "$app_process" >/dev/null 2>&1; then
+            echo "lifecycle: an unsupervised $app_process instance is already running" >&2
+            exit 1
+        fi
+    done
 fi
 mkdir -p "$(dirname "$log")" || exit 1
 exec 2>>"$log"
@@ -158,12 +179,17 @@ if [ "${KINDLE_CHESS_DISPLAY_HANDOFF:-1}" = 1 ]; then
     KINDLE_CHESS_WAKE_XORG_PID=$x_pid
     KINDLE_CHESS_WAKE_XORG_START=$x_start
     KINDLE_CHESS_WAKE_HOOK=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/kindle_launch.sh
-    export KINDLE_CHESS_WAKE_XORG_PID KINDLE_CHESS_WAKE_XORG_START KINDLE_CHESS_WAKE_HOOK
+    KINDLE_CHESS_WAKE_APP_NAME=$(basename "$binary" | cut -c1-15)
+    export KINDLE_CHESS_WAKE_XORG_PID KINDLE_CHESS_WAKE_XORG_START KINDLE_CHESS_WAKE_HOOK KINDLE_CHESS_WAKE_APP_NAME
 fi
+KINDLE_CHESS_DISPLAY_OWNER=$$
+KINDLE_CHESS_DISPLAY_LOCK=$display_lock
+export KINDLE_CHESS_DISPLAY_OWNER KINDLE_CHESS_DISPLAY_LOCK
 "$binary" "$@" &
 child=$!
 child_started=1
 printf '%s\n' "$child" > "$lock/child.pid"
+printf '%s\n' "$child" > "$display_lock/child.pid"
 wait "$child"
 code=$?
 # Reaped child no longer belongs to us. Never signal a reused PID.

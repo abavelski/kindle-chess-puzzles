@@ -1,8 +1,9 @@
 use chess_core::{algebraic_to_square, Board, PieceKind};
 use chess_render::{DisplayMetrics, Gray8, Layout, Rect};
+use kindle_app::clean_regions_for_board_change;
 use kindle_platform::{
-    classify_region, clean_regions_for_board_change, pack_region, plan_present_regions,
-    ContentClass, PresentRegion, RefreshMode, RefreshPolicy, RefreshStrength,
+    classify_region, pack_region, plan_present_regions, ContentClass, PresentRegion, RefreshMode,
+    RefreshPolicy, RefreshStrength,
 };
 
 const METRICS: DisplayMetrics = DisplayMetrics {

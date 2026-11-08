@@ -1,6 +1,6 @@
 use chess_core::{BoardIntent as Intent, BoardSessionStatus as Status};
 use chessnut_board_support::ipc::{Operation, Report, WriteMode};
-use kindle_platform::chessnut::{BoardUpdate, Session, Worker};
+use kindle_app::chessnut::{BoardUpdate, Session, Worker};
 #[derive(Default)]
 struct Fake {
     requests: Vec<Operation>,
@@ -62,7 +62,7 @@ fn ready() -> Session<Fake> {
 }
 #[test]
 fn asynchronous_service_missing_private_config_and_dropped_worker_are_actionable() {
-    use kindle_platform::chessnut::BoardService;
+    use kindle_app::chessnut::BoardService;
     use std::{
         os::unix::fs::PermissionsExt,
         time::{Duration, Instant},
@@ -138,7 +138,7 @@ fn failed_motor_write_is_never_retried_and_low_mtu_never_becomes_ready() {
 
 #[test]
 fn production_private_config_uses_permission_enforcing_storage_outside_usb() {
-    let path = std::path::Path::new(kindle_platform::chessnut::PRIVATE_CONFIG_PATH);
+    let path = std::path::Path::new(kindle_app::chessnut::PRIVATE_CONFIG_PATH);
     assert!(path.is_absolute());
     assert!(
         !path.starts_with("/mnt/us"),
@@ -232,7 +232,7 @@ fn silence_or_partial_reports_after_send_never_queue_or_replay_a_target() {
 
 #[test]
 fn service_acknowledges_each_submission_even_when_connection_status_is_unchanged() {
-    use kindle_platform::chessnut::BoardService;
+    use kindle_app::chessnut::BoardService;
     use std::{
         os::unix::fs::PermissionsExt,
         time::{Duration, Instant},

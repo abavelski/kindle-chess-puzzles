@@ -1,6 +1,6 @@
 # Archived documentation and tasks
 
-Created 2026-11-08. Current documentation starts at [docs/README.md](../docs/README.md), and the **only active task queue** is [docs/NEXT_TASKS_APP_SPLIT.md](../docs/NEXT_TASKS_APP_SPLIT.md).
+Created 2026-11-08. Current documentation starts at [docs/README.md](../docs/README.md), and the [completed app-split implementation](tasks/implemented/app-split.md) records owner acceptance on 2026-11-08. There is no active task queue selected.
 
 - [docs/](docs/) preserves historical phase plans, ghosting investigations, Chessnut probes/checkpoints, deferred PGN board annotations, and original architecture/portability proposals.
 - [tasks/](tasks/) contains the entire former root tasks tree (implemented phases, improvements, phase 3).

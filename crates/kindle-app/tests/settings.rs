@@ -1,5 +1,5 @@
 use chess_core::Settings;
-use kindle_platform::{SettingsStore, StoragePaths};
+use kindle_app::{SettingsStore, StoragePaths};
 use std::{
     fs,
     path::{Path, PathBuf},

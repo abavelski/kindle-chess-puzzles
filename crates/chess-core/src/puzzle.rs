@@ -1,6 +1,6 @@
 //! Version-1 puzzle collection parsing.
 
-use crate::analysis::{fallback_text, parse_analysis, parse_description_content};
+use crate::analysis::{fallback_text, parse_analysis_tree, parse_description_content};
 use crate::{parse_fen, parse_uci_move, AnalysisTextSpan, AnalysisTree, Color};
 use serde::{de::Error as _, Deserialize, Deserializer};
 use std::{collections::HashSet, fmt};
@@ -171,7 +171,11 @@ fn build_puzzle(raw: RawPuzzle, name: &str) -> Result<Puzzle, String> {
     let analysis = raw
         .analysis
         .as_ref()
-        .map(|value| parse_analysis(value, &raw.fen, &raw.solution, name))
+        .map(|value| {
+            let tree = parse_analysis_tree(value, &raw.fen, "puzzle fen", name)?;
+            validate_puzzle_main_path(&tree, &raw.solution, name)?;
+            Ok::<_, String>(tree)
+        })
         .transpose()?;
 
     let description_content = match raw.description_content.as_ref() {
@@ -196,6 +200,35 @@ fn build_puzzle(raw: RawPuzzle, name: &str) -> Result<Puzzle, String> {
         solution: raw.solution,
         analysis,
     })
+}
+
+fn validate_puzzle_main_path(
+    tree: &AnalysisTree,
+    solution: &[String],
+    context: &str,
+) -> Result<(), String> {
+    let projected = tree
+        .main_line_nodes()
+        .iter()
+        .skip(1)
+        .map(|index| {
+            tree.node(*index)
+                .expect("validated node")
+                .movement
+                .as_ref()
+                .expect("non-root analysis node has a move")
+                .uci
+                .clone()
+        })
+        .collect::<Vec<_>>();
+
+    if projected != solution {
+        return Err(format!(
+            "{context}: analysis main-path UCI sequence must exactly match legacy solution."
+        ));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

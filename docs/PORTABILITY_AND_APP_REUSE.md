@@ -1,11 +1,11 @@
 # Portability and application reuse
 
-**Decision (2026-11-08): prioritize product reuse before hardware portability.** The [original proposal](../archive/docs/PORTABILITY_AND_APP_REUSE_ORIGINAL.md) emphasized Kobo first. That order is superseded by [the active app-split tracker](NEXT_TASKS_APP_SPLIT.md).
+**Decision (2026-11-08): prioritize product reuse before hardware portability.** The [original proposal](../archive/docs/PORTABILITY_AND_APP_REUSE_ORIGINAL.md) emphasized Kobo first. That order is superseded by [the completed app-split implementation](../archive/tasks/implemented/app-split.md).
 
 | Product | Kindle Scribe gen 1 | Future Kobo |
 | --- | --- | --- |
-| Puzzles | First independent deliverable | Deferred |
-| Game Review | Second independent deliverable | Deferred |
+| Puzzles | Implemented; device accepted | Deferred |
+| Game Review | Implemented; device accepted | Deferred |
 
 Keep a single Cargo monorepo, one set of chess/analysis and grayscale UI components, separate product state/actions/screens, and thin product/platform compositions. Do not fork the existing binary or copy its renderer just to get two packages.
 
@@ -23,4 +23,4 @@ Keep a single Cargo monorepo, one set of chess/analysis and grayscale UI compone
 
 Only after both Kindle products work independently should a Kobo backend be added. Separate common logical events and display metrics from device input/refresh/lifecycle; probe framebuffer orientation, touch/button mapping, suspend and FBInk build specifics on actual Kobo hardware. Do not add platform-specific conditionals to both product crates.
 
-See [current and target architecture](ARCHITECTURE.md) for exact files/interfaces and [task plan](NEXT_TASKS_APP_SPLIT.md) for dependencies and acceptance.
+See [current architecture](ARCHITECTURE.md) for exact files/interfaces and [completed task plan](../archive/tasks/implemented/app-split.md) for dependencies and acceptance.

@@ -2,7 +2,7 @@
 //! Source: https://sashite.dev/assets/chess/
 //! Run `python3 scripts/generate_sashite.py` to regenerate.
 use super::Cmd;
-use chess_core::{Color, PieceKind};
+use chess_model::{Color, PieceKind};
 pub(super) struct Layer {
     pub commands: &'static [Cmd],
     pub tone: u8,

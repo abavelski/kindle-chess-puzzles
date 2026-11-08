@@ -1,10 +1,7 @@
 //! Measured waveform capabilities are opt-in. AUTO is the baseline until the
 //! Task 07 Scribe checkpoint verifies explicit waveforms and a cleaning cadence.
-use chess_core::Board;
-use chess_render::{merge_clipped, Gray8, Layout, Rect};
+use eink_ui::{damage::merge_clipped, Gray8, Rect};
 pub use fbink_sys::RefreshMode;
-
-const MAX_TARGETED_CLEAN_SQUARES: usize = 4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ContentClass {
@@ -100,36 +97,6 @@ pub fn pack_region(frame: &Gray8, rect: Rect) -> Result<Vec<u8>, fbink_sys::Vali
         pixels.extend_from_slice(&frame.pixels()[start..start + rect.width as usize]);
     }
     Ok(pixels)
-}
-
-/// Compare visible piece occupancy only. Selection, feedback, and modal changes
-/// remain ordinary partial damage. Large board changes and orientation changes
-/// use one clean board update instead of many per-square flashes.
-pub fn clean_regions_for_board_change(
-    before: &Board,
-    after: &Board,
-    before_flipped: bool,
-    after_flipped: bool,
-    layout: Layout,
-) -> Vec<Rect> {
-    let changed = (0..64)
-        .filter(|&square| before.piece_at(square) != after.piece_at(square))
-        .collect::<Vec<_>>();
-
-    if changed.is_empty() {
-        return Vec::new();
-    }
-    if before_flipped != after_flipped || changed.len() > MAX_TARGETED_CLEAN_SQUARES {
-        return vec![layout.board];
-    }
-
-    changed
-        .into_iter()
-        .map(|logical| {
-            let display = if after_flipped { 63 - logical } else { logical };
-            layout.square_rect(display)
-        })
-        .collect()
 }
 
 /// Replace ordinary damage covered by clean regions while preserving damage

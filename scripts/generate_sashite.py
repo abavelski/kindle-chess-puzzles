@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets" / "sashite-western"
-OUTPUT = ROOT / "crates" / "chess-render" / "src" / "pieces_generated.rs"
+OUTPUT = ROOT / "crates" / "eink-ui" / "src" / "pieces_generated.rs"
 TOKEN = re.compile(r"[a-zA-Z]|[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?")
 PIECES = ("king", "queen", "rook", "bishop", "knight", "pawn")
 SIDES = (("first", "White"), ("second", "Black"))
@@ -103,7 +103,7 @@ def generated_source():
         "//! Source: https://sashite.dev/assets/chess/",
         "//! Run `python3 scripts/generate_sashite.py` to regenerate.",
         "use super::Cmd;",
-        "use chess_core::{Color, PieceKind};",
+        "use chess_model::{Color, PieceKind};",
         "pub(super) struct Layer { pub commands: &'static [Cmd], pub tone: u8 }",
         "pub(super) fn layers(color: Color, kind: PieceKind) -> &'static [Layer] {",
         "    match (color, kind) {",

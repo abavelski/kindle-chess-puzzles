@@ -1,6 +1,6 @@
 # ♟ Kindle Chess Puzzles
 
-> **Transition (2026-11-08):** Puzzles and Game Review still run in **one executable**. [Codex split plan](docs/NEXT_TASKS_APP_SPLIT.md) targets two independent apps sharing chess and e-ink components. Additional e-readers are deferred. See [active docs](docs/README.md).
+> **Device accepted (2026-11-08):** Puzzles and Game Review now have **independent executables and packages** sharing chess and e-ink components. [The archived split plan](archive/tasks/implemented/app-split.md) records host/build evidence and owner acceptance on the physical Scribe. Additional e-readers are deferred. See [active docs](docs/README.md).
 
 **A native, e-ink chess puzzle app for Kindle Scribe.** Solve tactics, browse book-style solutions, and keep your progress on a device that feels much closer to a paper chess book than a phone.
 
@@ -38,14 +38,14 @@ of annotated PGNs and browsing validated on the physical Scribe.
 The Kindle runtime stays deliberately small. Puzzle solving, rendering, and analysis browsing are normal Rust code; platform-specific behavior is pushed to the edge.
 
 ```text
-                         app/kindle-chess
-                         event loop + composition
+            apps/kindle-puzzles   apps/kindle-game-review
+                       kindle-app runtime + composition
                            /            \
                           v              v
                  chess-core         chess-render
-              board / puzzles      Gray8 rendering
-              app state / progress layout / hit testing
-              rich analysis        damage tracking
+              product state        product screens
+                 chess-model        eink-ui
+              board / analysis     Gray8 / widgets / damage
                           \              /
                            v            v
                          kindle-platform
@@ -58,10 +58,12 @@ The Kindle runtime stays deliberately small. Puzzle solving, rendering, and anal
                     FBInk + Kindle framebuffer
 ```
 
-The workspace is split into four main crates:
+The shared workspace currently contains these main crates:
 
-- **`chess-core`** — FEN/UCI board model, puzzle parsing, solution state, collections, progress, versioned settings, and rich-analysis state.
-- **`chess-render`** — deterministic e-ink layout/rendering, hit testing, pieces, text, and damage regions.
+- **`chess-model`** — reusable FEN/UCI board model and generic authored analysis validation.
+- **`chess-core`** — puzzle/review parsing and state, collections, progress, versioned settings, and compatibility re-exports of the model.
+- **`eink-ui`** — shared deterministic Gray8 canvas, board/piece/text/analysis widgets and damage calculations.
+- **`chess-render`** — product screen layout/rendering and typed hit testing, plus the transitional combined screen.
 - **`kindle-platform`** — Kindle display presentation, Linux touch/pen input, paths, device lifecycle, and power integration.
 - **`fbink-sys`** — the raw FBInk FFI boundary.
 
@@ -79,10 +81,11 @@ scripts/check.sh
 scripts/build-kindle.sh
 scripts/stage-kindle.sh
 
-# Transitional selector (still builds the existing combined app):
+# Independent product selector:
 scripts/app.sh build puzzles
 scripts/app.sh stage puzzles
-# Review selection is blocked until there is a separate Review binary/package.
+scripts/app.sh build review
+scripts/app.sh stage review
 ```
 
 Deploy to a configured Scribe over SSH:
@@ -91,7 +94,7 @@ Deploy to a configured Scribe over SSH:
 scripts/deploy-kindle.sh --host root@DEVICE_IP --port 2222
 ```
 
-With Scriptlets/SH_Integration installed, the packaged app can be launched from the Kindle library as **Kindle Chess Puzzles**.
+With Scriptlets/SH_Integration installed, launch each installed product from the Kindle library as **Kindle Chess Puzzles** or **Kindle Game Review**.
 
 For the full setup and recovery procedure, see [Build & Deploy](docs/BUILD_DEPLOY.md).
 
@@ -102,8 +105,8 @@ To import review games, install the host dependencies in a virtual environment
 python3 tools/pgn_review_converter.py my-games.pgn -o games-my-games.json --title "My games"
 ```
 
-Copy the JSON to `/mnt/us/kindle-chess/games/` while the app is closed, relaunch,
-and tap the workspace icon beside Refresh. Use GAMES to select a game, PREV/NEXT
+Copy the JSON to `/mnt/us/kindle-game-review/games/` while Review is closed,
+then launch **Kindle Game Review** from the library. Use GAMES to select a game, PREV/NEXT
 to follow its main line, or tap moves to preview variations. See
 [Game Review import/update](docs/GAME_REVIEW_IMPORT.md) for setup, safe updates,
 stable IDs, Free Board behavior, and rollback. Physical review-mode acceptance passed on 2026-10-07.

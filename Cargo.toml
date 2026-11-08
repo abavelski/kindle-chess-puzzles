@@ -1,11 +1,16 @@
 [workspace]
 exclude = ["support/chessnut-move"]
 members = [
+    "crates/chess-model",
     "crates/chess-core",
+    "crates/eink-ui",
     "crates/chess-render",
     "crates/fbink-sys",
     "crates/kindle-platform",
+    "crates/kindle-app",
     "app/kindle-chess",
+    "apps/kindle-puzzles",
+    "apps/kindle-game-review",
 ]
 resolver = "2"
 

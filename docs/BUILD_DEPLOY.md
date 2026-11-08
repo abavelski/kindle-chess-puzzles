@@ -1,14 +1,24 @@
 # Build, stage and deploy to Kindle Scribe
 
-> **Product status (2026-11-08):** one combined kindle-chess binary is installed. The [split plan](NEXT_TASKS_APP_SPLIT.md) adds truly independent apps; the selector below does **not** build standalone Review yet.
+> **Product status (2026-11-08):** independent Puzzles and Review binaries now have separate pinned build/stage outputs. Both products have independent install/launch/deploy workflows. The owner accepted both apps on the physical Scribe on 2026-11-08.
 
-## Transitional app-selection CLI
+## App-selection CLI
 
-Commands: scripts/app.sh build puzzles; scripts/app.sh stage puzzles; scripts/app.sh deploy puzzles --host root@DEVICE_IP --port 2222.
+Use `scripts/app.sh build puzzles` / `scripts/app.sh stage puzzles`, or select
+`review` for its independent build/stage. Legacy build-kindle.sh and
+stage-kindle.sh select Puzzles, now built from kindle-puzzles and installed as
+kindle-chess to preserve the existing package/scriptlet identity. The combined
+entrypoint remains only a compatibility regression target. Select either app for deploy, for example `scripts/app.sh deploy review --host root@DEVICE_IP --port 2222`.
 
-At present puzzles targets the **existing combined** verified Scribe pipeline. Legacy build-kindle.sh, stage-kindle.sh and deploy-kindle.sh stay compatible. Selecting review for build/stage/deploy **fails explicitly** until SPLIT-08 through SPLIT-11 add a genuine review binary, separate receipt, stage, KPM ID, runtime root and installer. Do not rename/repackage the combined binary as Review. Once implemented, choose review with the same commands and test isolation of installs, data and display ownership.
+Outputs live under `target/kindle/puzzles/` and `target/kindle/review/`: each has
+its own binary, build.json, stage/, tar and KPM package. Receipts bind selected
+app, installed binary, package/root identity and product-specific source digest.
+ELF validation rejects the other product's embedded identity or an unmarked old
+combined binary. Review has no Chessnut worker/runtime libraries; its source
+archive still contains the complete shared workspace and dependencies.
+Each package installs only its own runtime/scriptlet; Review never bundles or starts the board worker.
 
-See [architecture](ARCHITECTURE.md) and [implementation queue](NEXT_TASKS_APP_SPLIT.md).
+See [architecture](ARCHITECTURE.md) and [archived implementation](../archive/tasks/implemented/app-split.md).
 
 
 Task 08's automation targets the measured first-generation Scribe (Barolo,
@@ -71,11 +81,11 @@ required on the physical Scribe.
 Outputs:
 
 ```text
-target/kindle/kindle-chess                  optimized, validated release
-target/kindle/build.json                    successful-check/source/binary receipt
-target/kindle/stage/                        inspectable install directory
-target/kindle/kindle-chess.tar              deterministic scp/install archive
-target/kindle/kindle_chess_0.1.0_kindlehf.kpkg  KPM manifest-v2 gzip/tar package
+target/kindle/puzzles/kindle-chess                  optimized, validated release
+target/kindle/puzzles/build.json                    successful-check/source/binary receipt
+target/kindle/puzzles/stage/                        inspectable install directory
+target/kindle/puzzles/kindle-chess.tar              deterministic scp/install archive
+target/kindle/puzzles/kindle_chess_0.1.0_kindlehf.kpkg  KPM manifest-v2 gzip/tar package
 ```
 
 Staging requires a successful receipt matching the exact source tree and
@@ -239,3 +249,89 @@ updates retain generated game IDs and duplicate IDs fail. See
 and safe copying. Task 49 physical
 review-mode acceptance passed on 2026-10-07; see the device record for the
 tested build, preserved data hashes and accepted checklist.
+
+## Standalone Review data and legacy fallback — SPLIT-09
+
+The independent Review executable uses `/mnt/us/kindle-game-review/games`,
+`state/settings.json` and `state/review-resume.json` under that root. Puzzles keeps
+`/mnt/us/kindle-chess` and its existing progress/settings. Review never opens a
+puzzle progress store or initializes a puzzle directory.
+
+Migration is a **read-only legacy fallback**, not a move or a copy. With no matching
+files in Review's games directory, Review reads `/mnt/us/kindle-chess/games`.
+An existing matching new game file, including an invalid one, takes precedence
+and prevents fallback. A missing new settings or resume file independently falls
+back to the corresponding legacy file under `/mnt/us/kindle-chess/state`.
+Legacy settings use the existing Game Review profile, including migrated older
+flat preferences. Stable collection filenames/game IDs and authored move paths
+are retained. All subsequent preferences/resume writes target only Review's own
+state directory. Game JSON is always read-only.
+
+Malformed, partial or future-version new files take precedence too: they produce
+warnings and remain protected from writes. Invalid legacy bytes produce warnings
+and remain byte-identical; defaults may be edited into a separate new file. There
+is no migration marker or destructive intermediate state to recover. The fixture
+suite covers interrupted/partial state and both old/new roots present.
+
+`KINDLE_GAME_REVIEW_ROOT` overrides Review's root. Independent optional overrides
+are `KINDLE_GAME_REVIEW_GAME_DIR`, `KINDLE_GAME_REVIEW_SETTINGS_FILE`, and
+`KINDLE_GAME_REVIEW_RESUME_FILE`. `KINDLE_GAME_REVIEW_LEGACY_ROOT` selects a custom
+old root; an explicitly empty value disables fallback. For a custom legacy games
+location, set the Review game-directory override to that read-only library.
+
+For rollback, close both apps and retain a backup of the new Review root. The
+older combined app still reads the untouched legacy games/settings/resume and
+puzzle progress. New Review activity is saved only in the new root, so the old
+app resumes from its older saved position. To re-test fallback, back up and
+explicitly remove only the new app's settings/resume files while closed; never
+remove legacy files or puzzle progress. Keep game filenames and IDs stable when
+manually copying a library into the new games directory. Package/install
+isolation is host-tested. Owner device acceptance is recorded under SPLIT-13; individual recovery exercises were not separately reported.
+
+## Independent installation and recovery — SPLIT-11
+
+| Product | KPM ID | Library scriptlet | Installed binary | Root / default app lock |
+| --- | --- | --- | --- | --- |
+| Puzzles | kindle_chess | kindle-chess.sh | runtime/kindle-chess | /mnt/us/kindle-chess; /tmp/kindle-chess.lock |
+| Review | kindle_game_review | kindle-game-review.sh | runtime/kindle-game-review | /mnt/us/kindle-game-review; /tmp/kindle-game-review.lock |
+
+Both use the global `/tmp/kindle-chess-display.lock` and the same supervisor
+implementation. Each runtime launcher writes logs beneath its own root. Review
+exports KINDLE_GAME_REVIEW_ROOT and its own app lock; Puzzles retains existing
+environment/path compatibility. Library scriptlets retain `# DontUseFBInk`.
+
+Install/update/uninstall validates root/runtime app markers and rejects another
+product's root. The retained `.kindle-app-id` identifies a root even after
+uninstall; it is never silently reassigned. A pre-split unmarked Puzzles runtime
+can upgrade safely. Payload checksums are verified before the old runtime is
+changed. A temporary runtime and atomic scriptlet swap retain the old runtime
+until commit; failed final swaps restore it. Unknown runtime.new/runtime.old
+content is preserved for manual inspection instead of removed. Source games,
+puzzles, progress, settings, resume, private configuration and logs are retained
+on uninstall. Foreign library documents are preserved.
+
+For an interrupted update, close the selected app and inspect only that root's
+runtime, runtime.old, runtime.new and .install-lock. A verified same-product
+runtime.old can be restored to runtime if runtime is absent; the next valid
+installer also handles that case. Do not discard an unknown directory or remove
+a live install lock. Keep both user-data roots and both library scriptlets backed
+up before the device checkpoint. Display-owner recovery is documented in
+[EINK_LIFECYCLE.md](EINK_LIFECYCLE.md#split-runtime-and-global-ownership--split-07-2026-11-08).
+
+Deploy verifies the selected stage before scp, uses product-specific incoming
+paths, installs to that product's fixed root, and checks installed binary,
+build receipt and source archive SHA256 over SSH. Host tests stub the network;
+both split packages were deployed with matching hashes and subsequently accepted by the device owner.
+
+
+## Dual-app physical acceptance — SPLIT-13
+
+Both apps were deployed with verified artifact hashes and preserved user data on
+firmware 5.19.6, then accepted by the owner on 2026-11-08: “Everything works fine.”
+See the [artifact/deployment record](device/ks1-barolo.md#split-13-deployment--2026-11-08)
+and [owner acceptance](device/ks1-barolo.md#split-13-owner-acceptance--2026-11-08).
+The owner authorized merging `app-split` into `main` and archiving the
+[completed implementation plan](../archive/tasks/implemented/app-split.md).
+Recovery and rollback procedures remain documented above; no separate destructive
+recovery exercise was reported at closeout. Automatic Chessnut reply motion and
+historically ineffective STOP remain explicitly unverified.

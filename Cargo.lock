@@ -6,7 +6,15 @@ version = 4
 name = "chess-core"
 version = "0.1.0"
 dependencies = [
+ "chess-model",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "chess-model"
+version = "0.1.0"
+dependencies = [
  "serde_json",
 ]
 
@@ -15,7 +23,7 @@ name = "chess-render"
 version = "0.1.0"
 dependencies = [
  "chess-core",
- "fontdue",
+ "eink-ui",
  "serde_json",
 ]
 
@@ -35,6 +43,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51a4879eba9657d7cdb4f0206a411551b75158971661587682a34f600c9531bd"
 dependencies = [
  "thiserror",
+]
+
+[[package]]
+name = "eink-ui"
+version = "0.1.0"
+dependencies = [
+ "chess-model",
+ "fontdue",
+ "serde_json",
 ]
 
 [[package]]
@@ -67,26 +84,49 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
-name = "kindle-chess"
-version = "0.1.0"
-dependencies = [
- "chess-core",
- "chess-render",
- "kindle-platform",
- "signal-hook",
-]
-
-[[package]]
-name = "kindle-platform"
+name = "kindle-app"
 version = "0.1.0"
 dependencies = [
  "chess-core",
  "chess-render",
  "chessnut-board-support",
  "chessnut-move",
- "fbink-sys",
+ "kindle-platform",
  "serde",
  "serde_json",
+ "signal-hook",
+]
+
+[[package]]
+name = "kindle-chess"
+version = "0.1.0"
+dependencies = [
+ "chess-core",
+ "chess-render",
+ "kindle-app",
+ "kindle-platform",
+]
+
+[[package]]
+name = "kindle-game-review"
+version = "0.1.0"
+dependencies = [
+ "kindle-app",
+]
+
+[[package]]
+name = "kindle-platform"
+version = "0.1.0"
+dependencies = [
+ "eink-ui",
+ "fbink-sys",
+]
+
+[[package]]
+name = "kindle-puzzles"
+version = "0.1.0"
+dependencies = [
+ "kindle-app",
 ]
 
 [[package]]

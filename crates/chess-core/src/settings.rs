@@ -155,6 +155,14 @@ impl Settings {
         }
     }
 
+    pub fn set_workspace_preferences(
+        &mut self,
+        workspace: Workspace,
+        preferences: WorkspaceSettings,
+    ) {
+        *self.for_workspace_mut(workspace) = preferences;
+    }
+
     pub(crate) fn for_workspace_mut(&mut self, workspace: Workspace) -> &mut WorkspaceSettings {
         match workspace {
             Workspace::Puzzles => &mut self.puzzles,

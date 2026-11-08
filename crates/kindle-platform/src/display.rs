@@ -4,7 +4,7 @@ use crate::{
     classify_region, pack_region, plan_present_regions, PresentRegion, RefreshPolicy,
     RefreshStrength,
 };
-use chess_render::{Gray8, Rect};
+use eink_ui::{Gray8, Rect};
 use fbink_sys::{FbInk, FbInkError, FbInkState};
 use std::fmt;
 use std::time::{Duration, Instant};

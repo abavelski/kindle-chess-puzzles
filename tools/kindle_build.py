@@ -34,6 +34,43 @@ ZIG_HASHES = {
 }
 BUILD = ROOT / 'target/kindle'
 
+PRODUCTS = {
+    'puzzles': {'cargo': 'kindle-puzzles', 'cargo_binary': 'kindle-puzzles',
+                'binary': 'kindle-chess', 'package_id': 'kindle_chess',
+                'runtime_root': '/mnt/us/kindle-chess', 'scriptlet': 'kindle-chess.sh',
+                'manifest': 'packaging/kindle/manifest.json'},
+    'review': {'cargo': 'kindle-game-review', 'cargo_binary': 'kindle-game-review',
+               'binary': 'kindle-game-review', 'package_id': 'kindle_game_review',
+               'runtime_root': '/mnt/us/kindle-game-review', 'scriptlet': 'kindle-game-review.sh',
+               'manifest': 'packaging/kindle-review/manifest.json'},
+}
+
+def product(app):
+    if app not in PRODUCTS:
+        raise ValueError('unknown product')
+    return PRODUCTS[app]
+
+def output_dir(app):
+    product(app)
+    return BUILD / app
+
+def validate_product_elf(path, app):
+    validate_elf(path)
+    data = Path(path).read_bytes()
+    for candidate in PRODUCTS:
+        marker = f'KINDLE_CHESS_PRODUCT:{candidate}:v1'.encode()
+        if (marker in data) != (candidate == app):
+            raise ValueError('ELF product identity does not match selected app')
+
+def validate_receipt(receipt, app):
+    spec = product(app)
+    expected = {'app': app, **{key: spec[key] for key in ('binary', 'package_id', 'runtime_root')}}
+    if any(receipt.get(key) != value for key, value in expected.items()):
+        raise ValueError('receipt product identity mismatch')
+    if (app == 'review') and 'chessnut' in receipt:
+        raise ValueError('Review receipt must not include a board worker')
+
+
 def board_build():
     spec = importlib.util.spec_from_file_location('chessnut_build', ROOT / 'tools/chessnut_build.py')
     module = importlib.util.module_from_spec(spec)
@@ -52,7 +89,7 @@ def run(args, **kwargs):
 
 def source_files():
     # Include local changes, including new task files, but no generated build output.
-    directories = ['support/chessnut-move/src', 'support/chessnut-move/native', 'support/chessnut-move/scripts', 'support/chessnut-move/licenses', 'support/chessnut-move/tests', 'app', 'crates', 'assets', 'scripts', 'tools', 'tests', 'packaging', '.github']
+    directories = ['support/chessnut-move/src', 'support/chessnut-move/native', 'support/chessnut-move/scripts', 'support/chessnut-move/licenses', 'support/chessnut-move/tests', 'app', 'apps', 'crates', 'assets', 'scripts', 'tools', 'tests', 'packaging', '.github']
     paths = [ROOT / name for name in ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'LICENSE', 'support/chessnut-move/Cargo.toml', 'support/chessnut-move/Cargo.lock', 'support/chessnut-move/BUILD_PINS.json', 'support/chessnut-move/SOURCE_PINS.json']]
     for directory in directories:
         paths.extend(p for p in (ROOT / directory).rglob('*')
@@ -60,12 +97,14 @@ def source_files():
     return sorted(p for p in paths if p.exists())
 
 
-def source_digest():
+def source_digest(app='puzzles'):
+    spec = product(app)
     digest = hashlib.sha256()
     for path in source_files():
         digest.update(str(path.relative_to(ROOT)).encode() + b'\0' + path.read_bytes() + b'\0')
     # Verify pinned vendor separately, bind the revision into the receipt.
     digest.update(FBINK.encode())
+    digest.update(json.dumps({"app": app, **spec}, sort_keys=True).encode())
     return digest.hexdigest()
 
 
@@ -149,61 +188,84 @@ def verify_vendor():
             raise ValueError('FBInk must be clean at pinned revision; initialize submodules')
 
 
-def build():
+def build(app='puzzles'):
+    spec = product(app)
+    destination = output_dir(app)
     verify_vendor()
     # No receipt survives a failed build or failed checks.
-    BUILD.mkdir(parents=True, exist_ok=True)
-    receipt = BUILD / 'build.json'
+    destination.mkdir(parents=True, exist_ok=True)
+    receipt = destination / 'build.json'
     receipt.unlink(missing_ok=True)
     run(['sh', 'scripts/check.sh'])
     run(['python3', 'scripts/generate_sashite.py'])
-    before = source_digest()
+    before = source_digest(app)
     wrappers = zig_tools()
-    chessnut = board_build().build(wrappers)
+    chessnut = board_build().build(wrappers) if app == 'puzzles' else None
     environment = dict(os.environ)
     # Keep Cargo artifacts in a controlled directory regardless of host settings.
     environment['CARGO_TARGET_DIR'] = str(ROOT / 'target')
     for variable, tool in [('KINDLE_CC', 'cc'), ('KINDLE_AR', 'ar'), ('KINDLE_RANLIB', 'ranlib'),
                            ('CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER', 'cc')]:
         environment[variable] = str(wrappers / f'kindle-{tool}')
-    run(['cargo', 'build', '--locked', '--release', '-p', 'kindle-chess', '--target', TARGET], env=environment)
-    binary = ROOT / 'target' / TARGET / 'release/kindle-chess'
-    validate_elf(binary)
-    if source_digest() != before:
+    run(['cargo', 'build', '--locked', '--release', '-p', spec['cargo'], '--target', TARGET], env=environment)
+    binary = ROOT / 'target' / TARGET / 'release' / spec['cargo_binary']
+    validate_product_elf(binary, app)
+    if source_digest(app) != before:
         raise ValueError('source changed during build; repeat build')
-    shutil.copyfile(binary, BUILD / 'kindle-chess')
-    receipt.write_text(json.dumps({'binary_sha256': sha256(binary), 'source_sha256': before,
-                                  'target': TARGET, 'checks': 'passed', 'rust': '1.85.1',
-                                  'zig': ZIG_VERSION, 'glibc': '2.35', 'fbink': FBINK, 'chessnut': chessnut}, indent=2) + '\n')
-    print(f'Validated release: {BUILD / "kindle-chess"} ({binary.stat().st_size} bytes)')
+    shutil.copyfile(binary, destination / spec['binary'])
+    if chessnut is not None:
+        bundle = destination / 'chessnut'
+        if bundle.exists(): shutil.rmtree(bundle)
+        shutil.copytree(BUILD / 'chessnut', bundle)
+    receipt_data = {'app': app, **{key: spec[key] for key in ('binary', 'package_id', 'runtime_root')},
+                    'binary_sha256': sha256(binary), 'source_sha256': before,
+                    'target': TARGET, 'checks': 'passed', 'rust': '1.85.1',
+                    'zig': ZIG_VERSION, 'glibc': '2.35', 'fbink': FBINK}
+    if chessnut is not None: receipt_data['chessnut'] = chessnut
+    receipt.write_text(json.dumps(receipt_data, indent=2) + '\n')
+    print(f"Validated {app}: {destination / spec['binary']} ({binary.stat().st_size} bytes)")
 
 
-def stage(binary, receipt_path, destination):
+def stage(binary, receipt_path, destination, app='puzzles'):
+    spec = product(app)
     receipt = json.loads(Path(receipt_path).read_text())
+    validate_receipt(receipt, app)
     if (receipt.get('checks') != 'passed' or receipt.get('target') != TARGET
             or receipt.get('binary_sha256') != sha256(binary)
-            or receipt.get('source_sha256') != source_digest()):
+            or receipt.get('source_sha256') != source_digest(app)):
         raise ValueError('build receipt does not match tested source/binary; run build-kindle.sh')
-    validate_elf(binary)
+    validate_product_elf(binary, app)
     verify_vendor()
     destination = Path(destination)
     if destination.is_symlink() or (destination.exists() and not (destination / 'SHA256SUMS').is_file()):
         raise ValueError('refusing to replace a directory that is not an app-owned stage')
     if destination.exists():
-        verify_stage(destination)
+        verify_stage(destination, app=app, allow_pre_marker=True)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=destination.parent) as temporary:
         contents = Path(temporary)
         runtime = contents / 'runtime'
         runtime.mkdir()
-        shutil.copyfile(binary, runtime / 'kindle-chess')
+        shutil.copyfile(binary, runtime / spec['binary'])
         shutil.copyfile(receipt_path, runtime / 'build.json')
+        (runtime / 'app-id').write_text(app + '\n')
         shutil.copyfile(ROOT / 'scripts/kindle_launch.sh', runtime / 'kindle_launch.sh')
-        for name in ['launch.sh', 'install.sh', 'uninstall.sh', 'kindle-chess.sh']:
-            shutil.copyfile(ROOT / 'packaging/kindle' / name,
-                            (runtime if name == 'launch.sh' else contents) / name)
-        shutil.copyfile(ROOT / 'packaging/kindle/manifest.json', contents / 'manifest.json')
-        shutil.copyfile(ROOT / 'packaging/kindle/package-launch.sh', contents / 'launch.sh')
+        for name in ['launch.sh', 'install.sh', 'uninstall.sh', 'kindle-chess.sh', 'package-launch.sh']:
+            target = (runtime / name if name == 'launch.sh' else
+                      contents / ('launch.sh' if name == 'package-launch.sh' else
+                                  spec['scriptlet'] if name == 'kindle-chess.sh' else name))
+            text = (ROOT / 'packaging/kindle' / name).read_text()
+            if app == 'review':
+                text = text.replace('kindle-chess', 'kindle-game-review').replace('Kindle Chess Puzzles', 'Kindle Game Review')
+                text = text.replace('expected_app=puzzles', 'expected_app=review')
+                if name == 'launch.sh':
+                    start = text.index('export KINDLE_CHESS_LOG=')
+                    text = text[:start] + ('export KINDLE_CHESS_LOG="$root/logs/lifecycle.log"\n'
+                        'export KINDLE_CHESS_LOCK=${KINDLE_GAME_REVIEW_LOCK:-/tmp/kindle-game-review.lock}\n'
+                        'export KINDLE_GAME_REVIEW_ROOT=${KINDLE_GAME_REVIEW_ROOT:-$root}\n'
+                        'exec sh "$runtime/kindle_launch.sh" "$runtime/kindle-game-review" "$@"\n')
+            target.write_text(text)
+        shutil.copyfile(ROOT / spec['manifest'], contents / 'manifest.json')
         notices = runtime / 'licenses'
         notices.mkdir()
         for path, name in [(ROOT / 'vendor/FBInk/LICENSE', 'FBInk-GPL-3.0.txt'),
@@ -213,9 +275,13 @@ def stage(binary, receipt_path, destination):
                            (ROOT / 'assets/fonts/OFL.txt', 'Atkinson-OFL.txt'),
                            (ROOT / 'assets/fonts/NotoSans-OFL.txt', 'NotoSans-OFL.txt')]:
             shutil.copyfile(path, notices / name)
-        if 'chessnut' not in receipt:
-            raise ValueError('build receipt lacks the board worker bundle; rebuild')
-        board_build().stage(runtime, receipt['chessnut'], Path(binary).parent / 'chessnut')
+        if app == 'review':
+            notice = notices / 'NOTICE.md'
+            notice.write_text(notice.read_text().split('\nThe optional Chessnut Move integration')[0] + '\n')
+        if app == 'puzzles':
+            if 'chessnut' not in receipt:
+                raise ValueError('build receipt lacks the board worker bundle; rebuild')
+            board_build().stage(runtime, receipt['chessnut'], Path(binary).parent / 'chessnut')
         metadata = json.loads(run(['cargo', 'metadata', '--locked', '--format-version=1'],
                                   capture_output=True, text=True).stdout)
         dependencies = [package for package in metadata['packages'] if package['source']]
@@ -253,7 +319,7 @@ def stage(binary, receipt_path, destination):
             source.addfile(config, io.BytesIO(data))
         for path in contents.rglob('*'):
             if path.is_file():
-                path.chmod(0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindlebt-worker') else 0o644)
+                path.chmod(0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindle-game-review', 'kindlebt-worker') else 0o644)
         sums = ''.join(f'{sha256(p)}  {p.relative_to(contents)}\n'
                        for p in sorted(contents.rglob('*')) if p.is_file())
         (contents / 'SHA256SUMS').write_text(sums)
@@ -263,8 +329,12 @@ def stage(binary, receipt_path, destination):
     print(f'Staged {destination}')
 
 
-def verify_stage(directory):
+def verify_stage(directory, app=None, allow_pre_marker=False):
     directory = Path(directory)
+    receipt = json.loads((directory / 'runtime/build.json').read_text())
+    app = receipt.get('app') if app is None else app
+    spec = product(app)
+    validate_receipt(receipt, app)
     expected = {}
     for line in (directory / 'SHA256SUMS').read_text().splitlines():
         checksum, name = line.split('  ', 1)
@@ -278,13 +348,23 @@ def verify_stage(directory):
         path = directory / name
         if path.is_symlink() or sha256(path) != checksum:
             raise ValueError(f'staged checksum mismatch: {name}')
-    validate_elf(directory / 'runtime/kindle-chess')
-    receipt = json.loads((directory / 'runtime/build.json').read_text())
+    validate_product_elf(directory / 'runtime' / spec['binary'], app)
+    manifest = json.loads((directory / 'manifest.json').read_text())
+    marker = directory / 'runtime/app-id'
+    if marker.exists():
+        if marker.read_text().strip() != app:
+            raise ValueError('runtime product marker mismatch')
+    elif not allow_pre_marker:
+        raise ValueError('runtime product marker missing')
+    if manifest.get('id') != spec['package_id']:
+        raise ValueError('stage manifest product mismatch')
+    if app == 'review' and any((directory / 'runtime' / name).exists() for name in ('kindle-chess', 'kindlebt-worker', 'lib/libkindlebt.so')):
+        raise ValueError('Review stage contains puzzle/board assets')
     # Previously tested stable stages remain valid rollback packages. New stages
     # always require the board bundle in stage() above.
     if 'chessnut' in receipt:
         board_build().verify_stage(directory / 'runtime', receipt['chessnut'])
-    if receipt.get('checks') != 'passed' or receipt.get('binary_sha256') != sha256(directory / 'runtime/kindle-chess'):
+    if receipt.get('checks') != 'passed' or receipt.get('binary_sha256') != sha256(directory / 'runtime' / spec['binary']):
         raise ValueError('stage has no valid tested-build receipt')
 
 
@@ -292,7 +372,7 @@ def add_tar_file(archive_file, path, name):
     data = path.read_bytes()
     info = tarfile.TarInfo(name)
     info.size = len(data)
-    info.mode = 0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindlebt-worker') else 0o644
+    info.mode = 0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindle-game-review', 'kindlebt-worker') else 0o644
     info.mtime = 0
     archive_file.addfile(info, io.BytesIO(data))
 
@@ -316,13 +396,14 @@ def kpkg(directory, output):
                         add_tar_file(package, path, str(path.relative_to(directory)))
 
 
-def deploy(directory, host, port):
+def deploy(directory, host, port, app='puzzles'):
+    spec = product(app)
     if not re.fullmatch(r'(?:[a-zA-Z0-9_]+@)?[a-zA-Z0-9][a-zA-Z0-9.-]*', host) or not 1 <= port <= 65535:
         raise ValueError('use user@hostname or user@IPv4 and a valid SSH port')
-    verify_stage(directory)
+    verify_stage(directory, app=app)
     token = uuid.uuid4().hex
-    remote_tar = f'/mnt/us/kindle-chess-upload-{token}.tar'
-    incoming = f'/mnt/us/kindle-chess-incoming-{token}'
+    remote_tar = f"{spec['runtime_root']}-upload-{token}.tar"
+    incoming = f"{spec['runtime_root']}-incoming-{token}"
     with tempfile.TemporaryDirectory() as temporary:
         tar_path = Path(temporary) / 'install.tar'
         archive(directory, tar_path)
@@ -330,7 +411,8 @@ def deploy(directory, host, port):
         # Fixed paths + generated hex token only. No user text in remote shell code.
         command = (f"set -eu; trap 'rm -rf {incoming}; rm -f {remote_tar}' EXIT; "
                    f'mkdir {incoming}; cd {incoming}; tar xf {remote_tar}; '
-                   'sh ./install.sh /mnt/us/kindle-chess')
+                   f"sh ./install.sh {spec['runtime_root']}; "
+                   + '; '.join(f"echo '{sha256(Path(directory) / 'runtime' / name)}  {spec['runtime_root']}/runtime/{name}' | sha256sum -c -" for name in [spec['binary'], 'build.json', 'source.tar']))
         run(['ssh', '-p', str(port), host, command])
     print('Runtime and library scriptlet installed; user data preserved.')
 
@@ -338,25 +420,23 @@ def deploy(directory, host, port):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['build', 'stage', 'deploy'])
-    parser.add_argument('--app', choices=['puzzles', 'review'], default='puzzles',
-                        help='product selector; standalone review is not yet implemented')
-    parser.add_argument('--stage-dir', type=Path, default=BUILD / 'stage')
+    parser.add_argument('--app', choices=list(PRODUCTS), default='puzzles')
+    parser.add_argument('--stage-dir', type=Path)
     parser.add_argument('--host')
     parser.add_argument('--port', type=int, default=2222)
     args = parser.parse_args()
-    # Fail closed instead of misleadingly packaging the combined executable as Review.
-    if args.app == 'review':
-        parser.error('review app is not independent yet; complete SPLIT-08 through SPLIT-11 first')
+    spec = product(args.app)
+    destination = output_dir(args.app)
+    stage_dir = args.stage_dir or destination / 'stage'
     if args.command == 'build':
-        build()
+        build() if args.app == 'puzzles' else build(args.app)
     elif args.command == 'stage':
-        stage(BUILD / 'kindle-chess', BUILD / 'build.json', args.stage_dir)
-        archive(args.stage_dir, args.stage_dir.parent / 'kindle-chess.tar')
-        kpkg(args.stage_dir, args.stage_dir.parent / 'kindle_chess_0.1.0_kindlehf.kpkg')
+        stage(destination / spec['binary'], destination / 'build.json', stage_dir, app=args.app)
+        archive(stage_dir, destination / f"{spec['binary']}.tar")
+        kpkg(stage_dir, destination / f"{spec['package_id']}_0.1.0_kindlehf.kpkg")
     elif args.command == 'deploy':
-        if not args.host:
-            parser.error('deploy requires --host user@host')
-        deploy(args.stage_dir, args.host, args.port)
+        if not args.host: parser.error('deploy requires --host user@host')
+        deploy(stage_dir, args.host, args.port, app=args.app)
 
 
 if __name__ == '__main__':

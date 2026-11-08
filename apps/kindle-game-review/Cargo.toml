@@ -1,0 +1,10 @@
+[package]
+name = "kindle-game-review"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+[dependencies]
+kindle-app = { path = "../../crates/kindle-app" }
+[lints]
+workspace = true

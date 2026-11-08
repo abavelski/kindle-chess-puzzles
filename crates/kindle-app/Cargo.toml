@@ -1,0 +1,17 @@
+[package]
+name = "kindle-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+[dependencies]
+signal-hook = "=0.3.18"
+chess-core = { path = "../chess-core" }
+chess-render = { path = "../chess-render" }
+kindle-platform = { path = "../kindle-platform" }
+chessnut-board-support = { path = "../../support/chessnut-move" }
+chessnut-move = { version = "=1.0.2", default-features = false }
+serde.workspace = true
+serde_json.workspace = true
+[lints]
+workspace = true

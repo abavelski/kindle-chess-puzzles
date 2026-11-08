@@ -1,6 +1,6 @@
-# Game Review — current combined-app behavior
+# Game Review — original combined-app behavior contract
 
-> **Split status (2026-11-08):** Implemented behavior below is the baseline contract for a future standalone Review app, not evidence of a second install. See [active split tasks](NEXT_TASKS_APP_SPLIT.md). Old phase and branch references below are historical.
+> **Split status (2026-11-08):** Standalone Review is implemented, installed separately and device-accepted by the owner. The combined-workspace descriptions below preserve historical behavior. See [completed split implementation](../archive/tasks/implemented/app-split.md). Old phase and branch references below are historical.
 
 
 **Status:** Implemented — checkpoint 49A passed 2026-10-07

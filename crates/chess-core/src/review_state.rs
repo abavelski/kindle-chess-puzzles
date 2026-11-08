@@ -1,8 +1,8 @@
 //! Deterministic state for the game-review workspace.
 
 use crate::{
-    app::PendingPromotion, AnalysisNodeIndex, Board, Color, PieceKind, ReviewGame, ReviewGameKey,
-    TapResult,
+    interaction::PendingPromotion, AnalysisNodeIndex, Board, Color, PieceKind, ReviewGame,
+    ReviewGameKey, TapResult,
 };
 
 pub const REVIEW_GAMES_PER_PAGE: usize = 15;

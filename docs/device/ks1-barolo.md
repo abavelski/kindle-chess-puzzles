@@ -2144,7 +2144,7 @@ under the ignored `data/` directory. Relaunch reloads the updated review library
 this transfer verification does not assert a new physical visual checkpoint.
 
 Future board marks are described in the
-[deferred PGN annotation proposal](../PGN_BOARD_ANNOTATIONS.md).
+[deferred PGN annotation proposal](../../archive/docs/PGN_BOARD_ANNOTATIONS.md).
 
 #### Task 50 prepared deployment — 2026-10-07
 
@@ -2281,3 +2281,188 @@ without the new fields default both controls to ON. No app launch or new
 physical acceptance is asserted. For user testing, select SMALL in each
 workspace, check bottom placement and control taps, toggle Lock/Flip visibility,
 switch workspaces and exit/relaunch to check independently restored settings.
+
+
+## SPLIT-13 — Dual-app Scribe checkpoint prepared 2026-11-08
+
+**Status: Done — owner device acceptance 2026-11-08.** Branch `app-split`, implementation `0a183b0`.
+The preparation/deployment notes below retain the evidence available at each stage;
+the final owner acceptance is recorded at the end of this checkpoint.
+At preparation, neither split app had been deployed or launched. The deployment
+record below reconfirms firmware 5.19.6; physical launch/behavior remain pending.
+The local clean-source host suites, pinned ARMv7/glibc-2.35 builds, stages and
+release artifact verifiers passed for both products. GitHub CI execution remains
+unconfirmed. These results establish no physical panel, sleep or Bluetooth pass.
+
+### Selected artifacts
+
+Paths are relative to the repository. Keep these exact artifacts for the run;
+rebuilding can change binary/package bytes, so record replacement hashes if used.
+Both packages include matching receipt, checksums, source and licenses.
+
+| Product | Local artifact | SHA256 |
+| --- | --- | --- |
+| Puzzles binary (3,477,112 bytes) | target/kindle/puzzles/kindle-chess | `fc47d509771f375840074c1d051a568eff9f28db2c237cab125d350b128ad089` |
+| Puzzles KPM | target/kindle/puzzles/kindle_chess_0.1.0_kindlehf.kpkg | `59dca24fc21c111076095857273a1584857707546e91accd396a3ad48089159b` |
+| Puzzles tar | target/kindle/puzzles/kindle-chess.tar | `9007ac712944e4db9e14321e2de91d8c953750d9574adde2fbd3a57fdf0c57a4` |
+| Puzzles source digest | target/kindle/puzzles/build.json | `7fe237b986da69fb2545a2fe02275a0d6914799a305b038eb166d039a8cd274b` |
+| Review binary (3,185,252 bytes) | target/kindle/review/kindle-game-review | `cf4adc3d4ec93acc9112667929336411b8c9c4ac8ec64cdb2a7cacc6bacbd3f5` |
+| Review KPM | target/kindle/review/kindle_game_review_0.1.0_kindlehf.kpkg | `41b627fdc7bff53478fc2832ce3986749227ef2d56c64b1458c205a4267d7497` |
+| Review tar | target/kindle/review/kindle-game-review.tar | `6f4af0d7ab07deb9fb5ee5b8e97277e9c9728cf4825c21b5c0d034d4c235eca2` |
+| Review source digest | target/kindle/review/build.json | `2f399919105af26c8c51e839105e78cafede1faa1ac4bcf2780264f3c754a860` |
+
+### Preparation and installation
+
+1. Close the existing chess app normally and confirm native UI and SSH work.
+   Record firmware, date, launch method, implementation commit, package hashes
+   and the existing app/runtime version. Keep the ordinary power/reboot path available.
+2. With both apps closed, back up `/mnt/us/kindle-chess`, any existing
+   `/mnt/us/kindle-game-review`, and their library scriptlets under
+   `/mnt/us/documents`. Copy the backup off-device and verify it can be listed.
+   Preserve binaries/runtime, puzzle/game JSON, progress, settings and resume.
+   Record SHA256 manifests of both roots and scriptlets before installation.
+   Use reviewed manifests without private library content in Git.
+3. Verify the host artifacts:
+
+   ```sh
+   python3 tools/verify_app_artifacts.py --app puzzles
+   python3 tools/verify_app_artifacts.py --app review
+   ```
+
+4. Install the two KPM files using the device's established KPM procedure, or
+   use the existing SSH deployment adapter (replace the host placeholder):
+
+   ```sh
+   scripts/app.sh deploy puzzles --host root@DEVICE_IP --port 2222
+   scripts/app.sh deploy review --host root@DEVICE_IP --port 2222
+   ```
+
+   The deploy adapter checks installed binary, receipt and source archive hashes.
+   Record command results and independently compare installed binary SHA256 with
+   the table. Confirm roots, logs, scriptlets and app locks are distinct. Confirm
+   all user-owned pre-installation files retain their hashes.
+5. Test the following rows in order. Record observations separately for each app;
+   do not infer success for the other app. Keep a recognizable puzzle position
+   and review position to check persistence. Review-only sessions must leave
+   puzzle progress byte-identical. Intentional puzzle/settings changes should
+   be identified before comparing manifests.
+
+### Preparation-time human acceptance matrix
+
+| Check | Required observation/evidence | Status |
+| --- | --- | --- |
+| Device/artifact attestation | Firmware 5.19.6 reconfirmed; both installed binaries/receipts/source archives match; device and off-device backups verified (deployment record below) | Passed, SSH verification 2026-11-08 |
+| Separate library launch/exit | Both scriptlets start the correct product, no workspace toggle; X exit restores touch, pen and native UI | Pending for both |
+| Puzzles | Exact-line grading, wrong-move rollback, promotion, FREE/reset, analysis/prose-reference taps, collections and persisted progress | Pending |
+| Product preferences | STANDARD/SMALL, flip/lock and optional controls persist independently after exit/relaunch | Pending for both |
+| Review library/navigation | Legacy games fallback and imported own games; PREV/NEXT, variation/prose taps, pagination, FREE/reset and authored resume | Pending |
+| Migration/data safety | Missing new settings/resume reads legacy; future/corrupt bytes preserved with visible warning; own writes only in Review root; puzzle progress unchanged by Review | Pending |
+| Puzzles Chessnut | Starts disconnected; optional connect/manual Send, all seating choices, input wait/ordinary move/wrong-move correction, notes remain visible; sleep/navigation disarm input | Pending |
+| Chessnut limitations | Automatic authored reply motion requires separate observation; STOP historically ineffective; castling/en-passant inference unsupported | Pending, no new acceptance |
+| Power/display | Manual Refresh, several sleep/wake cycles, input pause/rearm, redraw/readability and native repaint after exit | Pending for both |
+| Global ownership | While A owns display, launching B refuses without disturbing A; repeat reversed; then normal exit allows B | Pending for both directions |
+| Failure/recovery | App termination and scoped SSH recovery restore native UI and release only owned locks; record actual tested failure path | Pending for both |
+| Update/uninstall isolation | Update A then uninstall A; B runtime/scriptlet/data unchanged; reverse direction; both user-data roots survive uninstall | Pending for both directions |
+| Rollback | Restore backed-up runtime/scriptlet through verified recovery path; legacy games/progress/settings/resume bytes remain intact; old app launches/exits | Pending |
+
+Do not use broad process-name kills or remove a live display lock during the
+exclusion test. The common lock is `/tmp/kindle-chess-display.lock`; app locks
+are `/tmp/kindle-chess.lock` and `/tmp/kindle-game-review.lock`. A deliberate
+supervisor SIGKILL cannot run cleanup and requires SSH recovery; only test this
+with an available, verified recovery connection.
+
+### Recovery and rollback record
+
+Follow [scoped SSH recovery](../EINK_LIFECYCLE.md#split-runtime-and-global-ownership--split-07-2026-11-08):
+inspect shared launcher/child/binary metadata and app lock, verify PID/start-time
+identity before signalling, terminate the verified owner, and confirm it is gone.
+Resume only the previously owned, still-identical Xorg then awesome processes;
+run `xrefresh -display :0.0`. Remove only verified stale framebuffer/shared/app
+lock metadata. Record commands, results and native UI/touch/pen recovery.
+Never remove another live owner's lock or broadly restart Kindle services.
+
+For rollback, close both apps and restore the backed-up prior runtime and matching
+library scriptlet while retaining copies of both current data roots. The older
+combined app uses the untouched legacy games/progress/settings/resume; standalone
+Review's later resume/settings remain only in its own root. Do not overwrite
+current user data with a backup silently. An interrupted install must be handled
+using the [same-product runtime recovery contract](../BUILD_DEPLOY.md#independent-installation-and-recovery--split-11).
+
+**Deployment observation date / firmware:** 2026-11-08 / 5.19.6. **Physical observations and recovery commands/results:** pending.
+**Owner sign-off:** pending. SPLIT-13 remains Waiting for device; keep `app-split`
+unmerged until the observations, artifact attestation and approval are recorded.
+
+
+### SPLIT-13 deployment — 2026-11-08
+
+On the owner's explicit request, installed both prepared SPLIT-12 artifacts using
+`scripts/app.sh deploy puzzles --host root@192.168.1.20 --port 2222` followed by
+`deploy review` with the same transport. Empty-password authentication used an
+SSH control connection; no credential or authentication configuration was saved.
+No app, display-owner lock or install lock was active at preflight. Read-only SSH
+reconfirmed ARMv7 and Kindle firmware 5.19.6. Implementation is `0a183b0` on
+`app-split`; the selected artifact hashes above remain unchanged.
+
+Before installation, backed up the entire existing `/mnt/us/kindle-chess` root
+(including its historical backups, current runtime, libraries and state) and
+`/mnt/us/documents/kindle-chess.sh`. Review's root/scriptlet did not yet exist.
+Backup location on the Scribe:
+`/mnt/us/kindle-split-backups/20261108-app-split/pre-split.tar`.
+An off-device copy is retained locally under ignored
+`probe-output/split-deploy-20261108/device-backup/pre-split.tar`.
+Both copies match SHA256
+`48c215c61659ccfd5dc9c7e9ddd9a201b33e2b1c0c35025239210a3f8a91d0ff`.
+The local archive was opened and every one of the 243 protected non-runtime file
+payloads was checked against its pre-installation hash, along with the previous
+binary and the presence of its library scriptlet. No existing backup was removed.
+
+Both transactional installers succeeded. Installed binaries, build receipts and
+source archives matched their selected host stage SHA256 values. Both library
+scriptlets match the verified host stages. After both installations,
+`sha256sum -c` against the complete pre-installation non-runtime manifest passed:
+243 files preserved byte-for-byte, including all 120 active puzzle/game/state
+files and all older backup files. In particular, `state/progress.json` remained
+`c99f1d640ff01ebd1fb22cc0722e7b7971a4f49f0f852f2c799a1d7bbef939d4`.
+Puzzles remains under `/mnt/us/kindle-chess`; Review is independently installed
+under `/mnt/us/kindle-game-review` and contains no puzzle directory.
+
+`/lib/ld-linux-armhf.so.3 --list` resolved dependencies for both installed
+binaries. No app was launched; application/display/install locks were absent
+after verification. Existing games remain in the legacy root, available through
+Review's read-only fallback. Logs, complete manifests and transfer/backup checks
+are local under ignored `probe-output/split-deploy-20261108/`.
+
+For later cleanup, historical backups are in `/mnt/us/kindle-chess/backups/`
+(six dated folders, about 400 MiB in total). This deployment's separate backup
+also contains those historical copies. Retain the verified off-device archive
+and a tested rollback path before choosing what to remove. No cleanup is part
+of this deployment.
+
+Both library entries are ready for human launch/testing. Only SSH installation,
+artifact/loader checks and preservation checks are evidenced here. The remaining
+physical acceptance matrix, recovery exercise and owner sign-off are pending;
+SPLIT-13 remains Waiting for device and `app-split` remains unmerged.
+
+
+### SPLIT-13 owner acceptance — 2026-11-08
+
+The device owner reported that the app-split change “is verified on the device.
+Everything works fine,” then explicitly requested merge of the feature branch to
+`main`, push of `main`, documentation updates and archival of the finished plan.
+SPLIT-13 is **Done** on this owner-reported device acceptance. This supersedes
+the preparation/deployment-time pending status above.
+
+The accepted deployment is the firmware **5.19.6** installation of implementation
+`0a183b0` recorded above. Its Puzzles binary SHA256 is
+`fc47d509771f375840074c1d051a568eff9f28db2c237cab125d350b128ad089`;
+Review is `cf4adc3d4ec93acc9112667929336411b8c9c4ac8ec64cdb2a7cacc6bacbd3f5`.
+The selected-artifacts table retains the package/source hashes; deployment
+attestation and backup/data-preservation commands/results are recorded above.
+
+This is the owner's overall functional acceptance, without separate per-row
+observations. No new device commands or recovery/rollback exercise were performed
+for this closeout. The scoped recovery procedure and verified backups remain
+available; individual failure/recovery, destructive update/uninstall and rollback
+exercises are not independently evidenced by this report. Automatic Chessnut
+reply motion and historically ineffective STOP retain their previous unverified
+status. No broader Bluetooth acceptance is inferred.

@@ -8,11 +8,9 @@ use chess_core::{
 };
 use std::{
     env, fmt,
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
-    process,
-    sync::atomic::{AtomicU64, Ordering},
 };
 
 pub const DEFAULT_PUZZLE_DIR: &str = "/mnt/us/kindle-chess/puzzles";
@@ -24,8 +22,6 @@ pub const REVIEW_DIR_ENV: &str = "KINDLE_CHESS_REVIEW_DIR";
 pub const PROGRESS_FILE_ENV: &str = "KINDLE_CHESS_PROGRESS_FILE";
 pub const REVIEW_RESUME_FILE_ENV: &str = "KINDLE_CHESS_REVIEW_RESUME_FILE";
 pub const SETTINGS_FILE_ENV: &str = "KINDLE_CHESS_SETTINGS_FILE";
-
-static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoragePaths {
@@ -729,87 +725,11 @@ impl ReviewResumeStore {
 }
 
 fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<(), StorageError> {
-    let parent = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    fs::create_dir_all(parent)
-        .map_err(|error| io_error("could not create progress directory", parent, error))?;
-
-    let (temp_path, mut temp_file) = create_temp_file(parent, path)?;
-    if let Err(error) = temp_file.write_all(bytes) {
-        drop(temp_file);
-        let _ = fs::remove_file(&temp_path);
-        return Err(io_error(
-            "could not write temporary progress file",
-            &temp_path,
-            error,
-        ));
-    }
-    if let Err(error) = temp_file.sync_all() {
-        drop(temp_file);
-        let _ = fs::remove_file(&temp_path);
-        return Err(io_error(
-            "could not sync temporary progress file",
-            &temp_path,
-            error,
-        ));
-    }
-    drop(temp_file);
-
-    if let Err(error) = fs::rename(&temp_path, path) {
-        let _ = fs::remove_file(&temp_path);
-        return Err(io_error(
-            "could not atomically replace progress file",
-            path,
-            error,
-        ));
-    }
-
-    sync_directory(parent)?;
-    Ok(())
+    kindle_platform::files::atomic_replace(path, bytes).map_err(StorageError::Io)
 }
-
-fn create_temp_file(parent: &Path, target: &Path) -> Result<(PathBuf, File), StorageError> {
-    let target_name = target
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("progress.json");
-
-    for _ in 0..128 {
-        let sequence = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let temp_path = parent.join(format!(".{target_name}.tmp-{}-{sequence}", process::id()));
-        match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp_path)
-        {
-            Ok(file) => return Ok((temp_path, file)),
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
-            Err(error) => {
-                return Err(io_error(
-                    "could not create temporary progress file",
-                    &temp_path,
-                    error,
-                ));
-            }
-        }
-    }
-
-    Err(StorageError::Io(format!(
-        "could not allocate a temporary progress file in {}",
-        parent.display()
-    )))
-}
-
 fn sync_directory(path: &Path) -> Result<(), StorageError> {
-    let directory = File::open(path)
-        .map_err(|error| io_error("could not open directory for sync", path, error))?;
-    directory
-        .sync_all()
-        .map_err(|error| io_error("could not sync directory", path, error))
+    kindle_platform::files::sync_directory(path).map_err(StorageError::Io)
 }
-
 fn io_error(context: &str, path: &Path, error: io::Error) -> StorageError {
     StorageError::Io(format!("{context} {}: {error}", path.display()))
 }
