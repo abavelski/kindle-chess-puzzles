@@ -10,3 +10,10 @@ pub mod geometry;
 pub mod pieces;
 pub use canvas::{CanvasError, Gray8};
 pub use geometry::Rect;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DisplayMetrics {
+    pub width: u32,
+    pub height: u32,
+    pub dpi: u32,
+}

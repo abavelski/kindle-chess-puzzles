@@ -1,4 +1,4 @@
-use chess_render::Gray8;
+use eink_ui::Gray8;
 use kindle_platform::{validate_presentable_frame, DisplayState, PresentError};
 
 #[test]
@@ -41,7 +41,7 @@ fn display_boundary_requires_the_measured_y8_mode() {
 
 #[test]
 fn invalid_damage_is_rejected_before_any_submission() {
-    use chess_render::Rect;
+    use eink_ui::Rect;
     use kindle_platform::validate_damage;
     let frame = Gray8::new(10, 10, 255);
     assert!(validate_damage(&frame, &[Rect::new(0, 0, 2, 2), Rect::new(9, 9, 2, 2)]).is_err());

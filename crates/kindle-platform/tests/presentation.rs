@@ -1,4 +1,4 @@
-use chess_render::{Gray8, Rect};
+use eink_ui::{Gray8, Rect};
 use fbink_sys::{FbInkError, RefreshMode};
 use kindle_platform::{submit_regions, PresentRegion, RefreshPolicy, RegionPresenter};
 

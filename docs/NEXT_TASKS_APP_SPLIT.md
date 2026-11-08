@@ -23,8 +23,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-03 | Puzzle-only product state/actions | 02 | Done | No |
 | SPLIT-04 | Review-only product state/actions | 02 | Done | No |
 | SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Done | No |
-| SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Ready | No |
-| SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Blocked | No |
+| SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Done | No |
+| SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Ready | No |
 | SPLIT-08 | Two actual Cargo binaries | 07 | Blocked | No |
 | SPLIT-09 | Separate state, settings and legacy migration | 08 | Blocked | No |
 | SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Blocked | No |
@@ -90,15 +90,17 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-06 — Untangle platform from products
 
-**Status:** Ready. **Read:** [Kindle notes](KINDLE_SCRIBE.md), [lifecycle](EINK_LIFECYCLE.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [Kindle notes](KINDLE_SCRIBE.md), [lifecycle](EINK_LIFECYCLE.md).  
 **Likely files:** kindle-platform storage.rs, refresh.rs, chessnut.rs, input.rs, display.rs, power.rs; product repository adapters.  
 **First failing tests:** Kindle platform compiles with no chess-core/puzzle-app/review-app dependency; generic file operations and refresh requests have no puzzle/review-aware parameters.  
 **Implementation:** move format discovery/loading, progress/resume handling and chess-aware refresh/board intent to product/composition; preserve low-level hardware and Bluetooth transport.  
 **Acceptance:** no imports of Puzzle, ReviewGame, Progress or AppState in platform; data writes remain conservative. **Fit:** Codex.
 
+**Evidence (implementation: this task commit, `refactor(split): remove product dependencies from Kindle platform`):** kindle-platform now depends only on eink-ui/fbink-sys; display/input/power, generic byte replacement and generic refresh requests contain no product imports. New kindle-app composition adapter owns product discovery/repositories, protected progress/settings/resume stores, chess-aware clean-region decisions and Puzzles board-session orchestration over the unchanged worker transport. Existing product-aware storage/input/refresh/Chessnut tests moved with their adapter; generic device tests remain in kindle-platform. First `python3 -m unittest tests/test_platform_boundary.py` failed on chess-core/chess-render dependencies; after extraction → 1 passed. `cargo check --workspace` passed. `PATH=/tmp/kindle-split-venv/bin:$PATH scripts/build-kindle.sh` → exit 0, including full scripts/check.sh, pinned worker source/native contracts and release cross-build. `scripts/stage-kindle.sh` → exit 0, validated stage/package/receipt. Release: 3,588,728 bytes; ARMv7 hard-float, glibc 2.35, Rust 1.85.1, Zig 0.13.0, FBInk 92e1270; binary SHA256 `952e2f797a22adb6cff02387bfb3731aadbf7677382b8c488f4faf2c3fb03ba4`, source SHA256 `1d3cd6b1bbf00e813893cda309e1ad3cf15f8bd148a7f450ec7074bccfa93bfc`. No device claim.
+
 ### SPLIT-07 — Runtime composition and exclusive display ownership
 
-**Status:** Blocked by 05,06. **Read:** [lifecycle](EINK_LIFECYCLE.md), [physical board](PHYSICAL_BOARD.md).  
+**Status:** Ready. **Read:** [lifecycle](EINK_LIFECYCLE.md), [physical board](PHYSICAL_BOARD.md).  
 **Likely files:** app/kindle-chess/src/main.rs, scripts/kindle_launch.sh, common runtime helper, tests/test_lifecycle.py.  
 **First failing tests:** two product processes cannot simultaneously own framebuffer/paused Xorg; second launch refuses safely without disturbing first, and abnormal exits restore device ownership.  
 **Implementation:** reuse event/input/power/present/shutdown wiring; add one global display lock plus namespaced app locks. Keep Puzzles-only Chessnut process lifecycle.  

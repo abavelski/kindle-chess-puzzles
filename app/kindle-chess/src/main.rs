@@ -9,10 +9,13 @@ use chess_core::{
 use chess_render::{
     calculate_damage, compact_damage, draw_sleeping_overlay, render, DisplayMetrics, HitTarget,
 };
+use kindle_app::{
+    clean_regions_for_board_change, DiscoveredCollection, KindleStorage, ProgressStore,
+    ReviewResumeStore, SettingsStore, StoragePaths,
+};
 use kindle_platform::{
-    clean_regions_for_board_change, DeviceEvent, DiscoveredCollection, KindleDisplay,
-    KindleStorage, PowerEvent, PowerEvents, ProgressStore, RefreshPolicy, ReviewResumeStore,
-    ScribeInput, SettingsStore, StoragePaths, TapPolicy, SCRIBE_DPI,
+    DeviceEvent, KindleDisplay, PowerEvent, PowerEvents, RefreshPolicy, ScribeInput, TapPolicy,
+    SCRIBE_DPI,
 };
 use std::collections::VecDeque;
 use std::time::Instant;
@@ -171,7 +174,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
     eprintln!("kindle-chess: tap FILES in the header to switch collections");
 
-    let board_service = kindle_platform::chessnut::BoardService::new();
+    let board_service = kindle_app::chessnut::BoardService::new();
     let mut power = PowerEvents::open()?;
     let mut sleeping = false;
     let mut previous = None;
@@ -232,10 +235,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         let board_before = app.board().clone();
                         let flipped_before = app.flipped();
                         let action = match update {
-                            kindle_platform::chessnut::BoardUpdate::Status(status) => {
+                            kindle_app::chessnut::BoardUpdate::Status(status) => {
                                 Action::BoardStatus(status)
                             }
-                            kindle_platform::chessnut::BoardUpdate::Position(placement) => {
+                            kindle_app::chessnut::BoardUpdate::Position(placement) => {
                                 Action::BoardPosition(placement)
                             }
                         };
@@ -841,7 +844,7 @@ mod tests {
         let (mut progress_store, _) = ProgressStore::open(&storage.paths().progress_file);
         let (mut settings_store, _) = SettingsStore::open(&storage.paths().settings_file);
         let (mut review_store, _) =
-            kindle_platform::ReviewResumeStore::open(&storage.paths().review_resume_file);
+            kindle_app::ReviewResumeStore::open(&storage.paths().review_resume_file);
         app.dispatch(Action::ToggleWorkspace);
         app.dispatch(Action::ReviewNext);
         let effects = app.dispatch(Action::ReviewNext);
@@ -888,8 +891,7 @@ mod tests {
             effects
         ));
         assert!(!review_store.dirty());
-        let (_, loaded) =
-            kindle_platform::ReviewResumeStore::open(&storage.paths().review_resume_file);
+        let (_, loaded) = kindle_app::ReviewResumeStore::open(&storage.paths().review_resume_file);
         let mut restored = make_app();
         assert!(restored
             .restore_review_resume(&loaded.resume.unwrap())

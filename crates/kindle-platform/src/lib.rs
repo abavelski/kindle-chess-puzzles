@@ -7,7 +7,6 @@ mod input;
 mod power;
 mod refresh;
 pub use power::{complete_native_wake, PowerEvent, PowerEvents};
-mod storage;
 
 pub use display::{
     submit_regions, validate_damage, validate_presentable_frame, validate_task04_scribe_state,
@@ -22,19 +21,12 @@ pub use input::{
     TapPolicy, TapRecognizer, TouchEvent, TouchPhase, TouchTransform, TransformError,
     SCRIBE_TOUCH_X, SCRIBE_TOUCH_Y,
 };
-pub use storage::{
-    is_review_collection_filename, DiscoveredCollection, DiscoveredReviewLibrary, KindleStorage,
-    ProgressLoad, ProgressStore, ReviewResumeLoad, ReviewResumeStore, SettingsLoad, SettingsStore,
-    StorageError, StoragePaths, DEFAULT_PROGRESS_FILE, DEFAULT_PUZZLE_DIR, DEFAULT_REVIEW_DIR,
-    DEFAULT_SETTINGS_FILE, PROGRESS_FILE_ENV, PUZZLE_DIR_ENV, REVIEW_DIR_ENV,
-    REVIEW_RESUME_FILE_ENV, SETTINGS_FILE_ENV,
-};
 
 pub use refresh::{
-    classify_region, clean_regions_for_board_change, pack_region, plan_present_regions,
-    ContentClass, PresentRegion, RefreshMode, RefreshPolicy, RefreshStrength,
+    classify_region, pack_region, plan_present_regions, ContentClass, PresentRegion, RefreshMode,
+    RefreshPolicy, RefreshStrength,
 };
 
 pub const PLATFORM_IMPLEMENTED: bool = true;
 
-pub mod chessnut;
+pub mod files;

@@ -1,6 +1,6 @@
 //! Kindle finger/pen discovery, decoding, normalization, and tap recognition.
 
-use chess_render::DisplayMetrics;
+use eink_ui::DisplayMetrics;
 use std::{
     fmt,
     fs::{self, File},

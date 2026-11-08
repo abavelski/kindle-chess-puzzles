@@ -29,12 +29,7 @@ struct ToolbarButtonSpec {
     button: ButtonSpec<'static>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DisplayMetrics {
-    pub width: u32,
-    pub height: u32,
-    pub dpi: u32,
-}
+pub use eink_ui::DisplayMetrics;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LayoutError {
