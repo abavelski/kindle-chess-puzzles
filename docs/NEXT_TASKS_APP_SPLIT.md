@@ -27,8 +27,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Done | No |
 | SPLIT-08 | Two actual Cargo binaries | 07 | Done | No |
 | SPLIT-09 | Separate state, settings and legacy migration | 08 | Done | No |
-| SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Ready | No |
-| SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Blocked | No |
+| SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Done | No |
+| SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Ready | No |
 | SPLIT-12 | Dual-app CI and regression matrix | 10,11 | Blocked | No |
 | SPLIT-13 | Physical Scribe dual-app acceptance | 12 | Blocked | Yes |
 
@@ -129,15 +129,17 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-10 — Product-aware pinned build and staging
 
-**Status:** Ready. **Read:** [build/deploy](BUILD_DEPLOY.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [build/deploy](BUILD_DEPLOY.md).  
 **Likely files:** tools/kindle_build.py, tools/chessnut_build.py, scripts/app.sh and wrapper scripts, tests/test_packaging.py.  
 **First failing tests:** app.sh build/stage puzzles and app.sh build/stage review produce different validated ELF binaries, unique receipt app IDs, artifacts and stages; a cross-app binary/receipt substitution is rejected.  
 **Implementation:** replace the current intentional Review guard with an explicit product registry (Cargo package, binary, source digest, receipt, stage, manifest, runtime root), preserving pinned Zig/FBInk/glibc 2.35 and source licensing. Review must not bundle Chessnut worker if unused.  
 **Acceptance:** verified independent reproducible stages, complete checksums/source archives; legacy puzzle scripts remain compatible. **Fit:** Codex/high risk.
 
+**Evidence (implementation: this task commit, `feat(split): build and stage product-bound Kindle artifacts`):** Explicit registry binds Cargo entrypoint, installed binary, receipt app/package/root, manifest/scriptlet and per-app output directory. Puzzles builds kindle-puzzles and preserves installed kindle-chess/KPM kindle_chess identity; Review builds kindle-game-review/KPM kindle_game_review. App-specific source digests and embedded ELF identities reject cross-app/old-combined substitutions; Review skips worker build/stage. First new packaging test failed because source_digest had no app selector; final focused selector/Review-stage checks → 5 passed, then full packaging and host gates passed. `scripts/app.sh build puzzles`, `stage puzzles`, `build review`, `stage review` (external host venv PATH) all exit 0 with pinned ARMv7/glibc-2.35/FBInk/Zig validation. Repeated real staging/archiving of both apps produced identical SHA256 tar/KPM bytes. Puzzles binary SHA256 `b27b245dfc88e80034a9693c433af73038986fd7c0abdf727063017bc2f35528`; Review `6c9bd1d57e4d0f2b5088d2705cd13683e601fd25ac594c91c0c2421ed2bf383a`. Corresponding source/dependencies and checksums included; no Review runtime worker/libs. Review install/uninstall/launch/deploy intentionally fail closed until SPLIT-11 validates that lifecycle; build/stage are real. No device claim.
+
 ### SPLIT-11 — Independent KPM, scriptlets, install and deploy
 
-**Status:** Blocked by 10. **Read:** [build/deploy](BUILD_DEPLOY.md), [lifecycle](EINK_LIFECYCLE.md).  
+**Status:** Ready. **Read:** [build/deploy](BUILD_DEPLOY.md), [lifecycle](EINK_LIFECYCLE.md).  
 **Likely files:** packaging/kindle manifests, install/uninstall/launch/scriptlets, tools/kindle_build.py deployment, tests/test_packaging.py.  
 **First failing tests:** install A and B, update/uninstall A, assert B's binary/scriptlet/runtime/data all byte-identical; repeat reversed; verify corrupt archive rejection and safe recovery.  
 **Compatibility:** preserve puzzle KPM ID kindle_chess, scriptlet kindle-chess.sh, /mnt/us/kindle-chess. Give Review distinct KPM ID kindle_game_review, scriptlet kindle-game-review.sh, /mnt/us/kindle-game-review, own lock/log paths. Global framebuffer lock remains shared.  

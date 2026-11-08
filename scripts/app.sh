@@ -1,5 +1,5 @@
 #!/bin/sh
-# Transitional CLI; do not silently deploy a combined binary as a second product.
+# Product-aware build/stage/deploy selector.
 set -eu
 if [ "$#" -lt 2 ]; then
     echo 'Usage: scripts/app.sh {build|stage|deploy} {puzzles|review} [options]' >&2

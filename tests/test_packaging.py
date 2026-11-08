@@ -21,12 +21,12 @@ def workflow():
     return module
 
 
-def elf():
+def elf(app='puzzles'):
     data = bytearray(52)
     data[:7] = b'\x7fELF\x01\x01\x01'
     struct.pack_into('<H', data, 18, 40)
     struct.pack_into('<I', data, 36, 0x05000400)
-    return bytes(data) + b'/lib/ld-linux-armhf.so.3\x00GLIBC_2.35\x00'
+    return bytes(data) + b'/lib/ld-linux-armhf.so.3\x00GLIBC_2.35\x00' + f'KINDLE_CHESS_PRODUCT:{app}:v1'.encode()
 
 
 class PackageTests(unittest.TestCase):
@@ -50,10 +50,40 @@ class PackageTests(unittest.TestCase):
         self.chessnut = {'artifacts': {p.name: self.w.sha256(p) for p in bundle.iterdir()},
                         'elf': {name: board.helpers.inspect_elf((bundle / name).read_bytes(), name == 'kindlebt-worker')
                                 for name in ['kindlebt-worker', 'libkindlebt.so']}}
-        self.receipt.write_text(json.dumps({'chessnut': self.chessnut, 'binary_sha256': self.w.sha256(self.binary),
+        self.receipt.write_text(json.dumps({'app': 'puzzles', 'binary': 'kindle-chess', 'package_id': 'kindle_chess', 'runtime_root': '/mnt/us/kindle-chess', 'chessnut': self.chessnut, 'binary_sha256': self.w.sha256(self.binary),
                                            'source_sha256': self.w.source_digest(),
                                            'target': self.w.TARGET, 'checks': 'passed'}))
         self.stage = self.base / 'stage'
+
+    def test_review_stage_is_independent_and_rejects_cross_app_substitution(self):
+        review_binary = self.base / 'review-binary'
+        review_binary.write_bytes(elf('review'))
+        receipt = {'app': 'review', 'binary': 'kindle-game-review',
+                   'package_id': 'kindle_game_review', 'runtime_root': '/mnt/us/kindle-game-review',
+                   'binary_sha256': self.w.sha256(review_binary),
+                   'source_sha256': self.w.source_digest('review'), 'target': self.w.TARGET, 'checks': 'passed'}
+        review_receipt = self.base / 'review.json'
+        review_receipt.write_text(json.dumps(receipt))
+        review_stage = self.base / 'review-stage'
+        self.w.stage(review_binary, review_receipt, review_stage, app='review')
+        self.w.verify_stage(review_stage, app='review')
+        self.assertFalse((review_stage / 'runtime/kindlebt-worker').exists())
+        self.assertFalse((review_stage / 'runtime/lib/libkindlebt.so').exists())
+        self.assertFalse((review_stage / 'runtime/kindle-chess').exists())
+        self.assertEqual(json.loads((review_stage / 'manifest.json').read_text())['id'], 'kindle_game_review')
+        with self.assertRaises(ValueError):
+            self.w.stage(review_binary, review_receipt, self.base / 'wrong-stage', app='puzzles')
+        with self.assertRaises(ValueError):
+            self.w.verify_stage(review_stage, app='puzzles')
+
+    def test_receipt_cannot_relabel_another_products_binary(self):
+        self.binary.write_bytes(elf('review'))
+        receipt = json.loads(self.receipt.read_text())
+        receipt['binary_sha256'] = self.w.sha256(self.binary)
+        self.receipt.write_text(json.dumps(receipt))
+        with self.assertRaises(ValueError): self.stage_build()
+        self.assertNotEqual(self.w.output_dir('puzzles'), self.w.output_dir('review'))
+        self.assertNotEqual(self.w.source_digest('puzzles'), self.w.source_digest('review'))
 
     def test_board_bundle_checksums_and_private_sources(self):
         self.stage_build()
@@ -226,7 +256,8 @@ class BuildGateTests(unittest.TestCase):
         w = workflow()
         with tempfile.TemporaryDirectory() as temporary:
             build_dir = Path(temporary)
-            (build_dir / 'build.json').write_text('old receipt')
+            (build_dir / 'puzzles').mkdir()
+            (build_dir / 'puzzles/build.json').write_text('old receipt')
             with mock.patch.object(w, 'BUILD', build_dir), mock.patch.object(w, 'verify_vendor'), \
                     mock.patch.object(w, 'run', side_effect=subprocess.CalledProcessError(1, 'checks')) as run, \
                     mock.patch.object(w, 'zig_tools') as zig:
@@ -234,7 +265,7 @@ class BuildGateTests(unittest.TestCase):
                     w.build()
                 self.assertEqual(run.call_args.args[0], ['sh', 'scripts/check.sh'])
                 zig.assert_not_called()
-                self.assertFalse((build_dir / 'build.json').exists())
+                self.assertFalse((build_dir / 'puzzles/build.json').exists())
 
     def test_cross_bridge_rebuilds_when_toolchain_changes(self):
         with tempfile.TemporaryDirectory() as temporary:

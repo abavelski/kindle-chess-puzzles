@@ -1,12 +1,23 @@
 # Build, stage and deploy to Kindle Scribe
 
-> **Product status (2026-11-08):** one combined kindle-chess binary is installed. The [split plan](NEXT_TASKS_APP_SPLIT.md) adds truly independent apps; the selector below does **not** build standalone Review yet.
+> **Product status (2026-11-08):** independent Puzzles and Review binaries now have separate pinned build/stage outputs. Review install/launch/deploy stays guarded until SPLIT-11. Device acceptance remains SPLIT-13.
 
-## Transitional app-selection CLI
+## App-selection CLI
 
-Commands: scripts/app.sh build puzzles; scripts/app.sh stage puzzles; scripts/app.sh deploy puzzles --host root@DEVICE_IP --port 2222.
+Use `scripts/app.sh build puzzles` / `scripts/app.sh stage puzzles`, or select
+`review` for its independent build/stage. Legacy build-kindle.sh and
+stage-kindle.sh select Puzzles, now built from kindle-puzzles and installed as
+kindle-chess to preserve the existing package/scriptlet identity. The combined
+entrypoint remains only a compatibility regression target. Deploy selection for
+Review remains explicitly blocked until its installer lifecycle is complete.
 
-At present puzzles targets the **existing combined** verified Scribe pipeline. Legacy build-kindle.sh, stage-kindle.sh and deploy-kindle.sh stay compatible. Selecting review for build/stage/deploy **fails explicitly** until SPLIT-08 through SPLIT-11 add a genuine review binary, separate receipt, stage, KPM ID, runtime root and installer. Do not rename/repackage the combined binary as Review. Once implemented, choose review with the same commands and test isolation of installs, data and display ownership.
+Outputs live under `target/kindle/puzzles/` and `target/kindle/review/`: each has
+its own binary, build.json, stage/, tar and KPM package. Receipts bind selected
+app, installed binary, package/root identity and product-specific source digest.
+ELF validation rejects the other product's embedded identity or an unmarked old
+combined binary. Review has no Chessnut worker/runtime libraries; its source
+archive still contains the complete shared workspace and dependencies.
+Review stage installation/launch scripts currently fail closed pending SPLIT-11.
 
 See [architecture](ARCHITECTURE.md) and [implementation queue](NEXT_TASKS_APP_SPLIT.md).
 
@@ -71,11 +82,11 @@ required on the physical Scribe.
 Outputs:
 
 ```text
-target/kindle/kindle-chess                  optimized, validated release
-target/kindle/build.json                    successful-check/source/binary receipt
-target/kindle/stage/                        inspectable install directory
-target/kindle/kindle-chess.tar              deterministic scp/install archive
-target/kindle/kindle_chess_0.1.0_kindlehf.kpkg  KPM manifest-v2 gzip/tar package
+target/kindle/puzzles/kindle-chess                  optimized, validated release
+target/kindle/puzzles/build.json                    successful-check/source/binary receipt
+target/kindle/puzzles/stage/                        inspectable install directory
+target/kindle/puzzles/kindle-chess.tar              deterministic scp/install archive
+target/kindle/puzzles/kindle_chess_0.1.0_kindlehf.kpkg  KPM manifest-v2 gzip/tar package
 ```
 
 Staging requires a successful receipt matching the exact source tree and

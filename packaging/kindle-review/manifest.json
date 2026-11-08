@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "id": "kindle_game_review",
+  "name": "Kindle Game Review",
+  "author": "Kindle Game Review contributors",
+  "description": "Annotated chess game review for the first-generation Kindle Scribe.",
+  "version": [0, 1, 0],
+  "dependencies": [],
+  "supported_platforms": ["kindlehf"]
+}
