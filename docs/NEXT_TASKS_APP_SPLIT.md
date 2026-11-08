@@ -3,7 +3,7 @@
 **Created:** 2026-11-08. **Priority:** product/application reuse; Kobo and other readers come later.  
 **Present:** one kindle-chess executable/package with two workspace modes.  
 **Goal:** two genuinely independent applications that reuse common chess and e-ink components.  
-**Status:** implementation NOT started beyond documentation and a guarded CLI entrypoint.
+**Status:** implementation underway on `app-split`; see per-task evidence.
 
 ## How Codex should execute this plan
 
@@ -18,8 +18,8 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | ID | Deliverable | Depends on | Status | Human device check |
 | --- | --- | --- | --- | --- |
 | SPLIT-00 | Documentation/archive and guarded CLI selector | — | Done (CI verification pending) | No |
-| SPLIT-01 | Freeze golden compatibility baseline | 00 | Ready | No |
-| SPLIT-02 | Generic chess model and analysis validation | 01 | Blocked | No |
+| SPLIT-01 | Freeze golden compatibility baseline | 00 | Done | No |
+| SPLIT-02 | Generic chess model and analysis validation | 01 | Ready | No |
 | SPLIT-03 | Puzzle-only product state/actions | 02 | Blocked | No |
 | SPLIT-04 | Review-only product state/actions | 02 | Blocked | No |
 | SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Blocked | No |
@@ -44,14 +44,16 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-01 — Behavioral baseline and contracts
 
-**Status:** Ready. **Read:** [puzzle format](PUZZLE_FORMAT.md), [review behavior](GAME_REVIEW.md), [physical board](PHYSICAL_BOARD.md), [settings](SETTINGS.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [puzzle format](PUZZLE_FORMAT.md), [review behavior](GAME_REVIEW.md), [physical board](PHYSICAL_BOARD.md), [settings](SETTINGS.md).  
 **Likely files:** crates/chess-core/tests, crates/chess-render/tests, app/kindle-chess/src/main.rs tests, tests/test_packaging.py, tests/fixtures.  
 **First failing tests:** two independent sessions demonstrate that switching/review navigation leaves serialized puzzle progress unchanged and puzzle navigation leaves review resume unchanged; snapshot puzzle grading/promotions/analysis and review mainline/variation/FREE, settings migration, Chessnut input/seat and sleep/exit, plus stable app/package identities.  
 **Acceptance:** add named golden compatibility cases, record their exact commands and outputs here; existing combined app still passes full host check. No production behavior change. **Fit:** Codex.
 
+**Evidence (implementation: this task commit, `test(split): freeze compatibility baseline`):** Added `split_golden_two_restored_sessions_keep_progress_and_resume_independent`, exact serialized solved-progress fixture, stable installed identity test, and [named golden matrix](../tests/fixtures/split-baseline/README.md). Initial focused compile failed because the golden fixture did not exist; replacing its contents with `{}` then produced the expected byte assertion failure (0 passed / 1 failed). Restoring the frozen v1 bytes: `cargo test --locked -p chess-core --test split_baseline` → 1 passed. `python3 -m unittest tests/test_split_baseline.py` → 1 passed. `PATH=/tmp/kindle-split-venv/bin:$PATH scripts/check.sh` → exit 0 (fmt, locked clippy/workspace tests, existing reviewed checksums/damage reconstruction, Python/tooling/lifecycle/package/selector gates). Host Python dependencies installed from `requirements-tools.txt` in an external temporary venv. No production behavior or package change; no device claim.
+
 ### SPLIT-02 — Common chess model + generic analysis validation
 
-**Status:** Blocked by 01. **Read:** [architecture](ARCHITECTURE.md), [puzzle format](PUZZLE_FORMAT.md), [review format](GAME_REVIEW_FORMAT.md).  
+**Status:** Ready. **Read:** [architecture](ARCHITECTURE.md), [puzzle format](PUZZLE_FORMAT.md), [review format](GAME_REVIEW_FORMAT.md).  
 **Likely files:** chess-core board.rs/fen.rs/uci.rs/analysis.rs/puzzle.rs/review.rs, crate Cargo.toml files.  
 **First failing tests:** review-only analysis tree without a puzzle solution is valid; a puzzle with legacy solution/tree mismatch is still rejected.  
 **Implementation:** separate reusable Board/FEN/UCI/analysis tree from puzzle-specific compatibility projection. Introduce a clean chess-model crate or comparable proven boundary; keep public compatibility adapters during migration.  
