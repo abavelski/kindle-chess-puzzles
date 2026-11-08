@@ -31,11 +31,12 @@ class AppCliTests(unittest.TestCase):
             tool.main()
             build.assert_called_once_with('review')
 
-    def test_review_deploy_stays_guarded_until_install_lifecycle_exists(self):
+    def test_review_deploy_dispatches_only_to_selected_product(self):
         tool = load_tool()
-        with mock.patch.object(sys, 'argv', ['kindle_build.py', 'deploy', '--app', 'review']), mock.patch('sys.stderr'), mock.patch.object(tool, 'deploy') as deploy:
-            with self.assertRaises(SystemExit): tool.main()
-            deploy.assert_not_called()
+        with mock.patch.object(sys, 'argv', ['kindle_build.py', 'deploy', '--app', 'review', '--host', 'root@device']), mock.patch.object(tool, 'deploy') as deploy:
+            tool.main()
+            self.assertEqual(deploy.call_args.kwargs, {'app': 'review'})
+            self.assertEqual(deploy.call_args.args[0], tool.output_dir('review') / 'stage')
 
     def test_unknown_app_fails_validation(self):
         tool = load_tool()

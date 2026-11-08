@@ -240,7 +240,7 @@ def stage(binary, receipt_path, destination, app='puzzles'):
     if destination.is_symlink() or (destination.exists() and not (destination / 'SHA256SUMS').is_file()):
         raise ValueError('refusing to replace a directory that is not an app-owned stage')
     if destination.exists():
-        verify_stage(destination, app=app)
+        verify_stage(destination, app=app, allow_pre_marker=True)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=destination.parent) as temporary:
         contents = Path(temporary)
@@ -248,6 +248,7 @@ def stage(binary, receipt_path, destination, app='puzzles'):
         runtime.mkdir()
         shutil.copyfile(binary, runtime / spec['binary'])
         shutil.copyfile(receipt_path, runtime / 'build.json')
+        (runtime / 'app-id').write_text(app + '\n')
         shutil.copyfile(ROOT / 'scripts/kindle_launch.sh', runtime / 'kindle_launch.sh')
         for name in ['launch.sh', 'install.sh', 'uninstall.sh', 'kindle-chess.sh', 'package-launch.sh']:
             target = (runtime / name if name == 'launch.sh' else
@@ -256,8 +257,13 @@ def stage(binary, receipt_path, destination, app='puzzles'):
             text = (ROOT / 'packaging/kindle' / name).read_text()
             if app == 'review':
                 text = text.replace('kindle-chess', 'kindle-game-review').replace('Kindle Chess Puzzles', 'Kindle Game Review')
-                if name in ('launch.sh', 'install.sh', 'uninstall.sh'):
-                    text = '#!/bin/sh\necho "Review install/launch awaits SPLIT-11" >&2\nexit 1\n'
+                text = text.replace('expected_app=puzzles', 'expected_app=review')
+                if name == 'launch.sh':
+                    start = text.index('export KINDLE_CHESS_LOG=')
+                    text = text[:start] + ('export KINDLE_CHESS_LOG="$root/logs/lifecycle.log"\n'
+                        'export KINDLE_CHESS_LOCK=${KINDLE_GAME_REVIEW_LOCK:-/tmp/kindle-game-review.lock}\n'
+                        'export KINDLE_GAME_REVIEW_ROOT=${KINDLE_GAME_REVIEW_ROOT:-$root}\n'
+                        'exec sh "$runtime/kindle_launch.sh" "$runtime/kindle-game-review" "$@"\n')
             target.write_text(text)
         shutil.copyfile(ROOT / spec['manifest'], contents / 'manifest.json')
         notices = runtime / 'licenses'
@@ -323,7 +329,7 @@ def stage(binary, receipt_path, destination, app='puzzles'):
     print(f'Staged {destination}')
 
 
-def verify_stage(directory, app=None):
+def verify_stage(directory, app=None, allow_pre_marker=False):
     directory = Path(directory)
     receipt = json.loads((directory / 'runtime/build.json').read_text())
     app = receipt.get('app') if app is None else app
@@ -344,6 +350,12 @@ def verify_stage(directory, app=None):
             raise ValueError(f'staged checksum mismatch: {name}')
     validate_product_elf(directory / 'runtime' / spec['binary'], app)
     manifest = json.loads((directory / 'manifest.json').read_text())
+    marker = directory / 'runtime/app-id'
+    if marker.exists():
+        if marker.read_text().strip() != app:
+            raise ValueError('runtime product marker mismatch')
+    elif not allow_pre_marker:
+        raise ValueError('runtime product marker missing')
     if manifest.get('id') != spec['package_id']:
         raise ValueError('stage manifest product mismatch')
     if app == 'review' and any((directory / 'runtime' / name).exists() for name in ('kindle-chess', 'kindlebt-worker', 'lib/libkindlebt.so')):
@@ -385,14 +397,13 @@ def kpkg(directory, output):
 
 
 def deploy(directory, host, port, app='puzzles'):
-    if app == 'review':
-        raise ValueError('Review deployment awaits SPLIT-11')
+    spec = product(app)
     if not re.fullmatch(r'(?:[a-zA-Z0-9_]+@)?[a-zA-Z0-9][a-zA-Z0-9.-]*', host) or not 1 <= port <= 65535:
         raise ValueError('use user@hostname or user@IPv4 and a valid SSH port')
-    verify_stage(directory)
+    verify_stage(directory, app=app)
     token = uuid.uuid4().hex
-    remote_tar = f'/mnt/us/kindle-chess-upload-{token}.tar'
-    incoming = f'/mnt/us/kindle-chess-incoming-{token}'
+    remote_tar = f"{spec['runtime_root']}-upload-{token}.tar"
+    incoming = f"{spec['runtime_root']}-incoming-{token}"
     with tempfile.TemporaryDirectory() as temporary:
         tar_path = Path(temporary) / 'install.tar'
         archive(directory, tar_path)
@@ -400,7 +411,8 @@ def deploy(directory, host, port, app='puzzles'):
         # Fixed paths + generated hex token only. No user text in remote shell code.
         command = (f"set -eu; trap 'rm -rf {incoming}; rm -f {remote_tar}' EXIT; "
                    f'mkdir {incoming}; cd {incoming}; tar xf {remote_tar}; '
-                   'sh ./install.sh /mnt/us/kindle-chess')
+                   f"sh ./install.sh {spec['runtime_root']}; "
+                   + '; '.join(f"echo '{sha256(Path(directory) / 'runtime' / name)}  {spec['runtime_root']}/runtime/{name}' | sha256sum -c -" for name in [spec['binary'], 'build.json', 'source.tar']))
         run(['ssh', '-p', str(port), host, command])
     print('Runtime and library scriptlet installed; user data preserved.')
 
@@ -423,9 +435,8 @@ def main():
         archive(stage_dir, destination / f"{spec['binary']}.tar")
         kpkg(stage_dir, destination / f"{spec['package_id']}_0.1.0_kindlehf.kpkg")
     elif args.command == 'deploy':
-        if args.app == 'review': parser.error('Review deployment awaits SPLIT-11')
         if not args.host: parser.error('deploy requires --host user@host')
-        deploy(stage_dir, args.host, args.port)
+        deploy(stage_dir, args.host, args.port, app=args.app)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 # ♟ Kindle Chess Puzzles
 
-> **Transition (2026-11-08):** Puzzles and Game Review still run in **one executable**. [Codex split plan](docs/NEXT_TASKS_APP_SPLIT.md) targets two independent apps sharing chess and e-ink components. Additional e-readers are deferred. See [active docs](docs/README.md).
+> **Transition (2026-11-08):** Puzzles and Game Review now have **independent executables and packages** sharing chess and e-ink components. [The split tracker](docs/NEXT_TASKS_APP_SPLIT.md) records host/build evidence; dual-app physical Scribe acceptance is still pending. Additional e-readers are deferred. See [active docs](docs/README.md).
 
 **A native, e-ink chess puzzle app for Kindle Scribe.** Solve tactics, browse book-style solutions, and keep your progress on a device that feels much closer to a paper chess book than a phone.
 
@@ -81,10 +81,11 @@ scripts/check.sh
 scripts/build-kindle.sh
 scripts/stage-kindle.sh
 
-# Transitional selector (still builds the existing combined app):
+# Independent product selector:
 scripts/app.sh build puzzles
 scripts/app.sh stage puzzles
-# Review selection is blocked until there is a separate Review binary/package.
+scripts/app.sh build review
+scripts/app.sh stage review
 ```
 
 Deploy to a configured Scribe over SSH:

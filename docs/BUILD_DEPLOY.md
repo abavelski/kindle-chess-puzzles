@@ -1,6 +1,6 @@
 # Build, stage and deploy to Kindle Scribe
 
-> **Product status (2026-11-08):** independent Puzzles and Review binaries now have separate pinned build/stage outputs. Review install/launch/deploy stays guarded until SPLIT-11. Device acceptance remains SPLIT-13.
+> **Product status (2026-11-08):** independent Puzzles and Review binaries now have separate pinned build/stage outputs. Both products have independent install/launch/deploy workflows. Physical device acceptance remains SPLIT-13.
 
 ## App-selection CLI
 
@@ -8,8 +8,7 @@ Use `scripts/app.sh build puzzles` / `scripts/app.sh stage puzzles`, or select
 `review` for its independent build/stage. Legacy build-kindle.sh and
 stage-kindle.sh select Puzzles, now built from kindle-puzzles and installed as
 kindle-chess to preserve the existing package/scriptlet identity. The combined
-entrypoint remains only a compatibility regression target. Deploy selection for
-Review remains explicitly blocked until its installer lifecycle is complete.
+entrypoint remains only a compatibility regression target. Select either app for deploy, for example `scripts/app.sh deploy review --host root@DEVICE_IP --port 2222`.
 
 Outputs live under `target/kindle/puzzles/` and `target/kindle/review/`: each has
 its own binary, build.json, stage/, tar and KPM package. Receipts bind selected
@@ -17,7 +16,7 @@ app, installed binary, package/root identity and product-specific source digest.
 ELF validation rejects the other product's embedded identity or an unmarked old
 combined binary. Review has no Chessnut worker/runtime libraries; its source
 archive still contains the complete shared workspace and dependencies.
-Review stage installation/launch scripts currently fail closed pending SPLIT-11.
+Each package installs only its own runtime/scriptlet; Review never bundles or starts the board worker.
 
 See [architecture](ARCHITECTURE.md) and [implementation queue](NEXT_TASKS_APP_SPLIT.md).
 
@@ -287,4 +286,39 @@ app resumes from its older saved position. To re-test fallback, back up and
 explicitly remove only the new app's settings/resume files while closed; never
 remove legacy files or puzzle progress. Keep game filenames and IDs stable when
 manually copying a library into the new games directory. Package/install
-isolation and real device recovery remain SPLIT-11/13 gates.
+isolation is host-tested; real device recovery remains the SPLIT-13 gate.
+
+## Independent installation and recovery — SPLIT-11
+
+| Product | KPM ID | Library scriptlet | Installed binary | Root / default app lock |
+| --- | --- | --- | --- | --- |
+| Puzzles | kindle_chess | kindle-chess.sh | runtime/kindle-chess | /mnt/us/kindle-chess; /tmp/kindle-chess.lock |
+| Review | kindle_game_review | kindle-game-review.sh | runtime/kindle-game-review | /mnt/us/kindle-game-review; /tmp/kindle-game-review.lock |
+
+Both use the global `/tmp/kindle-chess-display.lock` and the same supervisor
+implementation. Each runtime launcher writes logs beneath its own root. Review
+exports KINDLE_GAME_REVIEW_ROOT and its own app lock; Puzzles retains existing
+environment/path compatibility. Library scriptlets retain `# DontUseFBInk`.
+
+Install/update/uninstall validates root/runtime app markers and rejects another
+product's root. The retained `.kindle-app-id` identifies a root even after
+uninstall; it is never silently reassigned. A pre-split unmarked Puzzles runtime
+can upgrade safely. Payload checksums are verified before the old runtime is
+changed. A temporary runtime and atomic scriptlet swap retain the old runtime
+until commit; failed final swaps restore it. Unknown runtime.new/runtime.old
+content is preserved for manual inspection instead of removed. Source games,
+puzzles, progress, settings, resume, private configuration and logs are retained
+on uninstall. Foreign library documents are preserved.
+
+For an interrupted update, close the selected app and inspect only that root's
+runtime, runtime.old, runtime.new and .install-lock. A verified same-product
+runtime.old can be restored to runtime if runtime is absent; the next valid
+installer also handles that case. Do not discard an unknown directory or remove
+a live install lock. Keep both user-data roots and both library scriptlets backed
+up before the device checkpoint. Display-owner recovery is documented in
+[EINK_LIFECYCLE.md](EINK_LIFECYCLE.md#split-runtime-and-global-ownership--split-07-2026-11-08).
+
+Deploy verifies the selected stage before scp, uses product-specific incoming
+paths, installs to that product's fixed root, and checks installed binary,
+build receipt and source archive SHA256 over SSH. Host tests stub the network;
+no split package has yet been claimed verified on the physical Scribe.

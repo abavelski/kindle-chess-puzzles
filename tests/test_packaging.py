@@ -85,6 +85,75 @@ class PackageTests(unittest.TestCase):
         self.assertNotEqual(self.w.output_dir('puzzles'), self.w.output_dir('review'))
         self.assertNotEqual(self.w.source_digest('puzzles'), self.w.source_digest('review'))
 
+    def test_coinstall_update_uninstall_preserve_the_other_product_and_its_data(self):
+        self.stage_build()
+        binary = self.base / 'review-binary'
+        binary.write_bytes(elf('review'))
+        receipt_path = self.base / 'review.json'
+        receipt = {'app': 'review', 'binary': 'kindle-game-review',
+                   'package_id': 'kindle_game_review', 'runtime_root': '/mnt/us/kindle-game-review',
+                   'binary_sha256': self.w.sha256(binary), 'source_sha256': self.w.source_digest('review'),
+                   'target': self.w.TARGET, 'checks': 'passed'}
+        receipt_path.write_text(json.dumps(receipt))
+        review_stage = self.base / 'review-stage'
+        self.w.stage(binary, receipt_path, review_stage, app='review')
+        roots = [self.base / 'puzzles-root', self.base / 'review-root']
+        stages = [self.stage, review_stage]
+        scriptlets = ['kindle-chess.sh', 'kindle-game-review.sh']
+        def install(stage, root):
+            return subprocess.run(['sh', str(stage / 'install.sh'), str(root)], capture_output=True, text=True)
+        def snapshot(root):
+            return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in root.rglob('*') if p.is_file()}
+        for stage, root in zip(stages, roots):
+            for directory in ['puzzles', 'games', 'state', 'logs']:
+                (root / directory).mkdir(parents=True)
+                (root / directory / 'user-file').write_bytes(b'opaque user data')
+            result = install(stage, root)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        for selected in [0, 1]:
+            other = 1 - selected
+            before = snapshot(roots[other])
+            document = self.base / 'documents' / scriptlets[other]
+            document_bytes = document.read_bytes()
+            artifact = self.binary if selected == 0 else binary
+            attestation = self.receipt if selected == 0 else receipt_path
+            artifact.write_bytes(artifact.read_bytes() + b' updated product')
+            updated = json.loads(attestation.read_text())
+            updated['binary_sha256'] = self.w.sha256(artifact)
+            attestation.write_text(json.dumps(updated))
+            self.w.stage(artifact, attestation, stages[selected], app='puzzles' if selected == 0 else 'review')
+            self.assertEqual(install(stages[selected], roots[selected]).returncode, 0)
+            # Even an explicitly misrouted root must not overwrite the other app.
+            self.assertNotEqual(install(stages[selected], roots[other]).returncode, 0)
+            wrong_uninstall = subprocess.run(['sh', str(stages[selected] / 'uninstall.sh'), str(roots[other])], capture_output=True)
+            self.assertNotEqual(wrong_uninstall.returncode, 0)
+            subprocess.run(['sh', str(stages[selected] / 'uninstall.sh'), str(roots[selected])], check=True, capture_output=True)
+            self.assertEqual(snapshot(roots[other]), before)
+            self.assertEqual(document.read_bytes(), document_bytes)
+            for directory in ['puzzles', 'games', 'state', 'logs']:
+                self.assertEqual((roots[selected] / directory / 'user-file').read_bytes(), b'opaque user data')
+            self.assertEqual(install(stages[selected], roots[selected]).returncode, 0)
+        with mock.patch.object(self.w, 'run') as remote:
+            self.w.deploy(review_stage, 'root@device', 2222, app='review')
+            command = remote.call_args_list[-1].args[0][-1]
+            self.assertIn('/mnt/us/kindle-game-review/runtime/source.tar', command)
+            self.assertIn('sha256sum -c -', command)
+            self.assertNotIn('/mnt/us/kindle-chess/', command)
+        before = snapshot(roots[1])
+        (review_stage / 'runtime/kindle-game-review').write_bytes(b'corrupt payload')
+        self.assertNotEqual(install(review_stage, roots[1]).returncode, 0)
+        self.assertEqual(snapshot(roots[1]), before)
+        bad_archive = self.base / 'corrupt.tar'
+        bad_archive.write_bytes(b'corrupt archive bytes')
+        incoming = self.base / 'incoming'
+        incoming.mkdir()
+        failed = subprocess.run(['sh', '-c', 'tar xf "$1" && sh ./install.sh "$2"',
+                                 'sh', str(bad_archive), str(roots[1])], cwd=incoming, capture_output=True)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertEqual(snapshot(roots[1]), before)
+
+
     def test_board_bundle_checksums_and_private_sources(self):
         self.stage_build()
         self.assertTrue((self.stage / 'runtime/kindlebt-worker').stat().st_mode & 0o111)
@@ -232,6 +301,52 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(document.read_text(), 'someone else owns this document')
         subprocess.run(['sh', str(self.stage / 'uninstall.sh'), str(root)], check=True)
         self.assertEqual(document.read_text(), 'someone else owns this document')
+
+    def test_verified_pre_marker_stage_can_upgrade_but_cannot_publish_as_new(self):
+        self.stage_build()
+        (self.stage / 'runtime/app-id').unlink()
+        sums = self.stage / 'SHA256SUMS'
+        sums.write_text(''.join(line + '\n' for line in sums.read_text().splitlines() if not line.endswith('  runtime/app-id')))
+        with self.assertRaises((ValueError, OSError)): self.w.verify_stage(self.stage)
+        self.stage_build()
+        self.w.verify_stage(self.stage)
+        self.assertEqual((self.stage / 'runtime/app-id').read_text().strip(), 'puzzles')
+
+    def test_legacy_upgrade_failed_scriptlet_swap_and_unknown_runtime_recovery(self):
+        self.stage_build()
+        root = self.base / 'legacy-root'
+        (root / 'runtime').mkdir(parents=True)
+        (root / 'runtime/kindle-chess').write_bytes(b'pre-split combined runtime')
+        (root / 'state').mkdir()
+        (root / 'state/progress.json').write_bytes(b'future progress bytes')
+        self.assertEqual(self.install(root).returncode, 0)
+        self.assertEqual((root / '.kindle-app-id').read_text().strip(), 'puzzles')
+        before = {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+        binary = self.binary.read_bytes() + b' updated'
+        self.binary.write_bytes(binary)
+        receipt = json.loads(self.receipt.read_text())
+        receipt['binary_sha256'] = self.w.sha256(self.binary)
+        self.receipt.write_text(json.dumps(receipt))
+        self.stage_build()
+        commands = self.base / 'commands'
+        commands.mkdir()
+        (commands / 'mv').write_text('#!/bin/sh\n[ "$2" != "$FAIL_DOCUMENT" ] || exit 9\nexec /bin/mv "$@"\n')
+        (commands / 'mv').chmod(0o755)
+        result = subprocess.run(['sh', str(self.stage / 'install.sh'), str(root)], capture_output=True,
+                                env=dict(os.environ, PATH=str(commands) + os.pathsep + os.environ['PATH'],
+                                         FAIL_DOCUMENT=str(root.parent / 'documents/kindle-chess.sh')))
+        self.assertNotEqual(result.returncode, 0)
+        after = {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+        self.assertEqual(after, before, 'failed final swap restores the prior complete runtime')
+        unknown = root / 'runtime.new'
+        unknown.mkdir()
+        (unknown / 'user-file').write_bytes(b'unknown bytes')
+        self.assertNotEqual(self.install(root).returncode, 0)
+        self.assertEqual((unknown / 'user-file').read_bytes(), b'unknown bytes')
+        (unknown / 'user-file').unlink()
+        unknown.rmdir()
+        self.assertEqual(self.install(root).returncode, 0)
+        self.assertEqual((root / 'state/progress.json').read_bytes(), b'future progress bytes')
 
     def test_launcher_logs_architecture_failure_before_running_binary(self):
         self.stage_build()

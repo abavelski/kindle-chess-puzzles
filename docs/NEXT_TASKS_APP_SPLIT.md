@@ -28,7 +28,7 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-08 | Two actual Cargo binaries | 07 | Done | No |
 | SPLIT-09 | Separate state, settings and legacy migration | 08 | Done | No |
 | SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Done | No |
-| SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Ready | No |
+| SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Done | No |
 | SPLIT-12 | Dual-app CI and regression matrix | 10,11 | Blocked | No |
 | SPLIT-13 | Physical Scribe dual-app acceptance | 12 | Blocked | Yes |
 
@@ -139,15 +139,17 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-11 — Independent KPM, scriptlets, install and deploy
 
-**Status:** Ready. **Read:** [build/deploy](BUILD_DEPLOY.md), [lifecycle](EINK_LIFECYCLE.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [build/deploy](BUILD_DEPLOY.md), [lifecycle](EINK_LIFECYCLE.md).  
 **Likely files:** packaging/kindle manifests, install/uninstall/launch/scriptlets, tools/kindle_build.py deployment, tests/test_packaging.py.  
 **First failing tests:** install A and B, update/uninstall A, assert B's binary/scriptlet/runtime/data all byte-identical; repeat reversed; verify corrupt archive rejection and safe recovery.  
 **Compatibility:** preserve puzzle KPM ID kindle_chess, scriptlet kindle-chess.sh, /mnt/us/kindle-chess. Give Review distinct KPM ID kindle_game_review, scriptlet kindle-game-review.sh, /mnt/us/kindle-game-review, own lock/log paths. Global framebuffer lock remains shared.  
 **Acceptance:** no cross-product deletes or overwrites, no user-data deletion, matching manifest and deployed source attestation. **Fit:** Codex/high risk.
 
+**Evidence (implementation: this task commit, `feat(split): isolate install scriptlets and deployment lifecycles`):** Shared installer/uninstaller templates now render independent product identities and refuse another product's root; retained root markers prevent reassignment after uninstall. Puzzles legacy unmarked runtimes can upgrade. Payload validation precedes replacement, temporary runtime/scriptlet commit retains rollback, unknown runtime directories and foreign library documents remain untouched. Review launch uses its own root/log/app lock and shared supervisor/global display ownership. Deploy selects product-specific incoming/root paths and verifies installed binary/receipt/source SHA over SSH. First co-installation test failed on guarded Review installer; after implementation, both update/uninstall directions preserve the other's runtime/data/scriptlet bytes, including misrouted-root refusals. Failure-injected final scriptlet swap restores the prior runtime; legacy upgrade, unknown-directory and corrupt archive/payload cases pass. Network tests are stubbed (no device deploy). Pre-marker stage replacement initially refused the old local stage; added a failing-then-passing regression and verified-only upgrade path while publish/deploy checks remain strict. Final `scripts/app.sh build/stage puzzles` and `build/stage review` (host venv PATH) → exit 0, including full host gates and pinned builds. Strict verify_stage passes both. Puzzles KPM SHA256 `4a27768984c9b7c000893f1c035c6d9acb633179b300aa1fc9da4dc7e2e4181f`; Review KPM `0a0af52be7b41f19f4d2f2b0a2fbf3ad7d8687f23ba396413bf6b36499a826b7`. [Install/recovery contract](BUILD_DEPLOY.md#independent-installation-and-recovery--split-11). Physical acceptance remains SPLIT-13.
+
 ### SPLIT-12 — Host/CI two-product matrix
 
-**Status:** Blocked by 10,11. **Read:** [testing](TESTING.md), [build/deploy](BUILD_DEPLOY.md).  
+**Status:** Ready. **Read:** [testing](TESTING.md), [build/deploy](BUILD_DEPLOY.md).  
 **Likely files:** .github/workflows/ci.yml, scripts/check.sh, product tests and packaging tests.  
 **First failing tests:** CI fails if one artifact/receipt/manifest missing, wrong app selected, wrong binary staged or Review unexpectedly bundles puzzle/Chessnut assets.  
 **Acceptance:** single host regression suite and both product ARMv7/glibc-2.35 build/stage jobs pass from clean checkout; publish distinct package names/receipts; no physical claim. **Fit:** Codex.

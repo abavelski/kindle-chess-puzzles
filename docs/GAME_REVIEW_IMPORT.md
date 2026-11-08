@@ -1,5 +1,7 @@
 # Importing and updating review games
 
+> Standalone Review now uses `/mnt/us/kindle-game-review/games` and its own settings/resume root. It reads legacy games/state without modifying them when new inputs are absent; see [fallback and rollback](BUILD_DEPLOY.md#standalone-review-data-and-legacy-fallback--split-09). Standalone launches directly into Review and has no workspace toggle. The combined-mode instructions below describe the preserved behavioral baseline. Dual-app device acceptance remains pending.
+
 Game Review accepts precomputed JSON generated on your computer. PGN parsing and
 legal move validation run only in the host converter; the Kindle displays stored
 positions. Task 48 verifies this workflow on the host. Task 49 physical Scribe acceptance
