@@ -1,6 +1,6 @@
 # Settings architecture
 
-> **Split constraint:** preserve both existing workspace settings profiles and schema version checks. Standalone Review now has its own settings root and tested read-only legacy fallback ([SPLIT-09](NEXT_TASKS_APP_SPLIT.md)); per-app packaging and device acceptance are still pending.
+> **Split constraint:** preserve both existing workspace settings profiles and schema version checks. Standalone Review now has its own settings root and tested read-only legacy fallback ([SPLIT-09](../archive/tasks/implemented/app-split.md)); per-app packaging is complete and the owner accepted both apps on the device on 2026-11-08.
 
 
 Settings are application preferences, not puzzle data and not learning progress.

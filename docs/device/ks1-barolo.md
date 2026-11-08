@@ -2144,7 +2144,7 @@ under the ignored `data/` directory. Relaunch reloads the updated review library
 this transfer verification does not assert a new physical visual checkpoint.
 
 Future board marks are described in the
-[deferred PGN annotation proposal](../PGN_BOARD_ANNOTATIONS.md).
+[deferred PGN annotation proposal](../../archive/docs/PGN_BOARD_ANNOTATIONS.md).
 
 #### Task 50 prepared deployment — 2026-10-07
 
@@ -2285,7 +2285,9 @@ switch workspaces and exit/relaunch to check independently restored settings.
 
 ## SPLIT-13 — Dual-app Scribe checkpoint prepared 2026-11-08
 
-**Status: Waiting for device.** Branch `app-split`, implementation `0a183b0`.
+**Status: Done — owner device acceptance 2026-11-08.** Branch `app-split`, implementation `0a183b0`.
+The preparation/deployment notes below retain the evidence available at each stage;
+the final owner acceptance is recorded at the end of this checkpoint.
 At preparation, neither split app had been deployed or launched. The deployment
 record below reconfirms firmware 5.19.6; physical launch/behavior remain pending.
 The local clean-source host suites, pinned ARMv7/glibc-2.35 builds, stages and
@@ -2345,7 +2347,7 @@ Both packages include matching receipt, checksums, source and licenses.
    puzzle progress byte-identical. Intentional puzzle/settings changes should
    be identified before comparing manifests.
 
-### Pending human acceptance matrix
+### Preparation-time human acceptance matrix
 
 | Check | Required observation/evidence | Status |
 | --- | --- | --- |
@@ -2440,3 +2442,27 @@ Both library entries are ready for human launch/testing. Only SSH installation,
 artifact/loader checks and preservation checks are evidenced here. The remaining
 physical acceptance matrix, recovery exercise and owner sign-off are pending;
 SPLIT-13 remains Waiting for device and `app-split` remains unmerged.
+
+
+### SPLIT-13 owner acceptance — 2026-11-08
+
+The device owner reported that the app-split change “is verified on the device.
+Everything works fine,” then explicitly requested merge of the feature branch to
+`main`, push of `main`, documentation updates and archival of the finished plan.
+SPLIT-13 is **Done** on this owner-reported device acceptance. This supersedes
+the preparation/deployment-time pending status above.
+
+The accepted deployment is the firmware **5.19.6** installation of implementation
+`0a183b0` recorded above. Its Puzzles binary SHA256 is
+`fc47d509771f375840074c1d051a568eff9f28db2c237cab125d350b128ad089`;
+Review is `cf4adc3d4ec93acc9112667929336411b8c9c4ac8ec64cdb2a7cacc6bacbd3f5`.
+The selected-artifacts table retains the package/source hashes; deployment
+attestation and backup/data-preservation commands/results are recorded above.
+
+This is the owner's overall functional acceptance, without separate per-row
+observations. No new device commands or recovery/rollback exercise were performed
+for this closeout. The scoped recovery procedure and verified backups remain
+available; individual failure/recovery, destructive update/uninstall and rollback
+exercises are not independently evidenced by this report. Automatic Chessnut
+reply motion and historically ineffective STOP retain their previous unverified
+status. No broader Bluetooth acceptance is inferred.

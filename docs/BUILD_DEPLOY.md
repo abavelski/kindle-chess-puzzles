@@ -1,6 +1,6 @@
 # Build, stage and deploy to Kindle Scribe
 
-> **Product status (2026-11-08):** independent Puzzles and Review binaries now have separate pinned build/stage outputs. Both products have independent install/launch/deploy workflows. Physical device acceptance remains SPLIT-13.
+> **Product status (2026-11-08):** independent Puzzles and Review binaries now have separate pinned build/stage outputs. Both products have independent install/launch/deploy workflows. The owner accepted both apps on the physical Scribe on 2026-11-08.
 
 ## App-selection CLI
 
@@ -18,7 +18,7 @@ combined binary. Review has no Chessnut worker/runtime libraries; its source
 archive still contains the complete shared workspace and dependencies.
 Each package installs only its own runtime/scriptlet; Review never bundles or starts the board worker.
 
-See [architecture](ARCHITECTURE.md) and [implementation queue](NEXT_TASKS_APP_SPLIT.md).
+See [architecture](ARCHITECTURE.md) and [archived implementation](../archive/tasks/implemented/app-split.md).
 
 
 Task 08's automation targets the measured first-generation Scribe (Barolo,
@@ -286,7 +286,7 @@ app resumes from its older saved position. To re-test fallback, back up and
 explicitly remove only the new app's settings/resume files while closed; never
 remove legacy files or puzzle progress. Keep game filenames and IDs stable when
 manually copying a library into the new games directory. Package/install
-isolation is host-tested; real device recovery remains the SPLIT-13 gate.
+isolation is host-tested. Owner device acceptance is recorded under SPLIT-13; individual recovery exercises were not separately reported.
 
 ## Independent installation and recovery — SPLIT-11
 
@@ -321,16 +321,17 @@ up before the device checkpoint. Display-owner recovery is documented in
 Deploy verifies the selected stage before scp, uses product-specific incoming
 paths, installs to that product's fixed root, and checks installed binary,
 build receipt and source archive SHA256 over SSH. Host tests stub the network;
-no split package has yet been claimed verified on the physical Scribe.
+both split packages were deployed with matching hashes and subsequently accepted by the device owner.
 
 
 ## Dual-app physical acceptance — SPLIT-13
 
-The tested local artifacts and pending installation/backup, data-preservation,
-launch/power/global-lock, update/uninstall and SSH rollback checklist are in the
-[2026-11-08 Scribe checkpoint](device/ks1-barolo.md#split-13--dual-app-scribe-checkpoint-prepared-2026-11-08).
-Both split apps were [deployed with verified data preservation](device/ks1-barolo.md#split-13-deployment--2026-11-08)
-on 2026-11-08. Physical launch/behavior acceptance remains pending. Record
-observations and owner sign-off there before
-marking SPLIT-13 Done or reintegrating `app-split`. Automatic Chessnut reply motion
-and historically ineffective STOP remain explicitly unverified.
+Both apps were deployed with verified artifact hashes and preserved user data on
+firmware 5.19.6, then accepted by the owner on 2026-11-08: “Everything works fine.”
+See the [artifact/deployment record](device/ks1-barolo.md#split-13-deployment--2026-11-08)
+and [owner acceptance](device/ks1-barolo.md#split-13-owner-acceptance--2026-11-08).
+The owner authorized merging `app-split` into `main` and archiving the
+[completed implementation plan](../archive/tasks/implemented/app-split.md).
+Recovery and rollback procedures remain documented above; no separate destructive
+recovery exercise was reported at closeout. Automatic Chessnut reply motion and
+historically ineffective STOP remain explicitly unverified.

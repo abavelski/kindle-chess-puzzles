@@ -1,6 +1,6 @@
 # Importing and updating review games
 
-> Standalone Review now uses `/mnt/us/kindle-game-review/games` and its own settings/resume root. It reads legacy games/state without modifying them when new inputs are absent; see [fallback and rollback](BUILD_DEPLOY.md#standalone-review-data-and-legacy-fallback--split-09). Standalone launches directly into Review and has no workspace toggle. The combined-mode instructions below describe the preserved behavioral baseline. Dual-app device acceptance remains pending.
+> Standalone Review now uses `/mnt/us/kindle-game-review/games` and its own settings/resume root. It reads legacy games/state without modifying them when new inputs are absent; see [fallback and rollback](BUILD_DEPLOY.md#standalone-review-data-and-legacy-fallback--split-09). Standalone launches directly into Review and has no workspace toggle. The owner accepted both apps on the device on 2026-11-08.
 
 Game Review accepts precomputed JSON generated on your computer. PGN parsing and
 legal move validation run only in the host converter; the Kindle displays stored
@@ -64,17 +64,17 @@ does not exist, then copy your JSON using USB storage or your established SSH
 transport into:
 
 ```text
-/mnt/us/kindle-chess/games/games.json
-/mnt/us/kindle-chess/games/games-my-games.json
-/mnt/us/kindle-chess/games/games-classics.json
+/mnt/us/kindle-game-review/games/games.json
+/mnt/us/kindle-game-review/games/games-my-games.json
+/mnt/us/kindle-game-review/games/games-classics.json
 ```
 
 Only `games.json` and `games-<nonempty>.json` are discovered. The directory is
-configurable through `KINDLE_CHESS_GAME_DIR`. Relaunch to reload the library.
+configurable through `KINDLE_GAME_REVIEW_GAME_DIR`. Relaunch to reload the library.
 PGN files themselves are not loaded by the app. Invalid JSON files appear as
 non-selectable diagnostic rows while valid games remain available.
 
-Tap the workspace icon immediately beside Refresh to enter Game Review. **GAMES**
+Launch **Kindle Game Review** from the library. **GAMES**
 opens one flat, paginated list across all discovered files. **PREV/NEXT** traverse
 the authored main line; tapping a bold move or explicit prose reference displays
 its stored position. A variation anchors navigation at its nearest main-line
@@ -91,16 +91,19 @@ selected position while FREE stays enabled. Turning FREE off restores the
 selected authored position. **LOCK/FLIP** control review orientation. Settings
 are saved independently for Game Review and Puzzles, including STANDARD/SMALL
 board size and optional toolbar buttons. Existing global preferences initially
-carry over to both modes. Switching back to Puzzles
-restores the in-progress puzzle session and leaves its progress untouched.
-With no installed valid games, the toggle leaves Puzzles active and reports
-“No review games installed”. Review remembers the last collection, game and authored move (including variations)
-in `/mnt/us/kindle-chess/state/review-resume.json`, independently of puzzle
-`progress.json`. Relaunch starts in Puzzles; switching to Game Review restores
-that position, orientation and analysis page. FREE scratch edits remain transient.
-Missing/invalid games fall back to the first available game; a removed or changed
-move falls back to that game's starting position with a warning. Malformed/future
-resume files are preserved. `KINDLE_CHESS_REVIEW_RESUME_FILE` overrides the path.
+carry over through the read-only legacy fallback when the new settings file is
+absent. Puzzles runs separately; Review never opens or changes puzzle progress.
+With no valid games, Review displays a library warning and remains usable for
+settings and exit. Review remembers the last collection, game and authored move
+(including variations) in `/mnt/us/kindle-game-review/state/review-resume.json`.
+Relaunch restores that position, orientation and analysis page. FREE scratch
+edits remain transient. Missing/invalid games fall back to the first available
+game; a removed or changed move falls back to that game's starting position with
+a warning. Malformed/future resume files are preserved.
+`KINDLE_GAME_REVIEW_RESUME_FILE` overrides the path. Legacy games under
+`/mnt/us/kindle-chess/games` and legacy review settings/resume remain available
+through the [read-only fallback](BUILD_DEPLOY.md#standalone-review-data-and-legacy-fallback--split-09);
+all new Review state writes target the Review root.
 
 ## Update and recover
 
@@ -147,7 +150,10 @@ With the virtual environment active:
 
 ```sh
 scripts/check.sh
-scripts/build-kindle.sh
+scripts/app.sh build puzzles
+scripts/app.sh stage puzzles
+scripts/app.sh build review
+scripts/app.sh stage review
 ```
 
 The Rust `review_import` integration test invokes the real converter on the

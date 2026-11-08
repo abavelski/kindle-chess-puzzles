@@ -1,12 +1,12 @@
 # Agent instructions — Kindle chess monorepo
 
-Updated 2026-11-08. The current executable still combines Puzzles and Game Review. The active queue is [docs/NEXT_TASKS_APP_SPLIT.md](docs/NEXT_TASKS_APP_SPLIT.md). Prior phase branches and old tasks are history under [archive](archive/README.md).
+Updated 2026-11-08. Puzzles and Game Review are independent apps sharing chess, e-ink and Kindle runtime components. The [completed split implementation](archive/tasks/implemented/app-split.md) is archived after owner device acceptance. No active task queue is currently selected; use the owner’s next requested task. Prior phase branches and old tasks are history under [archive](archive/README.md).
 
 ## Before a task
 
 Read README.md, [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), and the **one** selected tracker task and its linked contracts. Select the first Ready task with all dependencies Done; set table and detailed status to In progress with owner/branch/start date. Work test-first; avoid unrelated cleanup or later tasks. Archived phase-2 and game-review branch policies are no longer active.
 
-Use a small task branch/PR unless the owner explicitly requests main. This preparation commit is expressly authorized on main; it is not blanket authorization for later implementation.
+Use a small task branch/PR unless the owner explicitly requests main. The owner authorized the completed split merge and push to main; future implementation should use task branches unless explicitly directed otherwise.
 
 ## Invariants
 
