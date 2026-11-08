@@ -5,6 +5,7 @@ use chessnut_move::protocol::{
 };
 #[derive(Clone, Debug)]
 pub struct Observed {
+    pub received_at: std::time::Instant,
     pub source: String,
     pub bytes: Vec<u8>,
     /// Undecoded content is evidence, never a decoded status or position.
@@ -28,6 +29,7 @@ pub fn decode_observed(source: &str, bytes: &[u8]) -> Result<Observed, Error> {
         _ => return Err(Error::MalformedNotification),
     };
     Ok(Observed {
+        received_at: std::time::Instant::now(),
         source: source.into(),
         bytes: bytes.into(),
         event,

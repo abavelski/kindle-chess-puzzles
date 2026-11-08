@@ -55,6 +55,8 @@ impl std::error::Error for LayoutError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HitTarget {
+    ToggleBoardConnection,
+    SendBoardPosition,
     Square(usize),
     AnalysisMove(AnalysisNodeIndex),
     AnalysisPreviousPage,
@@ -94,6 +96,7 @@ pub enum HitTarget {
     ToggleLockSetting,
     ToggleFlipSetting,
     ToggleBoardSizeSetting,
+    CyclePhysicalBoardSeat,
     CloseSettings,
     OpenCollections,
     Collection(usize),
@@ -105,6 +108,9 @@ pub enum HitTarget {
 impl HitTarget {
     pub fn into_action(self) -> Option<Action> {
         match self {
+            Self::ToggleBoardConnection => Some(Action::ToggleBoardConnection),
+            Self::SendBoardPosition => Some(Action::SendBoardPosition),
+
             Self::Square(square) => Some(Action::TapSquare(square)),
             Self::AnalysisMove(node) => Some(Action::SelectAnalysisNode(node)),
             Self::AnalysisPreviousPage => Some(Action::AnalysisPreviousPage),
@@ -144,6 +150,7 @@ impl HitTarget {
             Self::ToggleLockSetting => Some(Action::ToggleLockSetting),
             Self::ToggleFlipSetting => Some(Action::ToggleFlipSetting),
             Self::ToggleBoardSizeSetting => Some(Action::ToggleBoardSizeSetting),
+            Self::CyclePhysicalBoardSeat => Some(Action::CyclePhysicalBoardSeat),
             Self::CloseSettings => Some(Action::CloseSettings),
             Self::OpenCollections => Some(Action::OpenCollectionPicker),
             Self::Collection(index) => Some(Action::SelectCollection(index)),
@@ -172,7 +179,7 @@ pub struct Layout {
     pub board_outer: Rect,
     pub board: Rect,
     pub toolbar: Rect,
-    pub toolbar_targets: [ControlTarget; 6],
+    pub toolbar_targets: [ControlTarget; 7],
     pub exit: Rect,
     pub previous: Rect,
     pub goto: Rect,
@@ -203,6 +210,8 @@ pub struct Layout {
     pub settings_lock: Rect,
     pub settings_flip: Rect,
     pub settings_board_size: Rect,
+    pub settings_chessnut: Rect,
+    pub settings_physical_board: Rect,
     pub settings_close_icon: Rect,
     pub settings_close: Rect,
     square_size: u32,
@@ -216,6 +225,7 @@ impl Layout {
         Self::with_toolbar_visibility(
             metrics,
             &WorkspaceSettings::default(),
+            false,
             false,
             APP_TOOLBAR_ALIGNMENT,
         )
@@ -239,6 +249,7 @@ impl Layout {
             metrics,
             state.settings(),
             state.workspace() == Workspace::Review,
+            state.workspace() == Workspace::Puzzles && state.board_status().connected(),
             alignment,
         )
     }
@@ -247,6 +258,7 @@ impl Layout {
         metrics: DisplayMetrics,
         settings: &WorkspaceSettings,
         review: bool,
+        send_position: bool,
         alignment: ToolbarAlignment,
     ) -> Result<Self, LayoutError> {
         let show_free = settings.show_free_mode_button();
@@ -415,6 +427,11 @@ impl Layout {
                     visible: false,
                     button: toolbar_button(HitTarget::ToggleDescription),
                 },
+                ToolbarButtonSpec {
+                    target: HitTarget::SendBoardPosition,
+                    visible: false,
+                    button: toolbar_button(HitTarget::SendBoardPosition),
+                },
             ]
         } else {
             [
@@ -448,8 +465,16 @@ impl Layout {
                     visible: show_flip,
                     button: toolbar_button(HitTarget::Flip),
                 },
+                ToolbarButtonSpec {
+                    target: HitTarget::SendBoardPosition,
+                    visible: send_position,
+                    button: toolbar_button(HitTarget::SendBoardPosition),
+                },
             ]
         };
+        if send_position {
+            toolbar_specs[1..].rotate_right(1);
+        }
         for spec in &mut toolbar_specs {
             spec.button = toolbar_button_for_size(spec.target, small_board);
         }
@@ -471,7 +496,22 @@ impl Layout {
                 px_for_mm(metrics.dpi, 16).max(minimum_touch_px),
                 toolbar_specs,
                 alignment,
-            )?
+            )
+            .or_else(|error| {
+                if !send_position {
+                    return Err(error);
+                }
+                // Extra board controls must also fit landscape. Compact text
+                // controls keep the same minimum physical touch width.
+                place_toolbar(
+                    toolbar_touch,
+                    small_gap,
+                    minimum_touch_px,
+                    minimum_touch_px,
+                    toolbar_specs,
+                    alignment,
+                )
+            })?
         };
 
         if small_board {
@@ -488,6 +528,9 @@ impl Layout {
                     control.rect.y += offset;
                 }
             }
+        }
+        if send_position {
+            toolbar_targets[1..].rotate_left(1);
         }
         let nav_y = toolbar.bottom().saturating_add(gap);
         let nav_touch_y = nav_y.saturating_sub(control_visual_inset);
@@ -804,6 +847,17 @@ impl Layout {
 
         let settings_modal = collection_modal;
         let settings_inner = settings_modal.inset(small_gap);
+        // Reserve the title, seven minimum touch rows and Close even in landscape.
+        let settings_gap = if review {
+            gap
+        } else {
+            gap.min(
+                settings_inner
+                    .height
+                    .saturating_sub(minimum_touch_px * 9 + small_gap)
+                    / 7,
+            )
+        };
         let settings_free_mode = Rect::new(
             settings_inner.x,
             settings_modal
@@ -815,25 +869,37 @@ impl Layout {
         );
         let settings_notes = Rect::new(
             settings_inner.x,
-            settings_free_mode.bottom().saturating_add(gap),
+            settings_free_mode.bottom().saturating_add(settings_gap),
             settings_inner.width,
             minimum_touch_px,
         );
         let settings_lock = Rect::new(
             settings_inner.x,
-            settings_notes.bottom().saturating_add(gap),
+            settings_notes.bottom().saturating_add(settings_gap),
             settings_inner.width,
             minimum_touch_px,
         );
         let settings_flip = Rect::new(
             settings_inner.x,
-            settings_lock.bottom().saturating_add(gap),
+            settings_lock.bottom().saturating_add(settings_gap),
             settings_inner.width,
             minimum_touch_px,
         );
         let settings_board_size = Rect::new(
             settings_inner.x,
-            settings_flip.bottom().saturating_add(gap),
+            settings_flip.bottom().saturating_add(settings_gap),
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_physical_board = Rect::new(
+            settings_inner.x,
+            settings_board_size.bottom() + settings_gap,
+            settings_inner.width,
+            minimum_touch_px,
+        );
+        let settings_chessnut = Rect::new(
+            settings_inner.x,
+            settings_physical_board.bottom() + settings_gap,
             settings_inner.width,
             minimum_touch_px,
         );
@@ -892,6 +958,8 @@ impl Layout {
             settings_lock,
             settings_flip,
             settings_board_size,
+            settings_chessnut,
+            settings_physical_board,
             settings_close_icon,
             settings_close,
             square_size,
@@ -967,6 +1035,14 @@ impl Layout {
             return Some(HitTarget::Exit);
         }
         if state.settings_open() {
+            if state.workspace() == Workspace::Puzzles
+                && self.settings_physical_board.contains(x, y)
+            {
+                return Some(HitTarget::CyclePhysicalBoardSeat);
+            }
+            if state.workspace() == Workspace::Puzzles && self.settings_chessnut.contains(x, y) {
+                return Some(HitTarget::ToggleBoardConnection);
+            }
             if self.settings_close_icon.contains(x, y) {
                 return Some(HitTarget::CloseSettings);
             }
@@ -1083,6 +1159,7 @@ impl Layout {
         let target = self.hit_test(x, y, state.flipped(), false);
         match state.workspace() {
             Workspace::Puzzles => match target {
+                Some(HitTarget::SendBoardPosition) if !state.can_send_position() => None,
                 Some(HitTarget::ToggleAnalysis) if !state.analysis_available() => None,
                 Some(HitTarget::ToggleMode) if !state.settings().show_free_mode_button() => None,
                 Some(HitTarget::ToggleDescription) if !state.settings().show_notes_button() => None,

@@ -15,7 +15,7 @@ class LauncherTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name)
-        self.env = dict(os.environ, KINDLE_CHESS_DISPLAY_HANDOFF='0', KINDLE_CHESS_XREFRESH='', KINDLE_CHESS_LOCK=str(self.directory / 'lock'), KINDLE_CHESS_LOG=str(self.directory / 'log'))
+        self.env = dict(os.environ, KINDLE_CHESS_CLEANUP_GRACE_SECONDS='2', KINDLE_CHESS_DISPLAY_HANDOFF='0', KINDLE_CHESS_XREFRESH='', KINDLE_CHESS_LOCK=str(self.directory / 'lock'), KINDLE_CHESS_LOG=str(self.directory / 'log'))
 
     def child(self, body):
         path = self.directory / 'app'

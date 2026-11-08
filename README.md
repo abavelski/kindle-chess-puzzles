@@ -121,6 +121,23 @@ Chess piece artwork comes from the **Sashité Western** SVG set and is converted
 The standalone Chessnut Move probe is complete as an investigation and has been
 removed from the Kindle. Read the [verified findings and integration handoff](docs/CHESSNUT_MOVE_INTEGRATION_HANDOFF.md)
 and the [curated transport/protocol reference](support/chessnut-move/README.md)
-before planning the optional app integration. The reference is outside the app
-workspace; the app currently gains no Bluetooth or motor behavior. Physical STOP
+for the optional [manual position-push MVP](docs/CHESSNUT_MOVE_MVP_VERIFICATION.md).
+On the integration branch, Puzzles Settings offers an opt-in board connection and
+an immediate send of the visible position. Send is disabled only while submitting
+the command, then becomes available again. There is no DONE or post-motion
+verification step. The connection stays open until DISCONNECT, app exit or an
+actual connection error. After Send, board input waits for that exact position,
+then mirrors settled ordinary moves, captures and promotion replacements into
+puzzle grading or Free Board. After a correct physical solver move, the authored
+opponent reply is sent to the board automatically, then input waits for the board
+to match Kindle before accepting another move. Wrong moves wait for physical
+correction; Send remains available for manual setup. Navigation, manual board edits or sleep pause
+input until another Send. Castling/en passant are not recognized. Board input was
+reported working by the user; automatic reply motion awaits human acceptance.
+Puzzles Settings also offers PHYSICAL BOARD seating: WHITE SIDE, BLACK SIDE or
+CHANGING SIDE. Fixed seats rotate the physical position when the puzzle color
+differs, and convert incoming moves and automatic replies consistently. Changing
+a seat takes effect on the next Send; Kindle Flip remains independent.
+Puzzle text keeps its normal topic/description/analysis content throughout board
+communication. The app never connects or sends a setup target on startup or wake. Physical STOP
 was ineffective in human tests and remains a user-accepted limitation.

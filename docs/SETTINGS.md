@@ -11,6 +11,8 @@ Version 1 starts deliberately small:
 - **Lock button** — show or hide the `LOCK` toolbar control.
 - **Flip button** — show or hide the `FLIP` toolbar control.
 - **Board size** — choose STANDARD or SMALL.
+- **Physical board** (Puzzles only) — WHITE SIDE, BLACK SIDE or CHANGING SIDE.
+  This seating preference is global; it is separate from workspace display settings.
 
 All button visibility preferences default to **ON** so existing behavior is unchanged after upgrading.
 
@@ -22,7 +24,7 @@ In STANDARD mode, the toolbar below the board fills its width. Its icon control 
 
 A settings icon lives immediately to the left of the close button in the header. The `FILES` control, when present, sits to its left. Tapping it opens a modal panel using the same deterministic layout/hit-testing approach as the collection picker.
 
-While the panel is open, ordinary board and toolbar actions are blocked. The panel matches the Files dialog size, with an X icon in the upper-right corner, four full-width ON/OFF rows plus the board-size row, and a full-width Close button anchored at the bottom. Both panel close controls dismiss Settings. The app's global Exit and manual Refresh controls remain available through their existing header behavior.
+While the panel is open, ordinary board and toolbar actions are blocked. The panel matches the Files dialog size, with an X icon in the upper-right corner, four full-width ON/OFF rows plus the board-size row, Puzzles-only physical-seat and Chessnut-connection rows, and a full-width Close button anchored at the bottom. Both panel close controls dismiss Settings. The app's global Exit and manual Refresh controls remain available through their existing header behavior.
 
 ## Ownership
 
@@ -57,6 +59,7 @@ Version 1 currently serializes as:
   "show_lock_button": true,
   "show_flip_button": true,
   "small_board": false,
+  "physical_board_seat": "changing",
   "game_review": {
     "show_free_mode_button": true,
     "show_notes_button": true,
@@ -70,3 +73,28 @@ Version 1 currently serializes as:
 Missing Lock/Flip fields default to ON. Files without `game_review` initialize both profiles from the flat values; subsequent edits affect only the active workspace.
 
 New preferences should be added to this model with explicit defaults and host tests so older files remain predictable.
+
+## Physical-board seating
+
+Tap PHYSICAL BOARD to cycle WHITE SIDE → BLACK SIDE → CHANGING SIDE. Older
+settings default to CHANGING SIDE, preserving their canonical wire layout. Values
+are stored as the additive version-1 root field `physical_board_seat` with values
+`white`, `black`, `changing`; invalid values retain malformed-file protection.
+
+| Seat | White puzzle | Black puzzle |
+| --- | --- | --- |
+| WHITE SIDE | Original placement | Rotate 180° |
+| BLACK SIDE | Rotate 180° | Original placement |
+| CHANGING SIDE | Original placement | Original placement |
+
+Changing side means you move to the solver's end (or turn the physical board).
+For a fixed seat, mismatched solver colors rotate pieces on the physical squares
+without changing their colors. The same self-inverse mapping converts sensor
+reports back to canonical moves and orients automatic reply targets. It is fixed
+from the puzzle's original solver color for the whole sent session; preview turn,
+Kindle Flip/orientation lock and reply turn never change it.
+
+Changing seating saves settings and pauses physical input without moving pieces,
+changing grading/progress, or changing Kindle orientation. Tap Send to apply the
+new seating and reacquire the physical baseline. Review's settings and controls
+remain independent, and its dialog has no physical-seat row.

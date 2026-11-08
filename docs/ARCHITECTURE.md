@@ -299,3 +299,34 @@ without switching away from Puzzles. Source updates with missing/ambiguous paths
 or changed FEN fall back to the selected game's root; missing games use the first
 available game. Malformed/future/unreadable documents are protected. Scratch
 boards, piece selection, promotion dialogs and game pickers remain transient.
+
+### Optional physical board input
+
+After explicit Send, the platform adapter enables realtime reports without STOP,
+filters pre-send/incomplete reports and debounces changed placements for 500 ms.
+It forwards positions and connection status through one ordered bounded queue.
+Core arms only after observing the sent placement and infers a single exact
+existing-Board UCI transition. It applies the existing grading/Free Board path,
+returns ordinary progress effects, and waits for logical/physical agreement after
+wrong moves or stored opponent replies. An accepted physical solver move that
+advances through an authored opponent reply also emits one Board Send effect of
+the resulting Kindle placement. Runtime routes that effect through the same board
+owner as a manual Send; reply echoes cannot grade or authorize another target.
+There is no runtime legality engine or compound-move inference. Listener state is transient;
+navigation, analysis, manual edits, sleep and connection loss invalidate it.
+The binary routes incoming progress effects through normal persistence and board
+damage calculation. Board status stays in Settings/Send controls; communication
+never covers puzzle text or its analysis hit targets. There is no DONE step.
+
+### Physical-board seating transform
+
+The global additive version-1 `physical_board_seat` setting defaults to `changing`.
+Core decides rotation from that seat and the puzzle's original solver color.
+`Board::placement_rotated` rotates only square positions, preserving piece colors.
+A Send captures the transform alongside the canonical listener baseline. Core
+normalizes raw physical reports through its inverse before matching/inference,
+and uses the captured transform for automatic replies. Platform SDK encoding and
+raw target/debounce handling remain unchanged. Canonical puzzle/preview/grading
+boards and the Kindle's orientation are never rewritten by the seating choice.
+Changing it persists settings and invalidates input; only another explicit Send
+changes the physical target. Review profiles and controls remain unchanged.

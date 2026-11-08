@@ -11,6 +11,7 @@ pub enum ButtonType {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ButtonIcon {
+    SendPosition,
     Analysis,
     FreeBoard,
     Lock,
@@ -45,6 +46,7 @@ impl<'a> ButtonSpec<'a> {
 /// display type implicitly; STANDARD deliberately keeps the existing text labels.
 pub(crate) fn toolbar_button(target: HitTarget) -> ButtonSpec<'static> {
     let (icon, text, button_type) = match target {
+        HitTarget::SendBoardPosition => (Some(ButtonIcon::SendPosition), None, ButtonType::Icon),
         HitTarget::ToggleAnalysis => (Some(ButtonIcon::Analysis), None, ButtonType::Icon),
         HitTarget::ToggleMode => (Some(ButtonIcon::FreeBoard), Some("FREE"), ButtonType::Text),
         HitTarget::ToggleDescription => (None, Some("NOTE"), ButtonType::Text),

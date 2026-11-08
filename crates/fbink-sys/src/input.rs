@@ -87,11 +87,25 @@ pub fn wait_input_power(
     second: &File,
     power: &impl std::os::fd::AsRawFd,
 ) -> Result<usize, io::Error> {
+    wait_input_power_timeout(first, second, power, -1)
+}
+
+pub fn wait_input_power_timeout(
+    first: &File,
+    second: &File,
+    power: &impl std::os::fd::AsRawFd,
+    timeout_ms: i32,
+) -> Result<usize, io::Error> {
     #[cfg(all(target_os = "linux", target_arch = "arm"))]
     {
         use std::os::fd::AsRawFd;
         let code = unsafe {
-            kcp_input_wait_power(first.as_raw_fd(), second.as_raw_fd(), power.as_raw_fd())
+            kcp_input_wait_power_timeout(
+                first.as_raw_fd(),
+                second.as_raw_fd(),
+                power.as_raw_fd(),
+                timeout_ms,
+            )
         };
         if code < 0 {
             Err(io::Error::from_raw_os_error(-code))
@@ -101,7 +115,7 @@ pub fn wait_input_power(
     }
     #[cfg(not(all(target_os = "linux", target_arch = "arm")))]
     {
-        let _ = (first, second, power);
+        let _ = (first, second, power, timeout_ms);
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "evdev polling requires the Kindle target",
@@ -111,10 +125,11 @@ pub fn wait_input_power(
 
 #[cfg(all(target_os = "linux", target_arch = "arm"))]
 extern "C" {
-    fn kcp_input_wait_power(
+    fn kcp_input_wait_power_timeout(
         first: std::os::raw::c_int,
         second: std::os::raw::c_int,
         power: std::os::raw::c_int,
+        timeout_ms: std::os::raw::c_int,
     ) -> std::os::raw::c_int;
 }
 

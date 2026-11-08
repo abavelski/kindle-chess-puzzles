@@ -312,6 +312,15 @@ int main(void) {
     assert(memcmp(live.write_bytes,motor.bytes,35)==0);
     assert(native_write_packet(&live,&motor)!=0 && writes==before_motion+1);
     assert(native_write_packet(&live,&battery)!=0 && writes==before_motion+1);
+    /* Listener re-enable is permitted after Normal without issuing STOP. */
+    probe_packet realtime={.bytes={0x21,1,0},.length=3,.without_response=false};
+    assert(native_write_packet(&live,&realtime)==0 && live.motion_maybe);
+    ++before_motion;
+    /* A later explicit Arm authorizes another target without STOP/telemetry. */
+    live.motion_armed=true;
+    assert(native_write_packet(&live,&motor)==0 && writes==before_motion+2);
+    assert(!live.motion_armed && live.motion_maybe);
+    assert(native_write_packet(&live,&motor)!=0 && writes==before_motion+2);
     probe_packet stop={.bytes={0x42,0x21},.length=35,.without_response=true};
     assert(native_write_packet(&live,&stop)==0 && !live.motion_maybe);
     live.motion_armed=true;assert(native_write_packet(&live,&motor)==0);

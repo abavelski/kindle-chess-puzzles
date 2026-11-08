@@ -102,6 +102,51 @@ impl Board {
         })
     }
 
+    /// Canonical placement in absolute a8..h1 coordinates, independent of display orientation.
+    pub fn placement(&self) -> String {
+        self.placement_rotated(false)
+    }
+
+    /// Rotate square positions by 180 degrees without changing piece colors.
+    /// Applying the same transform twice restores canonical coordinates.
+    pub fn placement_rotated(&self, rotated: bool) -> String {
+        (0..8)
+            .map(|rank| {
+                let mut row = String::new();
+                let mut empty = 0u8;
+                for file in 0..8 {
+                    let square = rank * 8 + file;
+                    if let Some(piece) = self.piece_at(if rotated { 63 - square } else { square }) {
+                        if empty > 0 {
+                            row.push(char::from(b'0' + empty));
+                            empty = 0;
+                        }
+                        let c: char = match piece.kind {
+                            PieceKind::Pawn => 'p',
+                            PieceKind::Knight => 'n',
+                            PieceKind::Bishop => 'b',
+                            PieceKind::Rook => 'r',
+                            PieceKind::Queen => 'q',
+                            PieceKind::King => 'k',
+                        };
+                        row.push(if piece.color == Color::White {
+                            c.to_ascii_uppercase()
+                        } else {
+                            c
+                        });
+                    } else {
+                        empty += 1;
+                    }
+                }
+                if empty > 0 {
+                    row.push(char::from(b'0' + empty));
+                }
+                row
+            })
+            .collect::<Vec<_>>()
+            .join("/")
+    }
+
     pub fn reset(&mut self) {
         self.squares = self.starting_squares;
         self.selected = None;

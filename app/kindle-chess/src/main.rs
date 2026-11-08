@@ -30,6 +30,14 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let shutdown = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    for signal in [
+        signal_hook::consts::SIGINT,
+        signal_hook::consts::SIGTERM,
+        signal_hook::consts::SIGHUP,
+    ] {
+        signal_hook::flag::register(signal, shutdown.clone())?;
+    }
     let process_start = Instant::now();
     eprintln!("kindle-chess: timing process_start=0ms");
     let force_full = std::env::args().skip(1).any(|arg| arg == "--full-refresh");
@@ -163,6 +171,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
     eprintln!("kindle-chess: tap FILES in the header to switch collections");
 
+    let board_service = kindle_platform::chessnut::BoardService::new();
     let mut power = PowerEvents::open()?;
     let mut sleeping = false;
     let mut previous = None;
@@ -205,7 +214,81 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         previous = Some(output.frame.clone());
         clean_regions.clear();
-        let event = input.next_event(&mut power)?;
+        let event = loop {
+            if shutdown.load(std::sync::atomic::Ordering::Relaxed) {
+                retry_dirty_state(
+                    &mut app,
+                    &mut progress_store,
+                    &mut settings_store,
+                    &mut review_store,
+                    persistence_enabled,
+                );
+                return Ok(());
+            }
+            let mut changed = false;
+            loop {
+                match board_service.poll() {
+                    Ok(Some(update)) => {
+                        let board_before = app.board().clone();
+                        let flipped_before = app.flipped();
+                        let action = match update {
+                            kindle_platform::chessnut::BoardUpdate::Status(status) => {
+                                Action::BoardStatus(status)
+                            }
+                            kindle_platform::chessnut::BoardUpdate::Position(placement) => {
+                                Action::BoardPosition(placement)
+                            }
+                        };
+                        let effects = app.dispatch(action);
+                        let effects = route_board_effects(&mut app, effects, |intent| {
+                            board_service.send(intent)
+                        });
+                        if apply_effects(
+                            &mut app,
+                            &storage,
+                            &mut progress_store,
+                            &mut settings_store,
+                            &mut review_store,
+                            persistence_enabled,
+                            effects,
+                        ) {
+                            return Ok(());
+                        }
+                        clean_regions.extend(clean_regions_for_board_change(
+                            &board_before,
+                            app.board(),
+                            flipped_before,
+                            app.flipped(),
+                            output.layout,
+                        ));
+                        changed = true;
+                    }
+                    Ok(None) => break,
+                    Err(reason) => {
+                        let status = chess_core::BoardSessionStatus::Error(reason);
+                        if app.board_status() != &status {
+                            app.dispatch(Action::BoardStatus(status));
+                            changed = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            if changed {
+                break None;
+            }
+            if let Some(event) = input.poll_event(&mut power, 100)? {
+                break Some(event);
+            }
+        };
+        let Some(event) = event else {
+            continue;
+        };
+        if event == DeviceEvent::Power(PowerEvent::Sleeping) {
+            app.dispatch(Action::PauseBoardInput);
+        }
+        // Sleep/wake does not deliberately close the user's board connection.
+        // Real link loss is reported by the service; wake never replays a target.
         if matches!(event, DeviceEvent::Power(_)) {
             touch_received = None;
         }
@@ -233,6 +316,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     .into_action()
                     .expect("non-refresh hit targets map to app actions"),
             );
+            let effects =
+                route_board_effects(&mut app, effects, |intent| board_service.send(intent));
             if apply_effects(
                 &mut app,
                 &storage,
@@ -329,6 +414,28 @@ fn select_initial_collection(
     ))
 }
 
+fn route_board_effects(
+    app: &mut AppState,
+    effects: Vec<Effect>,
+    mut send: impl FnMut(chess_core::BoardIntent) -> Result<(), String>,
+) -> Vec<Effect> {
+    effects
+        .into_iter()
+        .filter_map(|effect| {
+            if let Effect::Board(intent) = effect {
+                if let Err(reason) = send(intent) {
+                    app.dispatch(Action::BoardStatus(chess_core::BoardSessionStatus::Error(
+                        reason,
+                    )));
+                }
+                None
+            } else {
+                Some(effect)
+            }
+        })
+        .collect()
+}
+
 fn apply_effects(
     app: &mut AppState,
     storage: &KindleStorage,
@@ -343,6 +450,7 @@ fn apply_effects(
 
     while let Some(effect) = queue.pop_front() {
         match effect {
+            Effect::Board(_) => {} // Routed to BoardService by the runtime before persistence.
             Effect::ExitRequested => exit_requested = true,
             Effect::ProgressChanged => {
                 if persistence_enabled {
@@ -441,6 +549,57 @@ fn append_message(message: &mut Option<String>, addition: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn board_originated_reply_is_routed_once_and_progress_survives_transport_failure() {
+        for fail in [false, true] {
+            let mut collection =
+                parse_puzzle_file(include_bytes!("../../../tests/fixtures/puzzles.json")).unwrap();
+            collection.puzzles[1].solution.truncate(2);
+            let mut app = AppState::new(
+                ActiveCollection::from_collection("puzzles.json", collection),
+                Progress::new(),
+            );
+            app.dispatch(Action::NextPuzzle);
+            app.dispatch(Action::BoardStatus(
+                chess_core::BoardSessionStatus::Connected,
+            ));
+            let baseline = app.board().placement();
+            app.dispatch(Action::SendBoardPosition);
+            app.dispatch(Action::BoardStatus(
+                chess_core::BoardSessionStatus::Connected,
+            ));
+            app.dispatch(Action::BoardPosition(baseline));
+            let mut physical = app.board().clone();
+            physical.apply_uci_move(chess_core::parse_uci_move("e2e6").unwrap());
+            let effects = app.dispatch(Action::BoardPosition(physical.placement()));
+            let target = app.board().placement();
+            let mut submitted = Vec::new();
+            let remaining = route_board_effects(&mut app, effects, |intent| {
+                submitted.push(intent);
+                if fail {
+                    Err("worker unavailable".into())
+                } else {
+                    Ok(())
+                }
+            });
+            assert_eq!(
+                submitted,
+                vec![chess_core::BoardIntent::Send(target.clone())]
+            );
+            assert_eq!(remaining, vec![Effect::ProgressChanged]);
+            assert_eq!(app.solution_ply(), 2);
+            assert_eq!(app.board().placement(), target);
+            assert_eq!(app.feedback(), chess_core::SolutionFeedback::Complete);
+            if fail {
+                assert!(matches!(
+                    app.board_status(),
+                    chess_core::BoardSessionStatus::Error(_)
+                ));
+                assert_eq!(app.board_input_status(), chess_core::BoardInputStatus::Off);
+            }
+        }
+    }
 
     #[test]
     fn sleep_wake_events_gate_taps_without_changing_puzzle_state() {

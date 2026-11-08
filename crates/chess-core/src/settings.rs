@@ -9,6 +9,38 @@ const fn enabled_by_default() -> bool {
     true
 }
 
+/// Where the solver sits relative to the physical board's canonical squares.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PhysicalBoardSeat {
+    White,
+    Black,
+    #[default]
+    Changing,
+}
+impl PhysicalBoardSeat {
+    pub const fn rotates(self, solver: crate::Color) -> bool {
+        matches!(
+            (self, solver),
+            (Self::White, crate::Color::Black) | (Self::Black, crate::Color::White)
+        )
+    }
+    pub const fn next(self) -> Self {
+        match self {
+            Self::White => Self::Black,
+            Self::Black => Self::Changing,
+            Self::Changing => Self::White,
+        }
+    }
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::White => "WHITE SIDE",
+            Self::Black => "BLACK SIDE",
+            Self::Changing => "CHANGING SIDE",
+        }
+    }
+}
+
 /// Preferences for one workspace, independent of the other workspace.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct WorkspaceSettings {
@@ -86,6 +118,8 @@ pub struct Settings {
     puzzles: WorkspaceSettings,
     #[serde(default)]
     game_review: Option<WorkspaceSettings>,
+    #[serde(default)]
+    physical_board_seat: PhysicalBoardSeat,
 }
 
 impl Default for Settings {
@@ -94,11 +128,19 @@ impl Default for Settings {
             version: SETTINGS_VERSION,
             puzzles: WorkspaceSettings::default(),
             game_review: Some(WorkspaceSettings::default()),
+            physical_board_seat: PhysicalBoardSeat::default(),
         }
     }
 }
 
 impl Settings {
+    pub const fn physical_board_seat(&self) -> PhysicalBoardSeat {
+        self.physical_board_seat
+    }
+    pub fn set_physical_board_seat(&mut self, seat: PhysicalBoardSeat) {
+        self.physical_board_seat = seat;
+    }
+
     pub const fn version(&self) -> u32 {
         self.version
     }

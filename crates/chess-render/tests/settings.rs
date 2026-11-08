@@ -30,7 +30,7 @@ fn default_toolbar_fills_the_available_width_with_fixed_icon_and_stretched_text(
     assert_eq!(controls[0].rect.x, output.layout.toolbar.x);
     assert_eq!(controls[5].rect.right(), output.layout.toolbar.right());
     assert_eq!(controls[0].rect.width, output.layout.minimum_touch_px());
-    let text_widths: Vec<_> = controls[1..].iter().map(|c| c.rect.width).collect();
+    let text_widths: Vec<_> = controls[1..6].iter().map(|c| c.rect.width).collect();
     assert!(text_widths
         .iter()
         .all(|width| *width > controls[0].rect.width));
@@ -161,7 +161,7 @@ fn settings_panel_matches_files_size_and_anchors_close_at_bottom() {
             Some(HitTarget::CloseSettings)
         );
         let x = layout.settings_modal.x + layout.settings_modal.width / 2;
-        let y = (layout.settings_board_size.bottom() + layout.settings_close.y) / 2;
+        let y = (layout.settings_chessnut.bottom() + layout.settings_close.y) / 2;
         assert_eq!(output.hit_test_app(x, y, &app), None);
     }
 }
@@ -286,7 +286,11 @@ fn smaller_board_is_left_aligned_with_sidebar_and_text_directly_below() {
     assert!(layout.next.width < standard.next.width);
     assert!(layout.status.y > layout.board_outer.bottom());
     assert!(layout.status.y - layout.board_outer.bottom() < 20);
-    for control in layout.toolbar_targets {
+    for control in layout
+        .toolbar_targets
+        .into_iter()
+        .filter(|control| control.rect.width > 0)
+    {
         assert!(!control.rect.intersects(layout.board_outer));
         assert!(!control.rect.intersects(layout.status));
         assert!(!control.rect.intersects(layout.previous));
@@ -326,7 +330,11 @@ fn board_size_row_toggles_and_small_square_targets_follow_both_orientations() {
                     Some(HitTarget::Square(logical))
                 );
             }
-            for control in layout.toolbar_targets {
+            for control in layout
+                .toolbar_targets
+                .into_iter()
+                .filter(|control| control.rect.width > 0)
+            {
                 assert!(control.rect.height >= layout.minimum_touch_px());
                 assert!(control.rect.width >= layout.minimum_touch_px());
                 assert!(!control.rect.intersects(layout.board_outer));

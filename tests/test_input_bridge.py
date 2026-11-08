@@ -41,6 +41,7 @@ int mock_poll(struct pollfd *fds, nfds_t count, int timeout) {
         if (poll_case == 9) { fds[0].revents=POLLNVAL; return 1; }
         fds[0].revents=POLLIN; return 1;
     }
+    if (timeout == 100) { assert(count == 3); return 0; }
     assert((count == 2 || count == 3) && timeout == -1);
     assert(fds[0].fd == 7 && fds[1].fd == 8);
     assert(fds[0].events == POLLIN && fds[1].events == POLLIN);
@@ -54,6 +55,7 @@ int mock_poll(struct pollfd *fds, nfds_t count, int timeout) {
     return 1;
 }
 int main(void) {
+    assert(kcp_input_wait_power_timeout(7,8,9,100)==3);
     poll_case=0; assert(kcp_input_wait(7,8)==0);
     poll_case=1; assert(kcp_input_wait(7,8)==1);
     poll_case=2; assert(kcp_input_wait(7,8)==-EIO);

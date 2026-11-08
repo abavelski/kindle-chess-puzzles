@@ -14,3 +14,11 @@ This repository has no declared license for its own code. These artifacts are
 prepared for the owner's local device installation. Before public distribution,
 the owner must choose a GPL-compatible project license and satisfy FBInk's
 GPL corresponding-source obligations. This artifact is not a public release.
+
+The optional Chessnut Move integration bundles the pinned KindleBT library and a
+minimal native worker. KindleBT and log.c use MIT licenses; their notices and the
+chessnut-move 1.0.2 protocol license are in runtime/licenses. KindleBT includes the
+local descriptor-write callback bridge documented in support/chessnut-move.
+Amazon ACE and SDK libraries/headers are build references and are not distributed
+or installed by this package. Connection requires separate private provisioning;
+no Bluetooth connection or motor command occurs at startup.

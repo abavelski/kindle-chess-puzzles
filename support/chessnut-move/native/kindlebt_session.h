@@ -258,7 +258,7 @@ static int session_worker(const char *library, const char *required) {
             if(!session.connected || native_subscribe(&n)!=0) {ipc_error(wire,id,"subscribe_failed",-1);result=1;break;}
             ipc_report(wire,id,"ok");
         } else if(strcmp(operation,"arm")==0) {
-            if(!session.connected || n.motion_maybe || n.write_pending || !n.subscribed[0] || !n.subscribed[1] || native_mtu(&n)<38){ipc_error(wire,id,"motion_arm_precondition",-1);result=1;break;}
+            if(!session.connected || n.write_pending || !n.subscribed[0] || !n.subscribed[1] || native_mtu(&n)<38){ipc_error(wire,id,"motion_arm_precondition",-1);result=1;break;}
             n.motion_armed=true;ipc_report(wire,id,"ok");
         } else if(strcmp(operation,"capabilities")==0) {
             capabilities_report(&n,id);

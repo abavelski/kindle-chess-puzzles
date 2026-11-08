@@ -8,6 +8,11 @@ binary=${1:-/mnt/us/kindle-chess/kindle-chess}
 if [ "$#" -gt 0 ]; then shift; fi
 lock=${KINDLE_CHESS_LOCK:-/tmp/kindle-chess.lock}
 log=${KINDLE_CHESS_LOG:-/mnt/us/kindle-chess/lifecycle.log}
+# Production allows the separately privileged board worker to finish cleanup.
+# Tests can shorten the finite wait without delaying the suite for 65 seconds.
+cleanup_grace=${KINDLE_CHESS_CLEANUP_GRACE_SECONDS:-65}
+case "$cleanup_grace" in ''|*[!0-9]*) cleanup_grace=65;; esac
+if [ "$cleanup_grace" -lt 1 ] || [ "$cleanup_grace" -gt 65 ]; then cleanup_grace=65; fi
 child=
 owned=0
 child_started=0
@@ -79,7 +84,7 @@ cleanup() {
         echo "lifecycle: forwarding TERM to child $child" >&2
         kill -TERM "$child" 2>/dev/null || true
         attempts=0
-        while kill -0 "$child" 2>/dev/null && [ "$attempts" -lt 5 ]; do
+        while kill -0 "$child" 2>/dev/null && [ "$attempts" -lt "$cleanup_grace" ]; do
             sleep 1
             attempts=$((attempts + 1))
         done

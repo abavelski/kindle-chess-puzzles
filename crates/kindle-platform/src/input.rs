@@ -741,10 +741,43 @@ impl ScribeInput {
         power: &mut crate::PowerEvents,
     ) -> Result<DeviceEvent, InputError> {
         loop {
-            let ready = fbink_sys::wait_input_power(&self.finger.file, &self.pen, power.stdout())?;
+            if let Some(event) = self.poll_event(power, -1)? {
+                return Ok(event);
+            }
+        }
+    }
+
+    /// Finite poll lets the runtime process board service events without a touch.
+    pub fn poll_event(
+        &mut self,
+        power: &mut crate::PowerEvents,
+        timeout_ms: i32,
+    ) -> Result<Option<DeviceEvent>, InputError> {
+        let deadline = (timeout_ms >= 0).then(|| {
+            std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms as u64)
+        });
+        loop {
+            let timeout_ms = if let Some(deadline) = deadline {
+                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                if remaining.is_zero() {
+                    return Ok(None);
+                }
+                remaining.as_millis().max(1).min(i32::MAX as u128) as i32
+            } else {
+                -1
+            };
+            let ready = fbink_sys::wait_input_power_timeout(
+                &self.finger.file,
+                &self.pen,
+                power.stdout(),
+                timeout_ms,
+            )?;
+            if ready == 3 {
+                return Ok(None);
+            }
             if ready == 2 {
                 if let Some(event) = power.read_ready()? {
-                    return Ok(DeviceEvent::Power(event));
+                    return Ok(Some(DeviceEvent::Power(event)));
                 }
                 continue;
             }
@@ -762,7 +795,7 @@ impl ScribeInput {
                     .push(RawInputEvent::from_32bit_bytes(bytes))
             };
             if let Some(tap) = tap {
-                return Ok(DeviceEvent::Tap(tap.0, tap.1));
+                return Ok(Some(DeviceEvent::Tap(tap.0, tap.1)));
             }
         }
     }

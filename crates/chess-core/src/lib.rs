@@ -9,6 +9,10 @@
 pub mod analysis;
 pub mod app;
 pub mod board;
+pub mod board_input;
+pub use board_input::{infer_board_move, BoardInputStatus};
+pub mod board_session;
+pub use board_session::{BoardIntent, BoardSessionStatus};
 pub mod collection;
 pub mod fen;
 pub mod progress;
@@ -44,7 +48,7 @@ pub use review::{
 pub use review_state::{
     ReviewFileError, ReviewGameEntry, ReviewState, Workspace, REVIEW_GAMES_PER_PAGE,
 };
-pub use settings::{Settings, WorkspaceSettings, SETTINGS_VERSION};
+pub use settings::{PhysicalBoardSeat, Settings, WorkspaceSettings, SETTINGS_VERSION};
 pub use uci::{algebraic_to_square, parse_uci_move, square_to_algebraic, UciError, UciMove};
 
 pub use review_resume::ReviewResume;

@@ -167,3 +167,13 @@ pinned header is not proof that the firmware has loaded that waveform.
 Errno-based fallback does not detect this asynchronous failure. REAGLD was
 removed; the original flashing AUTO/GC16 regional-clean build was restored.
 See `docs/device/ks1-barolo.md` and `docs/PIECE_GHOSTING_FIX.md` for evidence.
+
+## Chessnut private config filesystem — verified 2026-11-05
+
+During MVP deployment on Barolo 5.19.6, `/mnt/us` reported a `fuse.fsp` mount and
+mode 777 for the new config even after `chmod 600`. It cannot satisfy the private
+config permission check. The board address is therefore provisioned outside USB
+storage at `/var/local/kindle-chess/chessnut-move.private.json`: actual device
+stat verified owner 0 and mode 600, with parent directory owner 0 and mode 700.
+The temporary `/mnt/us` copy was removed. Ordinary puzzle/progress/settings paths
+are unchanged. This is a filesystem/deployment observation, not a board or UI PASS.

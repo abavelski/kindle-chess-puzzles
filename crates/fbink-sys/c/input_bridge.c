@@ -33,7 +33,7 @@ int kcp_input_wait(int first, int second)
 }
 
 // Power pipe EOF is readable so the owner can reap/restart the finite listener.
-int kcp_input_wait_power(int first, int second, int power)
+int kcp_input_wait_power_timeout(int first, int second, int power, int timeout_ms)
 {
     struct pollfd descriptors[3] = {
         { .fd = first, .events = POLLIN },
@@ -41,8 +41,9 @@ int kcp_input_wait_power(int first, int second, int power)
         { .fd = power, .events = POLLIN }
     };
     int rv;
-    do { rv = poll(descriptors, 3, -1); } while (rv < 0 && errno == EINTR);
+    do { rv = poll(descriptors, 3, timeout_ms); } while (rv < 0 && errno == EINTR);
     if (rv < 0) return -errno;
+    if (rv == 0) return 3;
     if (descriptors[2].revents & (POLLIN | POLLHUP)) return 2;
     for (int i = 0; i < 3; ++i) {
         if (descriptors[i].revents & (POLLERR | POLLHUP | POLLNVAL)) return -EIO;
@@ -62,4 +63,8 @@ int kcp_pipe_wait(int fd, int timeout_ms)
     if (rv == 0) return 0;
     if (descriptor.revents & (POLLIN | POLLHUP)) return 1;
     return -EIO;
+}
+
+int kcp_input_wait_power(int first, int second, int power) {
+    return kcp_input_wait_power_timeout(first, second, power, -1);
 }

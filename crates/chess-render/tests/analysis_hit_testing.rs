@@ -162,7 +162,12 @@ fn analysis_controls_dispatch_and_board_taps_are_disabled_without_moving_old_tar
     let board_point = center(first.layout.square_rect(0));
     assert_eq!(first.hit_test_app(board_point.0, board_point.1, &app), None);
 
-    for control in first.layout.toolbar_targets {
+    for control in first
+        .layout
+        .toolbar_targets
+        .into_iter()
+        .filter(|c| c.rect.width > 0)
+    {
         let point = center(control.rect);
         assert_eq!(
             first.hit_test_app(point.0, point.1, &app),

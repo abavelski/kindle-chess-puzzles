@@ -1,4 +1,5 @@
 [workspace]
+exclude = ["support/chessnut-move"]
 members = [
     "crates/chess-core",
     "crates/chess-render",

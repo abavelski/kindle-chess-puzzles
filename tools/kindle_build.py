@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pinned build, verified stage and scp deployment. Requires only Python stdlib."""
 import argparse
+import importlib.util
 import gzip
 import hashlib
 import io
@@ -33,6 +34,13 @@ ZIG_HASHES = {
 }
 BUILD = ROOT / 'target/kindle'
 
+def board_build():
+    spec = importlib.util.spec_from_file_location('chessnut_build', ROOT / 'tools/chessnut_build.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 
 def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -44,8 +52,8 @@ def run(args, **kwargs):
 
 def source_files():
     # Include local changes, including new task files, but no generated build output.
-    directories = ['app', 'crates', 'assets', 'scripts', 'tools', 'tests', 'packaging', '.github']
-    paths = [ROOT / name for name in ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'LICENSE']]
+    directories = ['support/chessnut-move/src', 'support/chessnut-move/native', 'support/chessnut-move/scripts', 'support/chessnut-move/licenses', 'support/chessnut-move/tests', 'app', 'crates', 'assets', 'scripts', 'tools', 'tests', 'packaging', '.github']
+    paths = [ROOT / name for name in ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'LICENSE', 'support/chessnut-move/Cargo.toml', 'support/chessnut-move/Cargo.lock', 'support/chessnut-move/BUILD_PINS.json', 'support/chessnut-move/SOURCE_PINS.json']]
     for directory in directories:
         paths.extend(p for p in (ROOT / directory).rglob('*')
                      if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc')
@@ -151,6 +159,7 @@ def build():
     run(['python3', 'scripts/generate_sashite.py'])
     before = source_digest()
     wrappers = zig_tools()
+    chessnut = board_build().build(wrappers)
     environment = dict(os.environ)
     # Keep Cargo artifacts in a controlled directory regardless of host settings.
     environment['CARGO_TARGET_DIR'] = str(ROOT / 'target')
@@ -165,7 +174,7 @@ def build():
     shutil.copyfile(binary, BUILD / 'kindle-chess')
     receipt.write_text(json.dumps({'binary_sha256': sha256(binary), 'source_sha256': before,
                                   'target': TARGET, 'checks': 'passed', 'rust': '1.85.1',
-                                  'zig': ZIG_VERSION, 'glibc': '2.35', 'fbink': FBINK}, indent=2) + '\n')
+                                  'zig': ZIG_VERSION, 'glibc': '2.35', 'fbink': FBINK, 'chessnut': chessnut}, indent=2) + '\n')
     print(f'Validated release: {BUILD / "kindle-chess"} ({binary.stat().st_size} bytes)')
 
 
@@ -204,6 +213,9 @@ def stage(binary, receipt_path, destination):
                            (ROOT / 'assets/fonts/OFL.txt', 'Atkinson-OFL.txt'),
                            (ROOT / 'assets/fonts/NotoSans-OFL.txt', 'NotoSans-OFL.txt')]:
             shutil.copyfile(path, notices / name)
+        if 'chessnut' not in receipt:
+            raise ValueError('build receipt lacks the board worker bundle; rebuild')
+        board_build().stage(runtime, receipt['chessnut'], Path(binary).parent / 'chessnut')
         metadata = json.loads(run(['cargo', 'metadata', '--locked', '--format-version=1'],
                                   capture_output=True, text=True).stdout)
         dependencies = [package for package in metadata['packages'] if package['source']]
@@ -241,7 +253,7 @@ def stage(binary, receipt_path, destination):
             source.addfile(config, io.BytesIO(data))
         for path in contents.rglob('*'):
             if path.is_file():
-                path.chmod(0o755 if path.suffix == '.sh' or path.name == 'kindle-chess' else 0o644)
+                path.chmod(0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindlebt-worker') else 0o644)
         sums = ''.join(f'{sha256(p)}  {p.relative_to(contents)}\n'
                        for p in sorted(contents.rglob('*')) if p.is_file())
         (contents / 'SHA256SUMS').write_text(sums)
@@ -268,6 +280,10 @@ def verify_stage(directory):
             raise ValueError(f'staged checksum mismatch: {name}')
     validate_elf(directory / 'runtime/kindle-chess')
     receipt = json.loads((directory / 'runtime/build.json').read_text())
+    # Previously tested stable stages remain valid rollback packages. New stages
+    # always require the board bundle in stage() above.
+    if 'chessnut' in receipt:
+        board_build().verify_stage(directory / 'runtime', receipt['chessnut'])
     if receipt.get('checks') != 'passed' or receipt.get('binary_sha256') != sha256(directory / 'runtime/kindle-chess'):
         raise ValueError('stage has no valid tested-build receipt')
 
@@ -276,7 +292,7 @@ def add_tar_file(archive_file, path, name):
     data = path.read_bytes()
     info = tarfile.TarInfo(name)
     info.size = len(data)
-    info.mode = 0o755 if path.suffix == '.sh' or path.name == 'kindle-chess' else 0o644
+    info.mode = 0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindlebt-worker') else 0o644
     info.mtime = 0
     archive_file.addfile(info, io.BytesIO(data))
 

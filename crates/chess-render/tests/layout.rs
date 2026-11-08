@@ -36,7 +36,11 @@ fn controls_and_promotion_targets_meet_minimum_physical_size() {
     let minimum = layout.minimum_touch_px();
     assert_eq!(minimum, ((SCRIBE.dpi * MIN_TOUCH_MM * 10 + 127) / 254));
 
-    for target in layout.toolbar_targets {
+    for target in layout
+        .toolbar_targets
+        .into_iter()
+        .filter(|c| c.rect.width > 0)
+    {
         assert!(target.rect.width >= minimum);
         assert!(target.rect.height >= minimum);
     }
@@ -360,7 +364,11 @@ fn scribe_header_compact_controls_and_status_prioritize_description_space() {
     assert_eq!(layout.header.right(), SCRIBE.width);
     assert!(!layout.header.intersects(layout.board_outer));
 
-    for target in layout.toolbar_targets {
+    for target in layout
+        .toolbar_targets
+        .into_iter()
+        .filter(|c| c.rect.width > 0)
+    {
         let visual = layout.control_visual_rect(target.rect);
         assert!(target.rect.height >= layout.minimum_touch_px());
         assert!(visual.height < target.rect.height);

@@ -1,9 +1,10 @@
 //! Pure application state for puzzle solving and game-review workspaces.
 
 use crate::{
-    parse_uci_move, AnalysisNodeIndex, Board, CollectionEntry, Color, PieceKind, Progress, Puzzle,
-    PuzzleCollection, ReviewFileError, ReviewGame, ReviewGameEntry, ReviewGameKey, ReviewState,
-    Settings, TapResult, UciMove, Workspace, WorkspaceSettings,
+    parse_uci_move, AnalysisNodeIndex, Board, BoardIntent, BoardSessionStatus, CollectionEntry,
+    Color, PieceKind, Progress, Puzzle, PuzzleCollection, ReviewFileError, ReviewGame,
+    ReviewGameEntry, ReviewGameKey, ReviewState, Settings, TapResult, UciMove, Workspace,
+    WorkspaceSettings,
 };
 
 pub const COLLECTIONS_PER_PAGE: usize = 6;
@@ -126,6 +127,11 @@ impl PendingPromotion {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Action {
+    ToggleBoardConnection,
+    SendBoardPosition,
+    BoardStatus(BoardSessionStatus),
+    BoardPosition(String),
+    PauseBoardInput,
     Exit,
     ToggleWorkspace,
     ReviewPrevious,
@@ -168,6 +174,7 @@ pub enum Action {
     ToggleLockSetting,
     ToggleFlipSetting,
     ToggleBoardSizeSetting,
+    CyclePhysicalBoardSeat,
     OpenCollectionPicker,
     CloseCollectionPicker,
     CollectionPickerPreviousPage,
@@ -179,6 +186,7 @@ pub enum Action {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Effect {
+    Board(BoardIntent),
     ExitRequested,
     ProgressChanged,
     SettingsChanged,
@@ -187,7 +195,21 @@ pub enum Effect {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+struct BoardInput {
+    collection: String,
+    puzzle: String,
+    mode: BoardMode,
+    expected: Board,
+    ready: bool,
+    correction: bool,
+    rotated: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AppState {
+    board_status: BoardSessionStatus,
+    board_target: Option<String>,
+    board_input: Option<BoardInput>,
     active_collection: ActiveCollection,
     puzzle_index: usize,
     board: Board,
@@ -238,6 +260,9 @@ impl AppState {
         progress.remember_puzzle(&key, &puzzle_id);
 
         Self {
+            board_status: BoardSessionStatus::Disconnected,
+            board_target: None,
+            board_input: None,
             active_collection,
             puzzle_index,
             board,
@@ -575,7 +600,204 @@ impl AppState {
         self.collection_picker_page + 1 < self.collection_picker_page_count()
     }
 
+    pub fn board_status(&self) -> &BoardSessionStatus {
+        &self.board_status
+    }
+    pub fn board_target(&self) -> Option<&str> {
+        self.board_target.as_deref()
+    }
+    pub fn can_send_position(&self) -> bool {
+        self.workspace == Workspace::Puzzles
+            && self.board_status.idle()
+            && self.pending_promotion().is_none()
+            && !self.settings_open
+            && !self.collection_picker_open
+            && !self.puzzle_goto_open()
+    }
+
+    pub const fn physical_board_seat(&self) -> crate::PhysicalBoardSeat {
+        self.settings.physical_board_seat()
+    }
+
+    pub fn board_input_status(&self) -> crate::BoardInputStatus {
+        use crate::BoardInputStatus as Input;
+        match self.board_input.as_ref() {
+            None => Input::Off,
+            Some(input) if input.ready => Input::Listening,
+            Some(input) if input.correction => Input::MatchKindle,
+            Some(_) => Input::WaitingForPosition,
+        }
+    }
+
+    fn handle_board_position(&mut self, placement: &str) -> Vec<Effect> {
+        let Some(mut input) = self.board_input.take() else {
+            return Vec::new();
+        };
+        if self.board_status.busy() {
+            self.board_input = Some(input);
+            return Vec::new();
+        }
+        if !self.board_status.connected()
+            || self.workspace != Workspace::Puzzles
+            || self.analysis_browser_open()
+            || self.collection_picker_open
+            || self.puzzle_goto_open()
+            || self.pending_promotion.is_some()
+            || input.collection != self.active_collection.key
+            || input.puzzle != self.active_puzzle().id
+            || input.mode != self.mode
+            || input.expected.placement() != self.board.placement()
+        {
+            return Vec::new();
+        }
+        let physical = (placement.len() <= 71)
+            .then(|| Board::from_fen(&format!("{placement} w - - 0 1")))
+            .and_then(Result::ok);
+        let Some(physical) = physical else {
+            self.board_input = Some(input);
+            return Vec::new();
+        };
+        let physical = if input.rotated {
+            // Sensor coordinates remain physical; grading stays canonical.
+            Board::from_fen(&format!("{} w - - 0 1", physical.placement_rotated(true)))
+                .expect("rotating a valid placement preserves FEN syntax")
+        } else {
+            physical
+        };
+        if physical.placement() == input.expected.placement() {
+            input.ready = true;
+            input.correction = false;
+            self.board_input = Some(input);
+            return Vec::new();
+        }
+        let movement = input
+            .ready
+            .then(|| crate::infer_board_move(&input.expected, &physical))
+            .flatten();
+        let Some(movement) = movement else {
+            self.board_input = Some(input);
+            return Vec::new();
+        };
+        if self.mode == BoardMode::Solution && self.feedback == SolutionFeedback::Complete {
+            self.board_input = Some(input);
+            return Vec::new();
+        }
+        let before = self.board.clone();
+        let original_ply = self.solution_ply;
+        self.board.apply_uci_move(movement);
+        let changed = self.mode == BoardMode::Solution && self.check_solver_move(before, movement);
+        input.expected = self.board.clone();
+        input.ready = input.expected.placement() == physical.placement();
+        input.correction = !input.ready;
+        let mut effects = Self::progress_effect(changed);
+        if self.mode == BoardMode::Solution && self.solution_ply == original_ply + 2 {
+            // Only an accepted physical solver move can authorize this reply.
+            // Freeze input until the reply's exact placement is observed; its
+            // motor echoes must never become another graded solver move.
+            let target = input.expected.placement_rotated(input.rotated);
+            input.ready = false;
+            input.correction = false;
+            self.board_target = Some(target.clone());
+            self.board_status = BoardSessionStatus::Sending;
+            effects.push(Effect::Board(BoardIntent::Send(target)));
+        }
+        self.board_input = Some(input);
+        effects
+    }
+
     pub fn dispatch(&mut self, action: Action) -> Vec<Effect> {
+        // Board-editing/navigation actions invalidate a physical transaction.
+        // Flip and Settings preserve absolute sensor coordinates and listening.
+        if matches!(
+            action,
+            Action::PauseBoardInput
+                | Action::TapSquare(_)
+                | Action::ChoosePromotion(_)
+                | Action::CancelPromotion
+                | Action::ToggleWorkspace
+                | Action::PreviousPuzzle
+                | Action::NextPuzzle
+                | Action::Reset
+                | Action::ToggleMode
+                | Action::ToggleAnalysis
+                | Action::OpenAnalysis
+                | Action::CloseAnalysis
+                | Action::SelectAnalysisNode(_)
+                | Action::OpenCollectionPicker
+                | Action::ActivateCollection(_)
+                | Action::OpenPuzzleGoto
+                | Action::ConfirmPuzzleGoto
+        ) {
+            self.board_input = None;
+        }
+        // Session updates pass through ordinary modals. A sent target is an
+        // immutable snapshot independent of subsequent board navigation.
+        let intent = match &action {
+            Action::CyclePhysicalBoardSeat => {
+                if self.workspace != Workspace::Puzzles || !self.settings_open {
+                    return Vec::new();
+                }
+                let seat = self.physical_board_seat().next();
+                self.settings.set_physical_board_seat(seat);
+                self.board_input = None;
+                return vec![Effect::SettingsChanged];
+            }
+            Action::BoardPosition(placement) => return self.handle_board_position(placement),
+            Action::PauseBoardInput => return Vec::new(),
+            Action::BoardStatus(status) => {
+                if !status.connected() {
+                    self.board_input = None;
+                }
+                if status.busy() && self.board_target.is_none() {
+                    return Vec::new();
+                }
+                self.board_status = status.clone();
+                if !status.busy() {
+                    self.board_target = None;
+                }
+                return Vec::new();
+            }
+            Action::ToggleBoardConnection if self.workspace == Workspace::Puzzles => {
+                if self.board_status.connected() {
+                    self.board_status = BoardSessionStatus::Disconnected;
+                    self.board_target = None;
+                    self.board_input = None;
+                    Some(BoardIntent::Disconnect)
+                } else if matches!(
+                    self.board_status,
+                    BoardSessionStatus::Disconnected | BoardSessionStatus::Error(_)
+                ) {
+                    self.board_status = BoardSessionStatus::Connecting;
+                    Some(BoardIntent::Connect)
+                } else {
+                    None
+                }
+            }
+            Action::SendBoardPosition if self.can_send_position() && !self.settings_open => {
+                let rotated = self
+                    .physical_board_seat()
+                    .rotates(self.active_puzzle().side_to_move());
+                let target = self.board().placement_rotated(rotated);
+                self.board_input = (!self.analysis_browser_open()).then(|| BoardInput {
+                    collection: self.active_collection.key.clone(),
+                    puzzle: self.active_puzzle().id.clone(),
+                    mode: self.mode,
+                    expected: self.board().clone(),
+                    ready: false,
+                    correction: false,
+                    rotated,
+                });
+                self.board_target = Some(target.clone());
+                self.board_status = BoardSessionStatus::Sending;
+                Some(BoardIntent::Send(target))
+            }
+            Action::ToggleBoardConnection | Action::SendBoardPosition => return Vec::new(),
+            _ => None,
+        };
+        if let Some(intent) = intent {
+            return vec![Effect::Board(intent)];
+        }
+
         if self.settings_open
             && !matches!(
                 &action,
@@ -706,6 +928,12 @@ impl AppState {
         }
 
         match action {
+            Action::ToggleBoardConnection
+            | Action::SendBoardPosition
+            | Action::BoardStatus(_)
+            | Action::BoardPosition(_)
+            | Action::PauseBoardInput
+            | Action::CyclePhysicalBoardSeat => Vec::new(),
             Action::Exit => vec![Effect::ExitRequested],
             Action::ToggleWorkspace => {
                 self.toggle_workspace();
@@ -1344,6 +1572,7 @@ impl AppState {
     }
 
     fn toggle_mode(&mut self) {
+        self.board_input = None;
         self.close_analysis();
         self.pending_promotion = None;
         self.description_visible = false;

@@ -216,8 +216,11 @@ static int native_write_packet(struct probe_native *n,const probe_packet *packet
     if((packet_led(packet) || packet->length==35) && (mtu==0 || packet->length>mtu-3)){
         fprintf(session_diagnostics,"phase=M3 stage=write_refused length=%zu reason=MTU_unknown_or_insufficient delivery=UNVERIFIED\n",packet->length);return -1;
     }
-    if(probe_motor(packet) && (!n->motion_armed || n->motion_maybe))return -1;
-    if(n->motion_maybe && !probe_stop(packet))return -1;
+    if(probe_motor(packet) && !n->motion_armed)return -1;
+    /* A later explicit Arm permits another target. Keep motion_maybe for
+     * conservative cleanup; a transport callback does not prove motion done. */
+    bool realtime=packet->length==3 && packet->bytes[0]==0x21 && packet->bytes[1]==1 && packet->bytes[2]==0;
+    if(n->motion_maybe && !probe_stop(packet) && !probe_motor(packet) && !realtime)return -1;
     pthread_mutex_lock(&n->state_lock);
     if(n->write_pending || n->descriptor_pending){pthread_mutex_unlock(&n->state_lock);return -1;}
     n->write_pending=true;n->write_done=false;n->write_status=-1;pthread_mutex_unlock(&n->state_lock);

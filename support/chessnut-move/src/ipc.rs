@@ -125,7 +125,7 @@ pub fn read_report(reader: &mut impl BufRead) -> Result<Envelope, Error> {
 pub struct Client {
     child: Child,
     input: Option<ChildStdin>,
-    reports: Receiver<Result<Envelope, Error>>,
+    reports: Receiver<Result<(Envelope, Instant), Error>>,
     reader: Option<JoinHandle<()>>,
     timeout: Duration,
     id: u32,
@@ -136,10 +136,21 @@ pub struct Client {
 }
 impl Client {
     pub fn spawn(command: &mut ProcessCommand, timeout: Duration) -> Result<Self, Error> {
+        Self::spawn_with_stderr(command, timeout, Stdio::inherit())
+    }
+    /// Production logs must never inherit vendor diagnostics containing addresses.
+    pub fn spawn_private(command: &mut ProcessCommand, timeout: Duration) -> Result<Self, Error> {
+        Self::spawn_with_stderr(command, timeout, Stdio::null())
+    }
+    fn spawn_with_stderr(
+        command: &mut ProcessCommand,
+        timeout: Duration,
+        stderr: Stdio,
+    ) -> Result<Self, Error> {
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            .stderr(stderr)
             .spawn()
             .map_err(|_| Error::Io)?;
         let input = child.stdin.take();
@@ -148,7 +159,7 @@ impl Client {
         let reader = thread::spawn(move || {
             let mut output = BufReader::new(output);
             loop {
-                let report = read_report(&mut output);
+                let report = read_report(&mut output).map(|envelope| (envelope, Instant::now()));
                 let terminal = report.is_err();
                 if sender.try_send(report).is_err() || terminal {
                     break;
@@ -182,7 +193,7 @@ impl Client {
         self.cancelled = Some(cancelled);
         self.grace = grace;
     }
-    fn receive(&mut self, deadline: Instant) -> Result<Envelope, Error> {
+    fn receive(&mut self, deadline: Instant) -> Result<(Envelope, Instant), Error> {
         loop {
             if self
                 .cancelled
@@ -210,26 +221,35 @@ impl Client {
     pub fn poll_session(&mut self) -> Result<(), Error> {
         match self.reports.try_recv() {
             Err(mpsc::TryRecvError::Empty) => Ok(()),
-            Ok(Ok(Envelope {
-                id: 0,
-                report: Report::Disconnected,
-                ..
-            })) => Err(Error::Disconnected),
-            Ok(Ok(Envelope {
-                id: 0,
-                report: Report::Error { code },
-                ..
-            })) => Err(Error::Worker(code)),
-            Ok(Ok(Envelope {
-                id: 0,
-                report: Report::Notification { source, bytes },
-                ..
-            })) => {
+            Ok(Ok((
+                Envelope {
+                    id: 0,
+                    report: Report::Disconnected,
+                    ..
+                },
+                _,
+            ))) => Err(Error::Disconnected),
+            Ok(Ok((
+                Envelope {
+                    id: 0,
+                    report: Report::Error { code },
+                    ..
+                },
+                _,
+            ))) => Err(Error::Worker(code)),
+            Ok(Ok((
+                Envelope {
+                    id: 0,
+                    report: Report::Notification { source, bytes },
+                    ..
+                },
+                received_at,
+            ))) => {
                 if self.notifications.len() >= 16 {
                     return Err(Error::Protocol);
                 }
                 self.notifications
-                    .push_back(crate::telemetry::decode_observed(&source, &bytes)?);
+                    .push_back(decode_at(&source, &bytes, received_at)?);
                 Ok(())
             }
             Ok(Err(error)) => Err(error),
@@ -279,6 +299,14 @@ impl Client {
         if self.closed {
             return Err(Error::Closed);
         }
+        if self
+            .cancelled
+            .as_ref()
+            .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed))
+        {
+            self.close();
+            return Err(Error::Interrupted);
+        }
         let shutdown = matches!(operation, Operation::Shutdown);
         let result = self.exchange(operation);
         if (result.is_err() || shutdown) && !self.close() && result.is_ok() {
@@ -319,14 +347,14 @@ impl Client {
             .map_err(|_| Error::WorkerExited)?;
         let deadline = Instant::now() + self.timeout;
         loop {
-            let envelope = self.receive(deadline)?;
+            let (envelope, received_at) = self.receive(deadline)?;
             match envelope.report {
                 Report::Notification { source, bytes } if envelope.id == 0 => {
                     if self.notifications.len() >= 16 {
                         return Err(Error::Protocol);
                     }
                     self.notifications
-                        .push_back(crate::telemetry::decode_observed(&source, &bytes)?);
+                        .push_back(decode_at(&source, &bytes, received_at)?);
                 }
                 Report::Disconnected if envelope.id == 0 => return Err(Error::Disconnected),
                 Report::Error { code } if envelope.id == 0 => return Err(Error::Worker(code)),
@@ -396,10 +424,10 @@ impl Client {
             return Ok(Some(event));
         }
         let result = (|| {
-            let envelope = self.receive(Instant::now() + timeout)?;
+            let (envelope, received_at) = self.receive(Instant::now() + timeout)?;
             match envelope.report {
                 Report::Notification { source, bytes } if envelope.id == 0 => {
-                    crate::telemetry::decode_observed(&source, &bytes).map(Some)
+                    decode_at(&source, &bytes, received_at).map(Some)
                 }
                 Report::Disconnected if envelope.id == 0 => Err(Error::Disconnected),
                 Report::Error { code } if envelope.id == 0 => Err(Error::Worker(code)),
@@ -450,4 +478,14 @@ impl Drop for Client {
     fn drop(&mut self) {
         self.close();
     }
+}
+
+fn decode_at(
+    source: &str,
+    bytes: &[u8],
+    received_at: Instant,
+) -> Result<crate::telemetry::Observed, Error> {
+    let mut observed = crate::telemetry::decode_observed(source, bytes)?;
+    observed.received_at = received_at;
+    Ok(observed)
 }

@@ -80,7 +80,6 @@ pub fn render(state: &AppState, metrics: DisplayMetrics) -> Result<RenderOutput,
     let analysis_entry = (state.workspace() == Workspace::Puzzles && state.analysis_available())
         .then_some(layout.toolbar_targets[0].rect);
     let analysis = draw_status(&mut frame, state, layout, text_scale);
-
     if state.workspace() == Workspace::Puzzles {
         match state.feedback() {
             SolutionFeedback::Wrong => draw_wrong_overlay(&mut frame, layout),
@@ -375,6 +374,9 @@ fn draw_toolbar(frame: &mut Gray8, state: &AppState, layout: Layout, scale: u32)
                 HitTarget::ToggleMode => (state.mode() == BoardMode::FreeBoard, true),
                 HitTarget::ToggleDescription => (state.description_visible(), true),
                 HitTarget::ToggleOrientationLock => (state.orientation_locked(), true),
+                HitTarget::SendBoardPosition => {
+                    (state.board_status().busy(), state.can_send_position())
+                }
                 HitTarget::Reset | HitTarget::Flip => (false, true),
                 _ => continue,
             },
@@ -788,6 +790,39 @@ fn draw_settings_panel(frame: &mut Gray8, state: &AppState, layout: Layout, scal
         },
         scale.min(3),
     );
+    if state.workspace() == Workspace::Puzzles {
+        draw_setting_value_row(
+            frame,
+            layout.settings_physical_board,
+            "PHYSICAL BOARD",
+            state.physical_board_seat().label(),
+            scale.min(3),
+        );
+        let label = "CHESSNUT MOVE";
+        let value = state.board_status().connection_control_label();
+        let row_scale = if measure_text_bold(label, scale)
+            + measure_text_bold(value, scale)
+            + layout.settings_chessnut.height
+            > layout.settings_chessnut.width
+        {
+            2
+        } else {
+            scale
+        };
+        draw_setting_value_row(frame, layout.settings_chessnut, label, value, row_scale);
+        if let chess_core::BoardSessionStatus::Error(reason) = state.board_status() {
+            let area = Rect::new(
+                layout.settings_chessnut.x,
+                layout.settings_chessnut.bottom() + 4,
+                layout.settings_chessnut.width,
+                layout
+                    .settings_close
+                    .y
+                    .saturating_sub(layout.settings_chessnut.bottom() + 8),
+            );
+            draw_wrapped_text(frame, area, reason, 2, INK);
+        }
+    }
     draw_button(frame, layout.settings_close, "CLOSE", false, scale);
 }
 
@@ -1190,6 +1225,26 @@ fn draw_button_icon(frame: &mut Gray8, rect: Rect, icon: ButtonIcon, tone: u8) {
     let icon_rect = rect.inset(rect.width.min(rect.height) / 4);
     let thickness = (rect.height / 24).clamp(3, 6);
     match icon {
+        ButtonIcon::SendPosition => {
+            frame.stroke_rect(icon_rect.inset(thickness * 2), thickness, tone);
+            let cx = icon_rect.x + icon_rect.width / 2;
+            let cy = icon_rect.y + icon_rect.height / 2;
+            frame.fill_rect(
+                Rect::new(cx - thickness, cy, thickness * 2, icon_rect.height / 3),
+                tone,
+            );
+            for direction in [-1, 1] {
+                draw_thick_line(
+                    frame,
+                    cx as i32,
+                    cy as i32,
+                    cx as i32 + direction * (icon_rect.width / 6) as i32,
+                    (cy + icon_rect.height / 6) as i32,
+                    thickness,
+                    tone,
+                );
+            }
+        }
         ButtonIcon::Analysis => draw_analysis_icon(frame, icon_rect, thickness, tone),
         ButtonIcon::Reset => draw_refresh_icon(frame, icon_rect, thickness, tone),
         ButtonIcon::FreeBoard => {

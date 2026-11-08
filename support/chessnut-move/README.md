@@ -1,7 +1,7 @@
 # Chessnut Move integration reference
 
 A curated, standalone reference extracted from the physically tested Kindle probe
-on 2026-11-05. It is **not connected to the puzzle app**, has no device-app entry point,
+on 2026-11-05. The reference has no device-app entry point,
 and is intentionally outside the parent Cargo workspace. Adding it here does not
 enable Bluetooth, alter packaging or authorize motor movement.
 
@@ -28,12 +28,17 @@ this reference.
 - `licenses/`: notices for KindleBT, log.c and the protocol SDK. Preserve all
   dependency notices if a later package bundles them.
 
-The standalone Rust library has no device binary; its feature-gated mock worker
+The standalone Rust library has no device binary; the MVP platform adapter now
+uses its IPC/protocol helpers. IPC adds reader receipt timestamps and a quiet
+production spawn path; native sources retain the verified transport behavior.
+The production adapter/build are documented in
+[`CHESSNUT_MOVE_MVP_VERIFICATION.md`](../../docs/CHESSNUT_MOVE_MVP_VERIFICATION.md).
+The library’s feature-gated mock worker
 is solely a host test fixture. `TargetFen::packet()` only encodes;
 it cannot send a move by itself. `ipc::Client` can launch an explicitly supplied
-worker and send typed operations. Future integration tasks must add lifecycle,
-opt-in connection, physical/logical synchronization, authorization, cancellation
-semantics and app-state tests. Do not copy the probe's manual timing assumptions
+worker and send typed operations. The MVP adds opt-in ownership, snapshot
+authorization and human-Done verification outside this library. Broader board
+input/grading and automatic synchronization remain separate future tasks. Do not copy the probe's manual timing assumptions
 into an automatic puzzle loop.
 
 ## Host verification

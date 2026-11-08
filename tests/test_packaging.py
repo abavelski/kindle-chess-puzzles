@@ -38,10 +38,33 @@ class PackageTests(unittest.TestCase):
         self.binary = self.base / 'kindle-chess'
         self.binary.write_bytes(elf())
         self.receipt = self.base / 'build.json'
-        self.receipt.write_text(json.dumps({'binary_sha256': self.w.sha256(self.binary),
+        spec = importlib.util.spec_from_file_location('board_elf_fixture', ROOT / 'support/chessnut-move/tests/test_build_tools.py')
+        fixture = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fixture)
+        bundle = self.base / 'chessnut'
+        bundle.mkdir()
+        (bundle / 'kindlebt-worker').write_bytes(fixture.elf_fixture())
+        (bundle / 'libkindlebt.so').write_bytes(fixture.elf_fixture(False))
+        (bundle / 'chessnut-required-libs.txt').write_text('libc.so.6\n')
+        board = self.w.board_build()
+        self.chessnut = {'artifacts': {p.name: self.w.sha256(p) for p in bundle.iterdir()},
+                        'elf': {name: board.helpers.inspect_elf((bundle / name).read_bytes(), name == 'kindlebt-worker')
+                                for name in ['kindlebt-worker', 'libkindlebt.so']}}
+        self.receipt.write_text(json.dumps({'chessnut': self.chessnut, 'binary_sha256': self.w.sha256(self.binary),
                                            'source_sha256': self.w.source_digest(),
                                            'target': self.w.TARGET, 'checks': 'passed'}))
         self.stage = self.base / 'stage'
+
+    def test_board_bundle_checksums_and_private_sources(self):
+        self.stage_build()
+        self.assertTrue((self.stage / 'runtime/kindlebt-worker').stat().st_mode & 0o111)
+        self.assertTrue((self.stage / 'runtime/lib/libkindlebt.so').is_file())
+        self.assertFalse((self.stage / 'runtime/lib/libace_bt.so').exists())
+        with tarfile.open(self.stage / 'runtime/source.tar') as source:
+            self.assertIn('support/chessnut-move/native/kindlebt_worker.c', source.getnames())
+            self.assertFalse(any(name.endswith('.private.json') or name.startswith('local-kindle/') for name in source.getnames()))
+        (self.stage / 'runtime/lib/libkindlebt.so').write_bytes(b'corrupt')
+        with self.assertRaises(ValueError): self.w.verify_stage(self.stage)
 
     def stage_build(self):
         self.w.stage(self.binary, self.receipt, self.stage)
