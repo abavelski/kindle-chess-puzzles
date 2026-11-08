@@ -1,6 +1,6 @@
 # App data separation plan
 
-Date: 2026-11-08. Status: DATA-01 Done; DATA-02 Ready. Device migration has not started.
+Date: 2026-11-08. Status: DATA-01 Done; DATA-02 in progress. Device migration has not started.
 Follow-up to the [completed app split](../archive/tasks/implemented/app-split.md).
 
 ## Goal and current state
@@ -12,8 +12,8 @@ Each app should use only its own data root:
 | Puzzles | `/mnt/us/kindle-chess` | `puzzles/`, progress, settings, runtime and logs |
 | Game Review | `/mnt/us/kindle-game-review` | `games/`, review resume, settings, runtime and logs |
 
-Writes are already separate, but Review still automatically reads legacy games,
-settings and resume from Puzzles when its own inputs are absent. The last audit
+DATA-01 removed automatic legacy reads; each app now reads and writes only its
+own configured paths. Before migration, the last device audit
 found 112 game files under Puzzles and newer Review settings/resume under Review.
 Preserve those newer files when moving the legacy data.
 
@@ -28,7 +28,7 @@ protections against overwriting existing files or touching unrelated puzzle data
 | ID | Deliverable | Depends on | Status |
 | --- | --- | --- | --- |
 | DATA-01 | Independent app data access, tests and builds | — | Done |
-| DATA-02 | Device migration script and result verification | DATA-01 | Ready |
+| DATA-02 | Device migration script and result verification | DATA-01 | In progress |
 
 Use a task branch. Update the table and task status together, recording the
 implementation commit and test results. DATA-01 owner: Codex; branch: `task/data-01-independent-storage`; started 2026-11-08.
@@ -73,7 +73,7 @@ record the results. Once these pass, DATA-01 is Done. Device migration is DATA-0
 
 ## DATA-02 — Implement the migration script and verify the result
 
-**Status:** Ready.
+**Status:** In progress. Owner: Codex; branch: `task/data-02-migration-script`; started 2026-11-08. Device access is explicitly deferred by the owner.
 
 Provide one host-run command, proposed as:
 

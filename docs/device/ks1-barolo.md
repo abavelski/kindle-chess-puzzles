@@ -2466,3 +2466,28 @@ available; individual failure/recovery, destructive update/uninstall and rollbac
 exercises are not independently evidenced by this report. Automatic Chessnut
 reply motion and historically ineffective STOP retain their previous unverified
 status. No broader Bluetooth acceptance is inferred.
+
+
+### App data separation — host preparation, 2026-11-08
+
+Device status: **Waiting for device**. The owner explicitly deferred all device
+access, migration and deployment until further authorization. No SSH connection,
+device command, data migration, deployment or app launch was performed for this
+change. The installed version and the previously observed 112 legacy game files
+have not been rechecked; there is no new deployed version or physical result.
+
+Host preparation removes normal Review legacy reads and adds
+`tools/migrate_app_data.py`, with local shell/temporary-directory tests.
+[DATA-01 / DATA-02](../DATA_SEPARATION_PLAN.md) record implementation and host
+validation evidence. When authorized, with both apps closed, run:
+
+```sh
+python3 tools/migrate_app_data.py --host root@DEVICE_IP --port 2222
+scripts/app.sh deploy review --host root@DEVICE_IP --port 2222
+scripts/app.sh deploy puzzles --host root@DEVICE_IP --port 2222
+```
+
+These commands have **not** been run. Record their results, deployed commit and
+package hashes, resulting game paths/count, retained Review settings/resume and
+unchanged puzzle progress. Then record owner observations of Review's library and
+saved position and Puzzles' collections/progress before marking DATA-02 Done.

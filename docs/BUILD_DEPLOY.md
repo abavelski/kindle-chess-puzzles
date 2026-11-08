@@ -264,12 +264,30 @@ are `KINDLE_GAME_REVIEW_GAME_DIR`, `KINDLE_GAME_REVIEW_SETTINGS_FILE`, and
 `KINDLE_GAME_REVIEW_RESUME_FILE`. `KINDLE_GAME_REVIEW_LEGACY_ROOT` is no longer used.
 
 Legacy games and review state in `/mnt/us/kindle-chess` need explicit one-time
-migration before deploying this version on an existing installation. The planned
-host command is `python3 tools/migrate_app_data.py --host root@DEVICE_IP --port 2222`;
-it is not available yet. [DATA-02](DATA_SEPARATION_PLAN.md#data-02--implement-the-migration-script-and-verify-the-result)
-tracks implementation and device verification. Both apps must be closed. Migration
-must preserve filenames/game IDs and newer Review settings/resume, report conflicts,
-and leave Puzzles progress, settings and unrelated data unchanged. Removing Review
+migration before deploying this version on an existing installation. The host command is:
+
+```sh
+python3 tools/migrate_app_data.py --host root@DEVICE_IP --port 2222
+```
+
+Run it only when ready to migrate the device. It builds a small host-only Rust
+helper using the existing toolchain to apply the exact settings/resume parsers;
+no device Python is needed. SSH uses the existing host-key checks. The command
+refuses active app processes or existing app/display locks, without killing apps
+or removing locks. Close both apps and inspect any stale ownership using the
+existing recovery instructions before retrying.
+
+The command moves `games.json` and `games-*.json`, compares bytes before deleting
+legacy copies, and reports identical files and filename conflicts. Other files
+stay in place. Existing Review settings/resume win; only missing valid state is
+copied, preserving the Review profile and authored move. The legacy settings file
+stays in Puzzles. Valid obsolete legacy resume is removed after migration or
+supersession; malformed/future state stays untouched and is reported. Exit status
+is zero on success and nonzero if attention is needed. Rerunning is supported.
+
+[DATA-02](DATA_SEPARATION_PLAN.md#data-02--implement-the-migration-script-and-verify-the-result)
+tracks device verification, which has not been performed. Migration leaves
+Puzzles progress, settings and unrelated data unchanged. Removing Review
 state no longer restores legacy state automatically.
 
 ## Independent installation and recovery — SPLIT-11
