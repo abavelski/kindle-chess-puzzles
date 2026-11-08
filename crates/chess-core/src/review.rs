@@ -1,6 +1,6 @@
 //! Version-1 game-review collection parsing and platform-neutral model.
 
-use crate::analysis::parse_review_analysis;
+use crate::analysis::parse_analysis_tree;
 use crate::{parse_fen, AnalysisTree};
 use serde::{de::Error as _, Deserialize, Deserializer};
 use serde_json::Value;
@@ -214,7 +214,12 @@ fn build_game(raw: RawReviewGame, name: &str) -> Result<ReviewGame, String> {
 
     let result = ReviewResult::parse(&raw.result)
         .ok_or_else(|| format!("{name}: result must be one of 1-0, 0-1, 1/2-1/2, or *."))?;
-    let analysis = parse_review_analysis(&raw.analysis, &raw.fen, name)?;
+    let analysis = parse_analysis_tree(&raw.analysis, &raw.fen, "game fen", name)?;
+    if analysis.main_line_nodes().len() <= 1 {
+        return Err(format!(
+            "{name}: analysis main path must contain at least one main move."
+        ));
+    }
 
     Ok(ReviewGame {
         id: raw.id,

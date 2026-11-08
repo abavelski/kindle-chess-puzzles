@@ -4,9 +4,9 @@ Updated 2026-11-08. This describes a target and does **not** claim a completed s
 
 ## Current system (from source)
 
-The five Cargo workspace members are chess-core, chess-render, fbink-sys, kindle-platform, and app/kindle-chess. The only shipped executable is kindle-chess. Its main.rs opens puzzle collections and review games, creates puzzle progress and review-resume stores, routes both workspaces through one AppState, handles Chessnut, and owns the Kindle input/display loop.
+The six Cargo workspace members are chess-model, chess-core, chess-render, fbink-sys, kindle-platform, and app/kindle-chess. SPLIT-02 extracts Board/FEN/UCI and generic analysis graph validation into chess-model, which depends only on serde_json; chess-core re-exports those types for compatibility. Puzzle legacy-solution projection stays in puzzle.rs and the non-empty review main-line rule stays in review.rs. The only shipped executable is kindle-chess. Its main.rs opens puzzle collections and review games, creates puzzle progress and review-resume stores, routes both workspaces through one AppState, handles Chessnut, and owns the Kindle input/display loop.
 
-- crates/chess-core/src/app.rs mixes puzzle grading, review navigation, workspace switching and actions; review_state.rs and review_resume.rs offer separation seams. Its analysis.rs includes validation that must be divided into generic tree validation and puzzle-only solution compatibility.
+- crates/chess-core/src/app.rs mixes puzzle grading, review navigation, workspace switching and actions; review_state.rs and review_resume.rs offer separation seams. Its analysis.rs now re-exports the generic model; product parsers own their additional validation.
 - crates/chess-render/src/layout.rs and render.rs mix generic Gray8, typography/board, damage tracking and product-specific targets.
 - crates/kindle-platform/src/storage.rs knows puzzles, review libraries and progress; refresh.rs contains board-specific policy; chessnut.rs contains chess semantics mixed with a platform transport.
 - tools/kindle_build.py and packaging/kindle currently pin one executable, output directory, build receipt, KPM ID, scriptlet, root path and runtime.

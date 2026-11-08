@@ -19,9 +19,9 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | --- | --- | --- | --- | --- |
 | SPLIT-00 | Documentation/archive and guarded CLI selector | — | Done (CI verification pending) | No |
 | SPLIT-01 | Freeze golden compatibility baseline | 00 | Done | No |
-| SPLIT-02 | Generic chess model and analysis validation | 01 | Ready | No |
-| SPLIT-03 | Puzzle-only product state/actions | 02 | Blocked | No |
-| SPLIT-04 | Review-only product state/actions | 02 | Blocked | No |
+| SPLIT-02 | Generic chess model and analysis validation | 01 | Done | No |
+| SPLIT-03 | Puzzle-only product state/actions | 02 | Ready | No |
+| SPLIT-04 | Review-only product state/actions | 02 | Ready | No |
 | SPLIT-05 | Shared UI versus product layouts/hit actions | 03,04 | Blocked | No |
 | SPLIT-06 | Domain-free Kindle platform/adapters | 03,04,05 | Blocked | No |
 | SPLIT-07 | Shared runtime and exclusive device ownership | 05,06 | Blocked | No |
@@ -53,22 +53,24 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-02 — Common chess model + generic analysis validation
 
-**Status:** Ready. **Read:** [architecture](ARCHITECTURE.md), [puzzle format](PUZZLE_FORMAT.md), [review format](GAME_REVIEW_FORMAT.md).  
+**Status:** Done. **Owner:** Codex. **Branch:** `app-split`. **Started/completed:** 2026-11-08. **Read:** [architecture](ARCHITECTURE.md), [puzzle format](PUZZLE_FORMAT.md), [review format](GAME_REVIEW_FORMAT.md).  
 **Likely files:** chess-core board.rs/fen.rs/uci.rs/analysis.rs/puzzle.rs/review.rs, crate Cargo.toml files.  
 **First failing tests:** review-only analysis tree without a puzzle solution is valid; a puzzle with legacy solution/tree mismatch is still rejected.  
 **Implementation:** separate reusable Board/FEN/UCI/analysis tree from puzzle-specific compatibility projection. Introduce a clean chess-model crate or comparable proven boundary; keep public compatibility adapters during migration.  
 **Acceptance:** no product/Kindle imports in generic model, no format/JSON fixture changes, full tests green. **Fit:** Codex.
 
+**Evidence (implementation: this task commit, `refactor(split): extract product-neutral chess model`):** Extracted `chess-model` with Board/FEN/UCI, generic tree/span validation, main-line projection and role membership. Compatibility module/type re-exports remain in chess-core. Puzzle legacy-solution comparison now lives in puzzle.rs; Review's non-empty main-line rule lives in review.rs. `cargo test --locked -p chess-core --test model_boundary` first failed with missing `chess_model`; after extraction → 2 passed (review tree without solution; generic acceptance versus puzzle rejection of mismatched solution). `cargo check --locked -p chess-model` and `cargo tree --locked -p chess-model` passed; only serde_json dependencies, no product/platform imports. Frozen formats/fixtures/checksums unchanged. Full `PATH=/tmp/kindle-split-venv/bin:$PATH scripts/check.sh` → exit 0. An earlier run's rustdoc artifact mismatch from a concurrent rebuild was resolved by rerunning the gate without concurrent source/build changes. No package/platform change or device claim.
+
 ### SPLIT-03 — Puzzle-only state machine and effects
 
-**Status:** Blocked by 02. **Read:** [puzzle format](PUZZLE_FORMAT.md), [physical board](PHYSICAL_BOARD.md), [settings](SETTINGS.md).  
+**Status:** Ready. **Read:** [puzzle format](PUZZLE_FORMAT.md), [physical board](PHYSICAL_BOARD.md), [settings](SETTINGS.md).  
 **Likely files:** chess-core app.rs, puzzle.rs, progress.rs, collection.rs, board_input.rs, board_session.rs, settings.rs; new crates/puzzle-app.  
 **First failing tests:** create/dispatch puzzle state with no review file/library or review actions; exact stored-line grading, wrong-move rollback, promotions, solved IDs, FREE board, collections, physical-board intent and puzzle preferences still work.  
 **Acceptance:** puzzle product cannot own review picker/resume/toggle; preserves v1 data/progress; no platform dependency. **Fit:** Codex.
 
 ### SPLIT-04 — Review-only state machine and effects
 
-**Status:** Blocked by 02. **Read:** [review behavior](GAME_REVIEW.md), [review format](GAME_REVIEW_FORMAT.md), [review import](GAME_REVIEW_IMPORT.md).  
+**Status:** Ready. **Read:** [review behavior](GAME_REVIEW.md), [review format](GAME_REVIEW_FORMAT.md), [review import](GAME_REVIEW_IMPORT.md).  
 **Likely files:** chess-core review.rs/review_state.rs/review_resume.rs/app.rs; new crates/review-app.  
 **First failing tests:** construct/dispatch review from games only; PREV/NEXT, variation preview, FREE/RESET, missing-library warnings and resume work without puzzle AppState or Progress.  
 **Acceptance:** independent review actions and persistence contract; no grading/solved-ID state or platform coupling. **Fit:** Codex.

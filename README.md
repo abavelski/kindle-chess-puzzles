@@ -58,9 +58,10 @@ The Kindle runtime stays deliberately small. Puzzle solving, rendering, and anal
                     FBInk + Kindle framebuffer
 ```
 
-The workspace is split into four main crates:
+The shared workspace currently contains these main crates:
 
-- **`chess-core`** — FEN/UCI board model, puzzle parsing, solution state, collections, progress, versioned settings, and rich-analysis state.
+- **`chess-model`** — reusable FEN/UCI board model and generic authored analysis validation.
+- **`chess-core`** — puzzle/review parsing and state, collections, progress, versioned settings, and compatibility re-exports of the model.
 - **`chess-render`** — deterministic e-ink layout/rendering, hit testing, pieces, text, and damage regions.
 - **`kindle-platform`** — Kindle display presentation, Linux touch/pen input, paths, device lifecycle, and power integration.
 - **`fbink-sys`** — the raw FBInk FFI boundary.
