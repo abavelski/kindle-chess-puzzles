@@ -1,6 +1,6 @@
 # App data separation plan
 
-Date: 2026-11-08. Status: DATA-01 in progress; device migration has not started.
+Date: 2026-11-08. Status: DATA-01 Done; DATA-02 Ready. Device migration has not started.
 Follow-up to the [completed app split](../archive/tasks/implemented/app-split.md).
 
 ## Goal and current state
@@ -27,15 +27,17 @@ protections against overwriting existing files or touching unrelated puzzle data
 
 | ID | Deliverable | Depends on | Status |
 | --- | --- | --- | --- |
-| DATA-01 | Independent app data access, tests and builds | — | In progress |
-| DATA-02 | Device migration script and result verification | DATA-01 | Blocked on DATA-01 |
+| DATA-01 | Independent app data access, tests and builds | — | Done |
+| DATA-02 | Device migration script and result verification | DATA-01 | Ready |
 
 Use a task branch. Update the table and task status together, recording the
 implementation commit and test results. DATA-01 owner: Codex; branch: `task/data-01-independent-storage`; started 2026-11-08.
 
 ## DATA-01 — Separate data access and run the tests
 
-**Status:** In progress. Owner: Codex; branch: `task/data-01-independent-storage`; started 2026-11-08.
+**Status:** Done (2026-11-08). Owner: Codex; branch: `task/data-01-independent-storage`; started 2026-11-08.
+
+Implementation: `69b0749`. Focused test-first evidence: three regression tests failed with legacy fallback enabled; all six `review_migration` tests and the `products` startup/persistence test passed after removal. `scripts/check.sh` passed with the pinned `requirements-tools.txt` dependency in `.venv`. Both apps passed pinned build, stage and `verify_app_artifacts.py` locally (ARMv7, glibc 2.35, Rust 1.85.1, Zig 0.13.0). Artifacts are under `target/kindle/{puzzles,review}`. No device access or deployment.
 
 - Remove automatic legacy fallback from `crates/kindle-app/src/products/mod.rs`
   and `products/review.rs`, including normal startup's use of
@@ -71,7 +73,7 @@ record the results. Once these pass, DATA-01 is Done. Device migration is DATA-0
 
 ## DATA-02 — Implement the migration script and verify the result
 
-**Status:** Blocked on DATA-01.
+**Status:** Ready.
 
 Provide one host-run command, proposed as:
 
