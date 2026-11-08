@@ -47,7 +47,7 @@ framebuffer and successful submission/completion. The kernel reported waveform
 mode 5 not loaded in day mode; errno-based fallback cannot catch that asynchronous
 failure. Production is restored to the original regional-clean flashing AUTO
 path, without a white intermediate frame. The user accepted this improvement
-for merge; residual dark-square ghosting remains unresolved. See [the investigation](PIECE_GHOSTING_FIX.md).
+for merge; residual dark-square ghosting remains unresolved. See [the investigation](../archive/docs/PIECE_GHOSTING_FIX.md).
 
 The pinned FBInk revision remains `92e127008145b2a22fba7c59815d810d716310dd`.
 Its `refresh_kindle_mtk` implementation maps flashing AUTO to GC16/FULL and

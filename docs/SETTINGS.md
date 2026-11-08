@@ -1,5 +1,8 @@
 # Settings architecture
 
+> **Split constraint:** preserve both existing workspace settings profiles and schema version checks. The future standalone Review app will have its own settings root and a tested non-destructive migration ([SPLIT-09](NEXT_TASKS_APP_SPLIT.md)). The split is not implemented yet.
+
+
 Settings are application preferences, not puzzle data and not learning progress.
 
 ## Current settings

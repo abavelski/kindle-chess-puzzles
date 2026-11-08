@@ -1,5 +1,16 @@
 # Build, stage and deploy to Kindle Scribe
 
+> **Product status (2026-11-08):** one combined kindle-chess binary is installed. The [split plan](NEXT_TASKS_APP_SPLIT.md) adds truly independent apps; the selector below does **not** build standalone Review yet.
+
+## Transitional app-selection CLI
+
+Commands: scripts/app.sh build puzzles; scripts/app.sh stage puzzles; scripts/app.sh deploy puzzles --host root@DEVICE_IP --port 2222.
+
+At present puzzles targets the **existing combined** verified Scribe pipeline. Legacy build-kindle.sh, stage-kindle.sh and deploy-kindle.sh stay compatible. Selecting review for build/stage/deploy **fails explicitly** until SPLIT-08 through SPLIT-11 add a genuine review binary, separate receipt, stage, KPM ID, runtime root and installer. Do not rename/repackage the combined binary as Review. Once implemented, choose review with the same commands and test isolation of installs, data and display ownership.
+
+See [architecture](ARCHITECTURE.md) and [implementation queue](NEXT_TASKS_APP_SPLIT.md).
+
+
 Task 08's automation targets the measured first-generation Scribe (Barolo,
 firmware 5.19.6, ARMv7 hard-float, glibc 2.35). Checkpoint F's clean build,
 deploy/update, library launch/exit, and uninstall/reinstall observations passed.

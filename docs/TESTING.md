@@ -1,5 +1,8 @@
 # Testing strategy
 
+> **Split gate (2026-11-08):** scripts/check.sh now includes transitional app-selector tests. The Review selector intentionally rejects any build/stage/deploy until its own binary and package exist. SPLIT-12 requires independent release/stage CI checks for both apps, and [SPLIT-13](NEXT_TASKS_APP_SPLIT.md) is the separate human hardware gate.
+
+
 The app should be mostly testable without an e-reader.
 
 ## Principle

@@ -40,7 +40,7 @@ The cleaner unwraps `pre` directives and removes unsupported `csl`/`cal` square
 and arrow directives only inside comments, retaining prose, Unicode, headers,
 moves, variations, and other directives. These marks are discarded only from the
 cleaned copy; keep the original PGN for future annotation support. See the
-[deferred board-annotation plan](PGN_BOARD_ANNOTATIONS.md). Use a separate output
+[deferred board-annotation plan](../archive/docs/PGN_BOARD_ANNOTATIONS.md). Use a separate output
 to preserve the original PGN. Output replacement is atomic; incomplete wrappers
 fail without replacing an existing output. Repeated cleaning is unchanged.
 

@@ -338,10 +338,15 @@ def deploy(directory, host, port):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['build', 'stage', 'deploy'])
+    parser.add_argument('--app', choices=['puzzles', 'review'], default='puzzles',
+                        help='product selector; standalone review is not yet implemented')
     parser.add_argument('--stage-dir', type=Path, default=BUILD / 'stage')
     parser.add_argument('--host')
     parser.add_argument('--port', type=int, default=2222)
     args = parser.parse_args()
+    # Fail closed instead of misleadingly packaging the combined executable as Review.
+    if args.app == 'review':
+        parser.error('review app is not independent yet; complete SPLIT-08 through SPLIT-11 first')
     if args.command == 'build':
         build()
     elif args.command == 'stage':

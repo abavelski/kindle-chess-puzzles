@@ -1,332 +1,52 @@
-# Architecture
-
-## Goal
-
-Build a Kindle Scribe puzzle app now without making the core a Kindle application.
-
-The reusable unit is not "FBInk code." The reusable unit is the complete puzzle experience: board model, puzzle parsing, solving state, progress, layout, hit testing, and deterministic rendering. Kindle-specific code should be a thin edge that supplies input, storage paths, lifecycle, and an FBInk-backed display.
-
-## Proposed workspace
-
-```text
-Cargo.toml
-crates/
-  chess-core/
-    board.rs
-    fen.rs
-    uci.rs
-    puzzle.rs
-    progress.rs
-    settings.rs
-    app.rs
-    view.rs
-  chess-render/
-    canvas.rs
-    layout.rs
-    hit_test.rs
-    pieces.rs
-    render.rs
-    damage.rs
-  fbink-sys/
-    build.rs
-    src/lib.rs
-  kindle-platform/
-    display.rs
-    input.rs
-    storage.rs
-    lifecycle.rs
-    device.rs
-app/
-  kindle-chess/
-    main.rs
-assets/
-  sashite-western/
-tests/
-  fixtures/
-scripts/
-tasks/
-docs/
-```
-
-Names may change during Task 01, but dependency direction must not.
-
-## Dependency direction
-
-```text
-chess-core  <----- chess-render
-    ^               ^
-    |               |
-    +-------- app ---+------ kindle-platform ---- fbink-sys
-```
-
-Rules:
-
-- `chess-core` has no platform dependencies.
-- `chess-render` may depend on core view types but not on Kindle/FBInk.
-- `fbink-sys` contains raw FFI only.
-- `kindle-platform` owns FBInk presentation, Linux input, paths, and device lifecycle.
-- the binary owns the event loop and composes the layers.
-
-A future Kobo binary should replace `kindle-platform`, not fork core/render behavior.
-
-## Core model
-
-### Board
-
-Keep the semantics of the reference Kobo app:
-
-- square indexes are stable and independent of orientation;
-- FEN uses standard six-field notation;
-- ordinary moves are physical-board moves, not legal-chess validation;
-- selecting/deselecting is distinct from completing a move;
-- promotion is staged before board mutation;
-- stored opponent replies can move pieces directly by UCI coordinates.
-
-Orientation is presentation state, never a change to square identity.
-
-### Puzzle collection
-
-Version-1 JSON is normalized into a runtime model containing at least:
-
-- collection title;
-- ordered puzzles;
-- id;
-- FEN;
-- optional description;
-- optional string/number difficulty;
-- non-empty UCI solution line.
-
-Keep the 256 KiB compatibility limit for version 1 initially even though Kindle storage does not impose the Cobalt store limit. Removing it later should be an explicit format-policy decision.
-
-### App state
-
-Use a single explicit state machine rather than spreading interaction state through UI code.
-
-Suggested shape:
-
-```text
-AppState
-  collections metadata
-  active collection
-  active puzzle
-  board
-  mode: Solution | FreeBoard
-  solution cursor / feedback
-  pending promotion
-  flipped
-  orientation_locked
-  description_visible
-  settings
-  settings_open
-  progress
-  transient error/warning
-```
-
-Input is a logical `Action`, such as:
-
-```text
-TapSquare(square)
-ChoosePromotion(kind)
-CancelPromotion
-PreviousPuzzle
-NextPuzzle
-Reset
-Flip
-ToggleMode
-ToggleOrientationLock
-ToggleDescription
-OpenSettings
-ToggleFreeModeSetting
-ToggleNotesSetting
-ToggleLockSetting
-ToggleFlipSetting
-ToggleBoardSizeSetting
-CloseSettings
-OpenCollectionPicker
-SelectCollection(key)
-CloseModal
-Exit
-```
+# Architecture — current state and two-app target
 
-`dispatch(Action)` should be deterministic and host-testable. It may return small effects for the outer runtime, such as "persist progress", "persist settings", or "exit", but it must not call FBInk or read `/dev/input`. Settings hold independent preferences for Puzzle and Game Review. The active workspace selects the profile used by controls and rendering; persistence always saves both profiles. Settings belong in core state, while the platform layer owns their filesystem persistence.
+Updated 2026-11-08. This describes a target and does **not** claim a completed split. Follow [the task tracker](NEXT_TASKS_APP_SPLIT.md) for implementation. The [former architecture](../archive/docs/ARCHITECTURE_PRE_SPLIT.md) is retained for provenance.
 
-### View state
+## Current system (from source)
 
-The renderer should consume a read-only view model derived from `AppState`, not poke mutable application internals. This makes snapshots straightforward and prevents device rendering code from changing behavior.
+The five Cargo workspace members are chess-core, chess-render, fbink-sys, kindle-platform, and app/kindle-chess. The only shipped executable is kindle-chess. Its main.rs opens puzzle collections and review games, creates puzzle progress and review-resume stores, routes both workspaces through one AppState, handles Chessnut, and owns the Kindle input/display loop.
 
-## Rendering
+- crates/chess-core/src/app.rs mixes puzzle grading, review navigation, workspace switching and actions; review_state.rs and review_resume.rs offer separation seams. Its analysis.rs includes validation that must be divided into generic tree validation and puzzle-only solution compatibility.
+- crates/chess-render/src/layout.rs and render.rs mix generic Gray8, typography/board, damage tracking and product-specific targets.
+- crates/kindle-platform/src/storage.rs knows puzzles, review libraries and progress; refresh.rs contains board-specific policy; chessnut.rs contains chess semantics mixed with a platform transport.
+- tools/kindle_build.py and packaging/kindle currently pin one executable, output directory, build receipt, KPM ID, scriptlet, root path and runtime.
+- support/chessnut-move is a separately built native worker, excluded from the Cargo workspace.
 
-Render to a project-owned `Gray8` canvas.
+## Target product-first monorepo
 
-Benefits:
+A reasonable dependency shape, without forcing every name change at once:
 
-- host snapshots use the same rendering code as the device;
-- FBInk is only responsible for copying/presenting pixels and requesting refreshes;
-- damage can be calculated in project coordinates;
-- a future Kobo backend can reuse the frame;
-- visual behavior does not depend on stock device fonts/widgets.
+| Layer | Proposed location | Owns |
+| --- | --- | --- |
+| Reusable chess model | crates/chess-model | Board, FEN, UCI, generic analysis tree and validation |
+| Reusable UI | crates/eink-ui | Gray8 canvas, geometry, piece artwork, board/text/analysis widgets, damage |
+| Puzzles | crates/puzzle-app | Puzzle format, grading, collection/progress, actions, puzzle screen |
+| Review | crates/review-app | Review format, navigation, resume, actions, review screen |
+| Device | crates/kindle-platform and fbink-sys | FBInk, input, power, generic paths/files, raw BLE transport |
+| Products on Kindle | apps/kindle-puzzles and apps/kindle-game-review | Thin runtime composition and application identity |
 
-The renderer owns:
+Preserve coherent existing crates if interfaces are demonstrably clean; avoid a forest of tiny crates. Binaries must be **different entrypoints**, not duplicate names or a hidden workspace toggle in the old binary.
 
-- board/frame geometry;
-- coordinates;
-- piece composition;
-- toolbar/buttons;
-- modal/picker layout;
-- text placement;
-- correct/wrong/complete marks;
-- solved marker;
-- descriptions;
-- hit rectangles.
+### Dependency and behavioral rules
 
-The renderer does **not** own interaction state.
+1. Generic model has no product or platform dependency. Move the rule relating rich analysis to legacy puzzle solutions into puzzle validation. Keep the offline PGN converter; no engine/PGN parser on device.
+2. Generic UI accepts product-neutral view data/hit targets. Each product maps targets to its own typed actions. Both reuse the same deterministic canvas, text and board renderer.
+3. Products own behavior and persistence schemas but receive storage/display/event services from composition. Product crates never depend on Kindle or FBInk.
+4. Platform crates expose device mechanics; they must not parse Puzzle, ReviewGame, AppState or Progress. Keep e-ink refresh safety and Scribe input/power behavior.
+5. Only Puzzles initially owns Chessnut board logic and worker. The Review app must not connect or send on launch, and the two apps must not concurrently own the Bluetooth device.
 
-Toolbar placement is derived in `chess-render::Layout` from display metrics, the core settings visibility flags, and a renderer alignment policy. The renderer uses those same rectangles for pixels and hit testing. Icon and text controls have different minimum widths. Left and right policies pack controls at their chosen edge; the current full-width policy stretches text controls evenly, spreads icon-only rows across their gaps, and keeps a single control at the left. No device coordinates or placement policy enter core state. The saved board-size preference selects the standard board or a board at 60% of its width and height (rounded down to whole squares). SMALL aligns the board at the left content edge and places toolbar and navigation controls at the bottom of the space to its right. Available toolbar icons replace their text labels; NOTE retains text. The SMALL toolbar uses compact left alignment and wraps into balanced rows when needed to preserve minimum touch sizes, while text navigation narrows to the sidebar width. The full-width text panel starts directly below the board and uses larger text. STANDARD geometry and presentation are unchanged. Dialog bounds retain their standard dimensions. A future user-selectable alignment would add a versioned core preference while leaving geometry in the renderer.
+### Separate identities and migration
 
-Renderer button definitions carry an optional icon, optional text, and an explicit
-`ButtonType` (`Icon`, `Text`, or `IconAndText`). Toolbar layout and rendering use
-the same definitions; display type controls sizing and visible content even when
-both properties exist. Combined content places the icon left of the text; a
-single remaining property is centered. FREE, LOCK, RESET and FLIP use vector icons in SMALL and retain their
-text-only policy in STANDARD in both workspaces. Toolbar layout and drawing
-share the same board-size presentation policy.
+Preserve Puzzles installation identity: the existing KPM ID kindle_chess, library scriptlet kindle-chess.sh and data root /mnt/us/kindle-chess. Proposed Review identity: kindle_game_review, kindle-game-review.sh and /mnt/us/kindle-game-review. Each needs its own executable, manifest, receipt, staged artifacts, install/uninstall lifecycle, state/settings, logs and process lock.
 
-## Sashité pieces
+The legacy combined app stores games at /mnt/us/kindle-chess/games and resume at /mnt/us/kindle-chess/state/review-resume.json. A standalone Review app needs a **tested, non-destructive** copy or read-only fallback that preserves existing game IDs, resume and review settings. Never move/delete/overwrite those files implicitly; preserve puzzle progress bytes and malformed/future-schema files.
 
-Keep the original SVG files as source-of-truth assets and their license/provenance.
+The framebuffer and native UI are global hardware resources: install paths are independent but simultaneous launches must be rejected by a **shared display-owner lock**. Supervisors must restore native Xorg/awesome and support documented SSH recovery on all exits. Do not let two scripts seize the framebuffer.
 
-Do not parse SVG on the Kindle unless measurements later justify it. Prefer a reproducible host build step that turns the SVGs into grayscale/alpha assets at one or more canonical sizes. The renderer chooses the closest generated asset or uses deterministic scaling.
+The currently stable target remains Scribe gen 1, ARMv7 hard float, glibc 2.35, pinned FBInk/Zig and the native Chessnut worker. Receipts and signatures must attest the **selected product**, correct binary, source and staged package; different apps must not overwrite artifacts.
 
-Generation must be reproducible and tested; generated files should never be hand-edited.
+## After product split: hardware portability
 
-## Display backend
+Kobo and other devices are a second axis. Only then introduce platform events such as tap, page-forward/back, sleep/wake, and independent framebuffer/device profiles. Do not infer rotation, input geometry, button mappings or FBInk ABI from product descriptions: probe hardware and record findings.
 
-The Kindle display adapter owns:
-
-- FBInk initialization/reinitialization;
-- framebuffer/device state discovered from FBInk;
-- copying a full frame or dirty rectangle to the display;
-- selecting refresh settings;
-- waiting for completion only when necessary;
-- clean shutdown/restoration of state that this project changed.
-
-Start with correctness-first full refreshes. Introduce partial refresh/damage policy only in its dedicated task.
-
-FBInk supports Kindle builds and Kindle Scribe identification. Pin an exact known-good revision after device bring-up.
-
-## Input backend
-
-The Kindle input adapter owns:
-
-- enumerating `/dev/input/event*`;
-- identifying the touchscreen by capabilities/name, not by event number;
-- decoding multi-touch events;
-- normalizing raw ranges and rotation into display coordinates;
-- collapsing finger interaction into tap/swipe intent;
-- ignoring or separately classifying stylus events until explicitly supported.
-
-The shared app should never see Linux input event codes.
-
-Because the Scribe has no Kobo-style page-turn buttons, parity navigation maps to logical Previous/Next actions using on-screen controls first; swipe gestures may be added when the touch transform is verified.
-
-## Storage
-
-Core parsing plus progress/settings serialization takes bytes/strings, not paths.
-
-The Kindle adapter chooses:
-
-- puzzle directory;
-- review-game directory;
-- progress path;
-- settings path;
-- separate review-resume path;
-- logs/debug path.
-
-Keep paths configurable for tests.
-
-Puzzle collections remain editable source data. The app never writes them for progress or preferences. Progress and settings are separate versioned documents; both use a safe temp-write + sync + rename pattern when supported by the selected filesystem, with malformed/future documents protected from overwrite and failures surfaced to the app.
-
-## Lifecycle
-
-Lifecycle is platform code.
-
-Do not hardcode framework/service shutdown commands from memory. Device probing and dedicated lifecycle tasks must determine what is required to prevent the stock UI from repainting or competing for input.
-
-Every transition away from the stock UI must have:
-
-- finite waits;
-- signal traps/cleanup;
-- restoration of changed framebuffer state;
-- a log;
-- a documented manual recovery path.
-
-## Portability contract
-
-A later Kobo port is successful if it can reuse without modification:
-
-- `chess-core`;
-- `chess-render`;
-- puzzle fixtures;
-- progress serialization;
-- snapshot tests;
-- most app-state tests.
-
-Only platform display/input/storage/lifecycle/build/deploy code should differ.
-
-No Kobo backend is part of the first Kindle milestone.
-
-### Workspace settings compatibility
-
-`settings.json` remains version 1: existing flat `show_free_mode_button`,
-`show_notes_button` and `small_board` fields now represent Puzzle preferences.
-An additive `game_review` object stores the workspace preferences for review.
-The additive `show_lock_button` and `show_flip_button` fields default to true
-in both profiles; they control visibility without changing orientation/lock.
-Loading an old file without that object copies its global values into both
-profiles; subsequent edits affect only the active workspace. Migration stays
-in memory until a settings edit is saved. Missing preference fields retain their
-existing defaults; malformed/future files remain protected from overwrite.
-Settings edits never persist puzzle progress or modify uploaded collections.
-
-### Review resume
-
-`review-resume.json` version 1 stores the last review collection filename, stable
-game ID, authored UCI move path and selected FEN, orientation/lock and analysis
-page/focus. Core captures/restores these values without touching puzzles; paths
-and atomic writes stay in the platform adapter. Runtime saves on review actions,
-retries failures (including exit), and restores the review session at startup
-without switching away from Puzzles. Source updates with missing/ambiguous paths
-or changed FEN fall back to the selected game's root; missing games use the first
-available game. Malformed/future/unreadable documents are protected. Scratch
-boards, piece selection, promotion dialogs and game pickers remain transient.
-
-### Optional physical board input
-
-After explicit Send, the platform adapter enables realtime reports without STOP,
-filters pre-send/incomplete reports and debounces changed placements for 500 ms.
-It forwards positions and connection status through one ordered bounded queue.
-Core arms only after observing the sent placement and infers a single exact
-existing-Board UCI transition. It applies the existing grading/Free Board path,
-returns ordinary progress effects, and waits for logical/physical agreement after
-wrong moves or stored opponent replies. An accepted physical solver move that
-advances through an authored opponent reply also emits one Board Send effect of
-the resulting Kindle placement. Runtime routes that effect through the same board
-owner as a manual Send; reply echoes cannot grade or authorize another target.
-There is no runtime legality engine or compound-move inference. Listener state is transient;
-navigation, analysis, manual edits, sleep and connection loss invalidate it.
-The binary routes incoming progress effects through normal persistence and board
-damage calculation. Board status stays in Settings/Send controls; communication
-never covers puzzle text or its analysis hit targets. There is no DONE step.
-
-### Physical-board seating transform
-
-The global additive version-1 `physical_board_seat` setting defaults to `changing`.
-Core decides rotation from that seat and the puzzle's original solver color.
-`Board::placement_rotated` rotates only square positions, preserving piece colors.
-A Send captures the transform alongside the canonical listener baseline. Core
-normalizes raw physical reports through its inverse before matching/inference,
-and uses the captured transform for automatic replies. Platform SDK encoding and
-raw target/debounce handling remain unchanged. Canonical puzzle/preview/grading
-boards and the Kindle's orientation are never rewritten by the seating choice.
-Changing it persists settings and invalidates input; only another explicit Send
-changes the physical target. Review profiles and controls remain unchanged.
+[Portability decisions](PORTABILITY_AND_APP_REUSE.md) | [Task sequence](NEXT_TASKS_APP_SPLIT.md) | [Build/deploy](BUILD_DEPLOY.md)

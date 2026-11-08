@@ -1,5 +1,7 @@
 # ♟ Kindle Chess Puzzles
 
+> **Transition (2026-11-08):** Puzzles and Game Review still run in **one executable**. [Codex split plan](docs/NEXT_TASKS_APP_SPLIT.md) targets two independent apps sharing chess and e-ink components. Additional e-readers are deferred. See [active docs](docs/README.md).
+
 **A native, e-ink chess puzzle app for Kindle Scribe.** Solve tactics, browse book-style solutions, and keep your progress on a device that feels much closer to a paper chess book than a phone.
 
 > **Current hardware target:** jailbroken **Kindle Scribe (1st generation / Barolo)**, developed and physically validated on **firmware 5.19.6**.
@@ -76,6 +78,11 @@ git submodule update --init --recursive
 scripts/check.sh
 scripts/build-kindle.sh
 scripts/stage-kindle.sh
+
+# Transitional selector (still builds the existing combined app):
+scripts/app.sh build puzzles
+scripts/app.sh stage puzzles
+# Review selection is blocked until there is a separate Review binary/package.
 ```
 
 Deploy to a configured Scribe over SSH:
@@ -110,34 +117,12 @@ Useful deep dives:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Kindle Scribe notes](docs/KINDLE_SCRIBE.md)
 - [Puzzle format](docs/PUZZLE_FORMAT.md)
-- [Rich solution browsing](docs/PHASE_2.md)
-- [Measured device results](docs/RESULTS.md)
-- [Implementation task history](tasks/README.md)
+- [Rich solution browsing](archive/docs/PHASE_2.md)
+- [Measured device results](archive/docs/RESULTS.md)
+- [Implementation task history](archive/tasks/README.md)
 
 Chess piece artwork comes from the **Sashité Western** SVG set and is converted into deterministic e-ink-friendly assets during development.
 
-## Physical-board integration planning
+## Chessnut Move physical-board integration
 
-The standalone Chessnut Move probe is complete as an investigation and has been
-removed from the Kindle. Read the [verified findings and integration handoff](docs/CHESSNUT_MOVE_INTEGRATION_HANDOFF.md)
-and the [curated transport/protocol reference](support/chessnut-move/README.md)
-for the optional [manual position-push MVP](docs/CHESSNUT_MOVE_MVP_VERIFICATION.md).
-On the integration branch, Puzzles Settings offers an opt-in board connection and
-an immediate send of the visible position. Send is disabled only while submitting
-the command, then becomes available again. There is no DONE or post-motion
-verification step. The connection stays open until DISCONNECT, app exit or an
-actual connection error. After Send, board input waits for that exact position,
-then mirrors settled ordinary moves, captures and promotion replacements into
-puzzle grading or Free Board. After a correct physical solver move, the authored
-opponent reply is sent to the board automatically, then input waits for the board
-to match Kindle before accepting another move. Wrong moves wait for physical
-correction; Send remains available for manual setup. Navigation, manual board edits or sleep pause
-input until another Send. Castling/en passant are not recognized. Board input was
-reported working by the user; automatic reply motion awaits human acceptance.
-Puzzles Settings also offers PHYSICAL BOARD seating: WHITE SIDE, BLACK SIDE or
-CHANGING SIDE. Fixed seats rotate the physical position when the puzzle color
-differs, and convert incoming moves and automatic replies consistently. Changing
-a seat takes effect on the next Send; Kindle Flip remains independent.
-Puzzle text keeps its normal topic/description/analysis content throughout board
-communication. The app never connects or sends a setup target on startup or wake. Physical STOP
-was ineffective in human tests and remains a user-accepted limitation.
+Puzzles includes optional Chessnut Move connect/Send, physical seating transforms, settled ordinary move input and authored replies. No automatic connect/Send on startup or wake. Input was reported working; automatic reply motion still needs separate physical confirmation, and STOP was ineffective in observed tests. This remains Puzzles-only during the split. See [physical board contract](docs/PHYSICAL_BOARD.md), [native worker notes](support/chessnut-move/README.md) and archived [MVP verification](archive/docs/CHESSNUT_MOVE_MVP_VERIFICATION.md).

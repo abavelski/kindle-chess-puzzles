@@ -23,7 +23,9 @@ sh -n scripts/kindle_capture_input.sh
 python3 -m unittest tests/test_lifecycle.py tests/test_fbink_bridge.py tests/test_input_bridge.py
 sh -n scripts/kindle_launch.sh
 
-python3 -m unittest tests/test_packaging.py tests/test_chessnut_config.py
+python3 -m unittest tests/test_packaging.py tests/test_chessnut_config.py tests/test_app_cli.py
+sh -n scripts/app.sh
+python3 -m py_compile tools/kindle_build.py
 for script in scripts/*-kindle.sh packaging/kindle/*.sh; do
     sh -n "$script"
 done

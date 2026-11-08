@@ -166,7 +166,7 @@ night_mode[0]` from `wf_lut_get_waveform_mode_slot`. The enum's presence in the
 pinned header is not proof that the firmware has loaded that waveform.
 Errno-based fallback does not detect this asynchronous failure. REAGLD was
 removed; the original flashing AUTO/GC16 regional-clean build was restored.
-See `docs/device/ks1-barolo.md` and `docs/PIECE_GHOSTING_FIX.md` for evidence.
+See `docs/device/ks1-barolo.md` and `archive/docs/PIECE_GHOSTING_FIX.md` for evidence.
 
 ## Chessnut private config filesystem — verified 2026-11-05
 
