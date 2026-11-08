@@ -2281,3 +2281,111 @@ without the new fields default both controls to ON. No app launch or new
 physical acceptance is asserted. For user testing, select SMALL in each
 workspace, check bottom placement and control taps, toggle Lock/Flip visibility,
 switch workspaces and exit/relaunch to check independently restored settings.
+
+
+## SPLIT-13 — Dual-app Scribe checkpoint prepared 2026-11-08
+
+**Status: Waiting for device.** Branch `app-split`, implementation `0a183b0`.
+No split app has been deployed or launched for this checkpoint. Firmware 5.19.6
+is the historical measurement above; record the actual firmware again below.
+The local clean-source host suites, pinned ARMv7/glibc-2.35 builds, stages and
+release artifact verifiers passed for both products. GitHub CI execution remains
+unconfirmed. These results establish no physical panel, sleep or Bluetooth pass.
+
+### Selected artifacts
+
+Paths are relative to the repository. Keep these exact artifacts for the run;
+rebuilding can change binary/package bytes, so record replacement hashes if used.
+Both packages include matching receipt, checksums, source and licenses.
+
+| Product | Local artifact | SHA256 |
+| --- | --- | --- |
+| Puzzles binary (3,477,112 bytes) | target/kindle/puzzles/kindle-chess | `fc47d509771f375840074c1d051a568eff9f28db2c237cab125d350b128ad089` |
+| Puzzles KPM | target/kindle/puzzles/kindle_chess_0.1.0_kindlehf.kpkg | `59dca24fc21c111076095857273a1584857707546e91accd396a3ad48089159b` |
+| Puzzles tar | target/kindle/puzzles/kindle-chess.tar | `9007ac712944e4db9e14321e2de91d8c953750d9574adde2fbd3a57fdf0c57a4` |
+| Puzzles source digest | target/kindle/puzzles/build.json | `7fe237b986da69fb2545a2fe02275a0d6914799a305b038eb166d039a8cd274b` |
+| Review binary (3,185,252 bytes) | target/kindle/review/kindle-game-review | `cf4adc3d4ec93acc9112667929336411b8c9c4ac8ec64cdb2a7cacc6bacbd3f5` |
+| Review KPM | target/kindle/review/kindle_game_review_0.1.0_kindlehf.kpkg | `41b627fdc7bff53478fc2832ce3986749227ef2d56c64b1458c205a4267d7497` |
+| Review tar | target/kindle/review/kindle-game-review.tar | `6f4af0d7ab07deb9fb5ee5b8e97277e9c9728cf4825c21b5c0d034d4c235eca2` |
+| Review source digest | target/kindle/review/build.json | `2f399919105af26c8c51e839105e78cafede1faa1ac4bcf2780264f3c754a860` |
+
+### Preparation and installation
+
+1. Close the existing chess app normally and confirm native UI and SSH work.
+   Record firmware, date, launch method, implementation commit, package hashes
+   and the existing app/runtime version. Keep the ordinary power/reboot path available.
+2. With both apps closed, back up `/mnt/us/kindle-chess`, any existing
+   `/mnt/us/kindle-game-review`, and their library scriptlets under
+   `/mnt/us/documents`. Copy the backup off-device and verify it can be listed.
+   Preserve binaries/runtime, puzzle/game JSON, progress, settings and resume.
+   Record SHA256 manifests of both roots and scriptlets before installation.
+   Use reviewed manifests without private library content in Git.
+3. Verify the host artifacts:
+
+   ```sh
+   python3 tools/verify_app_artifacts.py --app puzzles
+   python3 tools/verify_app_artifacts.py --app review
+   ```
+
+4. Install the two KPM files using the device's established KPM procedure, or
+   use the existing SSH deployment adapter (replace the host placeholder):
+
+   ```sh
+   scripts/app.sh deploy puzzles --host root@DEVICE_IP --port 2222
+   scripts/app.sh deploy review --host root@DEVICE_IP --port 2222
+   ```
+
+   The deploy adapter checks installed binary, receipt and source archive hashes.
+   Record command results and independently compare installed binary SHA256 with
+   the table. Confirm roots, logs, scriptlets and app locks are distinct. Confirm
+   all user-owned pre-installation files retain their hashes.
+5. Test the following rows in order. Record observations separately for each app;
+   do not infer success for the other app. Keep a recognizable puzzle position
+   and review position to check persistence. Review-only sessions must leave
+   puzzle progress byte-identical. Intentional puzzle/settings changes should
+   be identified before comparing manifests.
+
+### Pending human acceptance matrix
+
+| Check | Required observation/evidence | Status |
+| --- | --- | --- |
+| Device/artifact attestation | Current firmware, implementation/receipt/source hashes, installed binary hashes, backup verified | Pending |
+| Separate library launch/exit | Both scriptlets start the correct product, no workspace toggle; X exit restores touch, pen and native UI | Pending for both |
+| Puzzles | Exact-line grading, wrong-move rollback, promotion, FREE/reset, analysis/prose-reference taps, collections and persisted progress | Pending |
+| Product preferences | STANDARD/SMALL, flip/lock and optional controls persist independently after exit/relaunch | Pending for both |
+| Review library/navigation | Legacy games fallback and imported own games; PREV/NEXT, variation/prose taps, pagination, FREE/reset and authored resume | Pending |
+| Migration/data safety | Missing new settings/resume reads legacy; future/corrupt bytes preserved with visible warning; own writes only in Review root; puzzle progress unchanged by Review | Pending |
+| Puzzles Chessnut | Starts disconnected; optional connect/manual Send, all seating choices, input wait/ordinary move/wrong-move correction, notes remain visible; sleep/navigation disarm input | Pending |
+| Chessnut limitations | Automatic authored reply motion requires separate observation; STOP historically ineffective; castling/en-passant inference unsupported | Pending, no new acceptance |
+| Power/display | Manual Refresh, several sleep/wake cycles, input pause/rearm, redraw/readability and native repaint after exit | Pending for both |
+| Global ownership | While A owns display, launching B refuses without disturbing A; repeat reversed; then normal exit allows B | Pending for both directions |
+| Failure/recovery | App termination and scoped SSH recovery restore native UI and release only owned locks; record actual tested failure path | Pending for both |
+| Update/uninstall isolation | Update A then uninstall A; B runtime/scriptlet/data unchanged; reverse direction; both user-data roots survive uninstall | Pending for both directions |
+| Rollback | Restore backed-up runtime/scriptlet through verified recovery path; legacy games/progress/settings/resume bytes remain intact; old app launches/exits | Pending |
+
+Do not use broad process-name kills or remove a live display lock during the
+exclusion test. The common lock is `/tmp/kindle-chess-display.lock`; app locks
+are `/tmp/kindle-chess.lock` and `/tmp/kindle-game-review.lock`. A deliberate
+supervisor SIGKILL cannot run cleanup and requires SSH recovery; only test this
+with an available, verified recovery connection.
+
+### Recovery and rollback record
+
+Follow [scoped SSH recovery](../EINK_LIFECYCLE.md#split-runtime-and-global-ownership--split-07-2026-11-08):
+inspect shared launcher/child/binary metadata and app lock, verify PID/start-time
+identity before signalling, terminate the verified owner, and confirm it is gone.
+Resume only the previously owned, still-identical Xorg then awesome processes;
+run `xrefresh -display :0.0`. Remove only verified stale framebuffer/shared/app
+lock metadata. Record commands, results and native UI/touch/pen recovery.
+Never remove another live owner's lock or broadly restart Kindle services.
+
+For rollback, close both apps and restore the backed-up prior runtime and matching
+library scriptlet while retaining copies of both current data roots. The older
+combined app uses the untouched legacy games/progress/settings/resume; standalone
+Review's later resume/settings remain only in its own root. Do not overwrite
+current user data with a backup silently. An interrupted install must be handled
+using the [same-product runtime recovery contract](../BUILD_DEPLOY.md#independent-installation-and-recovery--split-11).
+
+**Observation date / firmware:** pending. **Recovery commands/results:** pending.
+**Owner sign-off:** pending. SPLIT-13 remains Waiting for device; keep `app-split`
+unmerged until the observations, artifact attestation and approval are recorded.

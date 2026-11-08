@@ -1,6 +1,6 @@
 # Chessnut Move — active Puzzles contract
 
-Physical Chessnut Move integration currently lives within the combined Kindle executable and is **Puzzles-only** in the proposed split. Code seams include chess-core board_input.rs/board_session.rs, kindle-platform chessnut.rs, the runtime effect wiring and support/chessnut-move native worker.
+Physical Chessnut Move integration is **Puzzles-only** in the standalone apps. Code seams include chess-core board_input.rs/board_session.rs, kindle-app chessnut.rs and products/puzzles.rs, the runtime effect wiring and support/chessnut-move native worker.
 
 ## Preserve current behavior
 
@@ -14,6 +14,6 @@ Physical Chessnut Move integration currently lives within the combined Kindle ex
 
 The user reported ordinary physical-board input working. Historical checks leave automatic reply motion requiring separate human acceptance. STOP was ineffective in observed tests. Castling and en passant are not recognized by the existing physical input inference. Keep those limitations explicit during refactoring.
 
-The new Game Review binary should not include or start the Chessnut worker by default. Put product-specific board inference and session intent with Puzzles; raw native-worker transport/device mechanics can remain in a Kindle adapter. Preserve pinned worker checksums, licensing and packaging tests.
+The standalone Game Review binary does not include or start the Chessnut worker. Put product-specific board inference and session intent with Puzzles; raw native-worker transport/device mechanics can remain in a Kindle adapter. Preserve pinned worker checksums, licensing and packaging tests.
 
 Archived evidence: [integration handoff](../archive/docs/CHESSNUT_MOVE_INTEGRATION_HANDOFF.md), [MVP verification](../archive/docs/CHESSNUT_MOVE_MVP_VERIFICATION.md), [KindleBT probe](../archive/docs/CHESSNUT_MOVE_KINDLEBT_PROBE_PLAN.md). The current [native worker notes](../support/chessnut-move/README.md) remain relevant.

@@ -3,7 +3,7 @@
 **Created:** 2026-11-08. **Priority:** product/application reuse; Kobo and other readers come later.  
 **Present:** one kindle-chess executable/package with two workspace modes.  
 **Goal:** two genuinely independent applications that reuse common chess and e-ink components.  
-**Status:** implementation underway on `app-split`; see per-task evidence.
+**Status:** SPLIT-01–12 Done on `app-split`; SPLIT-13 Waiting for device. Keep this branch separate until physical acceptance.
 
 ## How Codex should execute this plan
 
@@ -30,7 +30,7 @@ Read [AGENTS.md](../AGENTS.md), [architecture](ARCHITECTURE.md), [testing](TESTI
 | SPLIT-10 | Per-app cross-build/stage/receipts | 08,09 | Done | No |
 | SPLIT-11 | Independent install/KPM/scriptlets/deploy | 10 | Done | No |
 | SPLIT-12 | Dual-app CI and regression matrix | 10,11 | Done | No |
-| SPLIT-13 | Physical Scribe dual-app acceptance | 12 | Ready | Yes |
+| SPLIT-13 | Physical Scribe dual-app acceptance | 12 | Waiting for device | Yes |
 
 SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not collide; SPLIT-07 integrates the shared runtime. All other tasks should follow dependencies rather than numeric convenience.
 
@@ -158,10 +158,12 @@ SPLIT-03 and SPLIT-04 may be parallelized after 02 if their changes do not colli
 
 ### SPLIT-13 — Human Scribe checkpoint for both apps
 
-**Status:** Ready. **Human required:** yes. **Read:** [device record](device/ks1-barolo.md), [lifecycle](EINK_LIFECYCLE.md), [physical board](PHYSICAL_BOARD.md).
+**Status:** Waiting for device. **Owner:** Codex + device owner. **Branch:** `app-split`. **Prepared:** 2026-11-08. **Human required:** yes. **Read:** [device record](device/ks1-barolo.md), [lifecycle](EINK_LIFECYCLE.md), [physical board](PHYSICAL_BOARD.md).
 **Change:** append dated acceptance matrix and artifact hashes to docs/device/ks1-barolo.md; update BUILD_DEPLOY.md and mark tracker Done only when signed off.  
 **Device checklist:** firmware/commit/checksum; install both, independently library-launch/exit; Puzzles grading/Free Board/analysis/persisted progress/settings and opt-in Chessnut Send/seat/input; Review imported games/PREV/NEXT/variations/FREE/resume/migration; pause/sleep/repeated wake/native repaint; global double-launch refusal; update/uninstall each while preserving the other's runtime and data; roll back using backup and SSH recovery. Clearly mark automatic Chessnut reply motion/STOP and any other unverified item as pending, never assumed.  
 **Acceptance:** real hardware observations recorded with commands, results, hashes and user approval. **Fit:** Codex + owner.
+
+**Preparation evidence (this task commit, `docs(split): prepare dual-app Scribe acceptance checkpoint`):** Added the [dated pending matrix and artifact hashes](device/ks1-barolo.md#split-13--dual-app-scribe-checkpoint-prepared-2026-11-08), backup/deploy/attestation instructions and scoped recovery/rollback procedure. Artifacts are the locally clean-source-tested SPLIT-12 outputs at `0a183b0`; both release verifiers pass. Documentation-only preparation; no device contacted, no firmware recheck, installation, launch or physical acceptance performed. All physical rows and owner sign-off remain pending, including automatic Chessnut reply motion and historically ineffective STOP. Cannot mark Done or reintegrate until observations and recovery results are recorded. GitHub CI execution also remains unconfirmed.
 
 ## Completion definition and deferred work
 

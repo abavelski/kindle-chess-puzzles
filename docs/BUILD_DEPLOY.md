@@ -322,3 +322,14 @@ Deploy verifies the selected stage before scp, uses product-specific incoming
 paths, installs to that product's fixed root, and checks installed binary,
 build receipt and source archive SHA256 over SSH. Host tests stub the network;
 no split package has yet been claimed verified on the physical Scribe.
+
+
+## Dual-app physical acceptance — SPLIT-13
+
+The tested local artifacts and pending installation/backup, data-preservation,
+launch/power/global-lock, update/uninstall and SSH rollback checklist are in the
+[2026-11-08 Scribe checkpoint](device/ks1-barolo.md#split-13--dual-app-scribe-checkpoint-prepared-2026-11-08).
+No split deployment or physical acceptance has been performed. Record current
+firmware, installed SHA256 values, observations and owner sign-off there before
+marking SPLIT-13 Done or reintegrating `app-split`. Automatic Chessnut reply motion
+and historically ineffective STOP remain explicitly unverified.
