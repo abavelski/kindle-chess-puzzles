@@ -1,71 +1,119 @@
 # App data separation plan
 
 Date: 2026-11-08. Status: Planned; implementation and device migration have not started.
+Follow-up to the [completed app split](../archive/tasks/implemented/app-split.md).
 
 ## Goal and current state
 
-Keep each app's library and persistent state within its own data root:
+Each app should use only its own data root:
 
-| App | Root | Owned data |
+| App | Root | Data |
 | --- | --- | --- |
-| Kindle Chess Puzzles | `/mnt/us/kindle-chess` | `puzzles/`, `state/progress.json`, `state/settings.json`, runtime and logs |
-| Kindle Game Review | `/mnt/us/kindle-game-review` | `games/`, `state/review-resume.json`, `state/settings.json`, runtime and logs |
+| Puzzles | `/mnt/us/kindle-chess` | `puzzles/`, progress, settings, runtime and logs |
+| Game Review | `/mnt/us/kindle-game-review` | `games/`, review resume, settings, runtime and logs |
 
-The 2026-11-08 source and SSH audit confirmed that writes, runtimes and logs are
-already separate. However, Review's 112 game files remain in
-`/mnt/us/kindle-chess/games`; its own games directory is absent. Review reads
-those files through automatic legacy fallback. Puzzles has five collection files
-and retains an older Review resume. Review already has newer settings and resume
-in its own root; those must take precedence throughout migration.
+Writes are already separate, but Review still automatically reads legacy games,
+settings and resume from Puzzles when its own inputs are absent. The last audit
+found 112 game files under Puzzles and newer Review settings/resume under Review.
+Preserve those newer files when moving the legacy data.
 
-## Planned work
+This is a small personal app. Keep deployment and migration to running the
+scripts and checking the results. Data can be restored and earlier versions
+rebuilt from Git. No new backup system, transaction journal, rollback command,
+exhaustive failure matrix or extra approval stages are required. Keep basic
+protections against overwriting existing files or touching unrelated puzzle data.
 
-1. **Migrate the game library.** With both apps closed, inventory and hash the
-   current files. Copy games into Review's own `games/` directory, preserving
-   filenames, IDs and bytes. Refuse conflicting destination files rather than
-   overwriting them. Verify all files and the saved review position before
-   removing the legacy copies. Make interrupted migration safe to resume and
-   retain a temporary verified recovery copy until acceptance.
+## Tasks
 
-2. **Make legacy migration explicit.** Remove automatic cross-app fallback from
-   normal Review startup. Currently `products/mod.rs` defaults the legacy root
-   to Puzzles, and `products/review.rs` falls back independently for games,
-   settings and resume. Provide an explicit migration path for older installs;
-   ordinary startup must use only Review's root, including when its library or
-   state is missing. Keep corrupt and future-schema files protected.
+| ID | Deliverable | Depends on | Status |
+| --- | --- | --- | --- |
+| DATA-01 | Independent app data access, tests and builds | — | Ready |
+| DATA-02 | Device migration script and result verification | DATA-01 | Blocked on DATA-01 |
 
-3. **Remove obsolete Review data from Puzzles.** After migration and acceptance,
-   remove the verified legacy game copies and superseded
-   `kindle-chess/state/review-resume.json`. Preserve puzzle progress, puzzle
-   collections and settings byte-for-byte. Do not replace Review's newer resume
-   with the older legacy file or discard malformed/future-schema state silently.
+Use a task branch. Update the table and task status together, recording the
+implementation commit and test results. These tasks have not started.
 
-4. **Update tests and documentation.** Add failing tests before implementation
-   for startup without a Puzzles root, missing Review inputs without fallback,
-   migration conflicts/interruption, stable IDs and resume, protected invalid
-   bytes, and unchanged puzzle data. Update architecture, build/deploy and Review
-   import instructions to describe explicit migration and independent storage.
+## DATA-01 — Separate data access and run the tests
 
-5. **Consider settings simplification separately.** Both apps currently store
-   the legacy settings envelope containing both product profiles. Files are
-   already independent, so a schema change is optional and unnecessary for
-   folder separation. Any later simplification needs compatibility fixtures.
+**Status:** Ready.
 
-## Boundaries and completion checks
+- Remove automatic legacy fallback from `crates/kindle-app/src/products/mod.rs`
+  and `products/review.rs`, including normal startup's use of
+  `KINDLE_GAME_REVIEW_LEGACY_ROOT`. Keep the existing app-specific path overrides.
+- Review reads only its own games, settings and resume. Missing inputs use its
+  empty-library warning or defaults. Puzzles continues using its existing root.
+  Neither app reads or changes the other's data during ordinary operation.
+- Keep the settings schema, game IDs, resume format, package identities and
+  Chessnut behavior unchanged. There is no need to simplify the legacy settings
+  envelope as part of this task. Retain existing corrupt/future-file protection.
+- Update the relevant startup/storage tests: missing Review inputs must not fall
+  back to populated Puzzles data; each app's writes and relaunch stay independent;
+  puzzle progress and existing Review state remain intact. Reuse existing fixtures
+  and regression coverage instead of creating another test framework.
+- Update architecture, build/deploy, Review import and settings docs to explain
+  independent storage and the one-time migration script.
 
-Keep the private Puzzles-only Chessnut configuration under
-`/var/local/kindle-chess/` with its existing restricted permissions. Library
-scriptlets remain under `/mnt/us/documents`; process locks and the shared global
-display lock remain outside the data roots. These are intentional exceptions.
+Start with focused failing tests, make them pass, then run the existing checks and
+build/stage both apps:
 
-Use a task branch for implementation. Run focused tests, `scripts/check.sh`, and
-both product builds/stages for the changed release; apply pinned packaging checks
-when packaging changes. On Kindle, verify Review's complete library, navigation,
-current resume and settings with legacy fallback disabled, then verify Puzzles'
-collections, progress and settings. Compare protected file hashes, record artifact
-hashes, firmware and recovery evidence in the device notes, and obtain owner
-acceptance before marking the migration complete or removing recovery copies.
+```sh
+scripts/check.sh
+scripts/app.sh build puzzles
+scripts/app.sh stage puzzles
+python3 tools/verify_app_artifacts.py --app puzzles
+scripts/app.sh build review
+scripts/app.sh stage review
+python3 tools/verify_app_artifacts.py --app review
+```
 
-Related contracts: [architecture](ARCHITECTURE.md),
-[legacy fallback and rollback](BUILD_DEPLOY.md#standalone-review-data-and-legacy-fallback--split-09),
-[Review import](GAME_REVIEW_IMPORT.md), and [testing](TESTING.md).
+Use the existing pinned toolchain and host dependencies. Fix relevant failures;
+record the results. Once these pass, DATA-01 is Done. Device migration is DATA-02.
+
+## DATA-02 — Implement the migration script and verify the result
+
+**Status:** Blocked on DATA-01.
+
+Provide one host-run command, proposed as:
+
+```sh
+python3 tools/migrate_app_data.py --host root@DEVICE_IP --port 2222
+```
+
+Use the established SSH transport and the Kindle's existing shell utilities.
+Do not add a device Python dependency. The command performs the migration and
+prints what moved, what was already present and anything requiring attention.
+
+- Require both apps to be closed; refuse to run if either is active. Do not add
+  a new locking system or automatically kill apps.
+- Move legacy game files from Puzzles' `games/` into Review's `games/`, preserving
+  names and bytes. Check the transferred files before removing their old copies.
+  Existing identical files are already migrated; different files with the same
+  name must be reported without overwriting either. A rerun should handle files
+  already moved without error. No journal is needed.
+- Keep existing Review settings and resume. If absent, copy the corresponding
+  legacy files, retaining Review's settings profile and saved move. Leave
+  malformed or unsupported state untouched and report it using existing parsing
+  rules. Do not change the settings schema.
+- Remove the obsolete legacy review resume once its contents are migrated or
+  superseded by existing valid Review state. Leave unresolved files in place and
+  report them. Leave Puzzles collections, progress, settings, Chessnut config,
+  runtimes and unrelated files alone.
+- Add a few focused tests using temporary directories: ordinary migration,
+  existing newer Review state, conflicting filenames and running the script
+  twice. Check that Puzzles data is unchanged. Add the tests to `scripts/check.sh`
+  and run that gate. Reuse DATA-01's builds unless build inputs changed.
+
+With both apps closed, run migration, then deploy the DATA-01 builds using the
+existing deploy scripts. Verify the resulting paths and game-file count, launch
+Review and check its library and saved position, then launch Puzzles and check
+collections and progress. Record the commands, deployed version and observed
+results in [the device notes](device/ks1-barolo.md). Mark DATA-02 Done when those
+checks pass; until device verification, use Waiting for device.
+
+If something fails, fix the reported problem and rerun, or restore the data and
+redeploy an earlier Git version. No automated rollback feature or recovery drill
+is required.
+
+Related docs: [architecture](ARCHITECTURE.md), [build/deploy](BUILD_DEPLOY.md),
+[Review import](GAME_REVIEW_IMPORT.md), [settings](SETTINGS.md),
+[testing](TESTING.md).

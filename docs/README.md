@@ -1,9 +1,10 @@
 # Documentation index
 
-**Current state (2026-11-08):** Puzzles and Game Review are independently built, installed and launched Kindle apps sharing chess, e-ink and Kindle runtime components. Both were deployed on Scribe firmware 5.19.6 and accepted by the device owner. Kobo remains deferred. No active implementation queue is selected.
+**Current state (2026-11-08):** Puzzles and Game Review are independently built, installed and launched Kindle apps sharing chess, e-ink and Kindle runtime components. Both were deployed on Scribe firmware 5.19.6 and accepted by the device owner. Kobo remains deferred. The active follow-up is [app data separation](DATA_SEPARATION_PLAN.md).
 
 ## Current reference
 
+- [App data separation plan](DATA_SEPARATION_PLAN.md): runtime isolation and test/build gates, followed by an explicit device migration script.
 - [Completed split implementation](../archive/tasks/implemented/app-split.md): archived task statuses, host/build evidence and device acceptance.
 - [Architecture](ARCHITECTURE.md): current boundaries, dependencies, storage and lifecycle invariants.
 - [Portability and reuse](PORTABILITY_AND_APP_REUSE.md): product-first decision and deferred device portability.
