@@ -1,6 +1,6 @@
 # App data separation plan
 
-Date: 2026-11-08. Status: Planned; implementation and device migration have not started.
+Date: 2026-11-08. Status: DATA-01 in progress; device migration has not started.
 Follow-up to the [completed app split](../archive/tasks/implemented/app-split.md).
 
 ## Goal and current state
@@ -27,15 +27,15 @@ protections against overwriting existing files or touching unrelated puzzle data
 
 | ID | Deliverable | Depends on | Status |
 | --- | --- | --- | --- |
-| DATA-01 | Independent app data access, tests and builds | — | Ready |
+| DATA-01 | Independent app data access, tests and builds | — | In progress |
 | DATA-02 | Device migration script and result verification | DATA-01 | Blocked on DATA-01 |
 
 Use a task branch. Update the table and task status together, recording the
-implementation commit and test results. These tasks have not started.
+implementation commit and test results. DATA-01 owner: Codex; branch: `task/data-01-independent-storage`; started 2026-11-08.
 
 ## DATA-01 — Separate data access and run the tests
 
-**Status:** Ready.
+**Status:** In progress. Owner: Codex; branch: `task/data-01-independent-storage`; started 2026-11-08.
 
 - Remove automatic legacy fallback from `crates/kindle-app/src/products/mod.rs`
   and `products/review.rs`, including normal startup's use of

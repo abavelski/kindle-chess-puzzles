@@ -1,6 +1,6 @@
 # Settings architecture
 
-> **Split constraint:** preserve both existing workspace settings profiles and schema version checks. Standalone Review now has its own settings root and tested read-only legacy fallback ([SPLIT-09](../archive/tasks/implemented/app-split.md)); per-app packaging is complete and the owner accepted both apps on the device on 2026-11-08.
+> **Split constraint:** preserve both existing workspace settings profiles and schema version checks. Standalone Review reads only its own settings root; missing files use defaults, with no legacy fallback. The [one-time migration](BUILD_DEPLOY.md#independent-app-data) is tracked in DATA-02; per-app packaging is complete and the owner accepted both apps on the device on 2026-11-08.
 
 
 Settings are application preferences, not puzzle data and not learning progress.
@@ -35,20 +35,25 @@ The layers keep the existing dependency direction:
 
 - `chess-core` owns the versioned `Settings` value, settings actions, modal state, and the `SettingsChanged` effect.
 - `chess-render` owns the header icon, modal geometry, rendering, and hit targets. It reads settings but never persists them.
-- `kindle-platform` owns `SettingsStore` and filesystem paths.
-- `app/kindle-chess` wires `SettingsChanged` to the store alongside progress effects.
+- `kindle-app` owns `SettingsStore`; `kindle-platform` supplies opaque file operations.
+- The independent product runtimes in `kindle-app` wire `SettingsChanged` to their own stores.
 
 This keeps preferences reusable by a future non-Kindle frontend.
 
 ## Persistence
 
-The Kindle default is:
+Puzzles uses:
 
 ```text
 /mnt/us/kindle-chess/state/settings.json
 ```
 
-Override it with `KINDLE_CHESS_SETTINGS_FILE`. When `StoragePaths::new` is given a custom progress path, settings default to `settings.json` in the same directory.
+Review uses `/mnt/us/kindle-game-review/state/settings.json`, overridden with
+`KINDLE_GAME_REVIEW_SETTINGS_FILE` or its app root override. Neither app loads
+the other app's settings. The existing schema and both workspace profiles remain
+unchanged; explicit migration must retain the Game Review profile.
+
+Override Puzzles settings with `KINDLE_CHESS_SETTINGS_FILE`. When `StoragePaths::new` is given a custom progress path, settings default to `settings.json` in the same directory.
 
 The settings document is versioned independently from `progress.json`. Writes use the same atomic replace strategy as progress. If an existing settings file is malformed or has a future version, the app uses defaults in memory, reports a warning, and protects the source file from overwrite.
 

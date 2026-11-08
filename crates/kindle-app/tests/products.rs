@@ -66,6 +66,10 @@ fn standalone_startup_loads_only_its_product_and_flushes_separate_state() {
     review.dispatch(R::ReviewNext);
     review.flush();
     assert!(review_paths.review_resume_file.is_file());
+    let saved = review.state().review_resume();
+    let reopened = ReviewRuntime::open(review_paths.clone()).unwrap();
+    assert_eq!(reopened.state().review_resume(), saved);
+    assert_eq!(fs::read(&puzzle_paths.progress_file).unwrap(), puzzle_bytes);
     assert!(!review_paths.puzzle_dir.exists());
     assert_eq!(
         fs::read(&review_paths.progress_file).unwrap(),

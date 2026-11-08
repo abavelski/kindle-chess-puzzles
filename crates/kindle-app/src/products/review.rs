@@ -21,44 +21,10 @@ pub struct ReviewRuntime {
 }
 impl ReviewRuntime {
     pub fn open(paths: StoragePaths) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::open_with_legacy(paths, None)
-    }
-    pub fn open_with_legacy(
-        mut paths: StoragePaths,
-        legacy: Option<&Path>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut migration_warnings = Vec::new();
-        let mut library = KindleStorage::new(paths.clone()).discover_review_library()?;
-        if library.games.is_empty() && library.errors.is_empty() {
-            if let Some(root) = legacy {
-                paths.review_dir = root.join("games");
-                library = KindleStorage::new(paths.clone()).discover_review_library()?;
-            }
-        }
         let storage = KindleStorage::new(paths);
-        let (settings, mut settings_load) = SettingsStore::open(&storage.paths().settings_file);
-        let (resume, mut resume_load) =
-            ReviewResumeStore::open(&storage.paths().review_resume_file);
-        if let Some(root) = legacy {
-            if missing(&storage.paths().settings_file) {
-                if let Some(value) = read_legacy(
-                    &root.join("state/settings.json"),
-                    Settings::parse,
-                    &mut migration_warnings,
-                ) {
-                    settings_load.settings = value;
-                }
-            }
-            if missing(&storage.paths().review_resume_file) {
-                if let Some(value) = read_legacy(
-                    &root.join("state/review-resume.json"),
-                    chess_core::ReviewResume::parse,
-                    &mut migration_warnings,
-                ) {
-                    resume_load.resume = Some(value);
-                }
-            }
-        }
+        let library = storage.discover_review_library()?;
+        let (settings, settings_load) = SettingsStore::open(&storage.paths().settings_file);
+        let (resume, resume_load) = ReviewResumeStore::open(&storage.paths().review_resume_file);
         let preferences = settings_load.settings;
         let mut state = ReviewApp::new(
             library.games,
@@ -69,7 +35,6 @@ impl ReviewRuntime {
             .into_iter()
             .flatten()
             .collect::<Vec<_>>();
-        warnings.extend(migration_warnings);
         if let Some(saved) = resume_load.resume {
             if let Some(warning) = state.restore_review_resume(&saved) {
                 warnings.push(warning);
@@ -146,30 +111,6 @@ impl Application for ReviewRuntime {
             .is_some_and(super::is_persistence_warning)
         {
             self.state.dispatch(Action::SetTransientMessage(None));
-        }
-    }
-}
-
-fn missing(path: &Path) -> bool {
-    matches!(path.symlink_metadata(), Err(error) if error.kind() == std::io::ErrorKind::NotFound)
-}
-fn read_legacy<T>(
-    path: &Path,
-    parse: impl FnOnce(&[u8]) -> Result<T, String>,
-    warnings: &mut Vec<String>,
-) -> Option<T> {
-    match std::fs::read(path) {
-        Ok(bytes) => match parse(&bytes) {
-            Ok(value) => Some(value),
-            Err(error) => {
-                warnings.push(format!("Legacy {} preserved: {error}", path.display()));
-                None
-            }
-        },
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-        Err(error) => {
-            warnings.push(format!("Legacy {} unavailable: {error}", path.display()));
-            None
         }
     }
 }

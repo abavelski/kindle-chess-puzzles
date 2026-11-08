@@ -26,11 +26,7 @@ pub fn run_review() -> Result<(), Box<dyn std::error::Error>> {
             *target = value.into();
         }
     }
-    let legacy = std::env::var_os("KINDLE_GAME_REVIEW_LEGACY_ROOT")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| "/mnt/us/kindle-chess".into());
-    let legacy = (!legacy.as_os_str().is_empty()).then_some(legacy.as_path());
-    crate::runtime::run(ReviewRuntime::open_with_legacy(paths, legacy)?, start)
+    crate::runtime::run(ReviewRuntime::open(paths)?, start)
 }
 
 fn is_persistence_warning(message: &str) -> bool {
