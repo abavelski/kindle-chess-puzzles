@@ -35,12 +35,13 @@ def verify_artifacts(app, directory=None):
         raise ValueError('staged binary differs from selected build')
     if json.loads((stage / 'manifest.json').read_text()) != json.loads((ROOT / product['manifest']).read_text()):
         raise ValueError('staged manifest differs from selected product')
-    if app == 'review':
+    if app in ('review', 'play'):
+        label = 'Review' if app == 'review' else 'Play'
         for path in (stage / 'runtime').rglob('*'):
-            if path.name.startswith(('puzzles', 'kindlebt', 'libkindlebt', 'chessnut-')):
-                raise ValueError('Review includes puzzle/board runtime assets')
+            if path.name.startswith(('puzzles', 'games', 'kindlebt', 'libkindlebt', 'chessnut-')):
+                raise ValueError(f'{label} includes puzzle/board runtime assets')
         if b'promotion-white-queen' in binary.read_bytes():
-            raise ValueError('Review includes bundled puzzle examples')
+            raise ValueError(f'{label} includes bundled puzzle examples')
     expected_files = {str(path.relative_to(stage)): build.sha256(path)
                       for path in stage.rglob('*') if path.is_file()}
     result = {'app': app, 'binary_sha256': receipt['binary_sha256'],

@@ -74,7 +74,10 @@ fn refused_timeout_errors_oversize_and_reconnect() {
     let (endpoint, handle) = server(200, "{}".into(), Duration::from_millis(100));
     let mut client = HttpClient::new(endpoint);
     client.timeout = Duration::from_millis(20);
-    assert!(client.execute(&Request::Current).is_err());
+    assert!(client
+        .execute(&Request::Current)
+        .unwrap_err()
+        .contains("timed out"));
     handle.join().unwrap();
     for (status, code) in [
         (503, "ENGINE_UNAVAILABLE"),

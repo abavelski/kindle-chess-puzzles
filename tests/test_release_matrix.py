@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class MatrixContractTests(unittest.TestCase):
     def test_ci_builds_stages_verifies_and_publishes_each_product(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        for app in ['puzzles', 'review']:
+        for app in ['puzzles', 'review', 'play']:
             self.assertIn('app: ' + app, workflow)
         for fragment in ['scripts/app.sh build ${{ matrix.app }}',
                          'scripts/app.sh stage ${{ matrix.app }}',

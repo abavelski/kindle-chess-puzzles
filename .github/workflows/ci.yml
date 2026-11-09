@@ -32,6 +32,7 @@ jobs:
         include:
           - app: puzzles
           - app: review
+          - app: play
     # Zig pins the target glibc baseline to 2.35 independently of runner libc.
     runs-on: ubuntu-24.04
     steps:

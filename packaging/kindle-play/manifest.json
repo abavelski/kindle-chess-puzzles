@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "id": "kindle_chess_play",
+  "name": "Kindle Chess Play",
+  "author": "Kindle Chess Play contributors",
+  "description": "Trusted-LAN Maia chess play for the first-generation Kindle Scribe.",
+  "version": [0, 1, 0],
+  "dependencies": [],
+  "supported_platforms": ["kindlehf"]
+}

@@ -165,3 +165,51 @@ fn confirmed_white_and_black_moves_replace_snapshot_atomically() {
     app.change_rating(100);
     assert_eq!(app.rating, rating);
 }
+#[test]
+fn unavailable_engine_remains_visible_after_current_reports_no_game() {
+    let mut app = PlayApp::default();
+    let id = app.begin(Request::Health).unwrap();
+    assert_eq!(
+        app.complete(id, Ok(Response::Health(false))),
+        Some(Request::Current)
+    );
+    let id = app.begin(Request::Current).unwrap();
+    app.complete(id, Ok(Response::NoGame));
+    assert!(app.message.contains("Maia unavailable"));
+    let id = app.begin(Request::Current).unwrap();
+    app.complete(
+        id,
+        Ok(Response::Error {
+            status: 409,
+            code: "BUSY".into(),
+            message: "busy".into(),
+            state: None,
+        }),
+    );
+    assert!(app.message.contains("Refresh"));
+    assert!(!app.can_new());
+}
+#[test]
+fn finished_conflict_shows_result_and_keeps_board_disabled() {
+    let mut app = playing();
+    let mut state = initial();
+    state.status = "finished".into();
+    state.result = Some(chess_core::play::GameResult {
+        outcome: "black_win".into(),
+        reason: "resignation".into(),
+    });
+    let id = app.begin(Request::Current).unwrap();
+    app.complete(
+        id,
+        Ok(Response::Error {
+            status: 409,
+            code: "GAME_FINISHED".into(),
+            message: "finished".into(),
+            state: Some(state),
+        }),
+    );
+    assert_eq!(app.status, UiStatus::Finished);
+    assert!(app.message.contains("resignation"));
+    assert!(!app.can_move());
+    assert!(app.can_new());
+}

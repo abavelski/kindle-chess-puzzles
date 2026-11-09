@@ -409,7 +409,16 @@ impl PlayApp {
                 self.board = Board::starting_position();
                 self.status = UiStatus::Idle;
                 self.needs_refresh = false;
-                self.message = "No game. New Game to play White".into();
+                self.message = if self.maia_available {
+                    "No game. New Game to play White"
+                } else {
+                    "Maia unavailable. Refresh server state"
+                }
+                .into();
+                if !self.maia_available {
+                    self.status = UiStatus::Error;
+                    self.needs_refresh = true;
+                }
             }
             Ok(Response::Error {
                 status,
@@ -420,6 +429,9 @@ impl PlayApp {
                 if status == 409 {
                     if let Some(state) = state {
                         self.apply(state);
+                        if self.status == UiStatus::Finished {
+                            return None;
+                        }
                     } else {
                         self.needs_refresh = true;
                     }
@@ -427,7 +439,7 @@ impl PlayApp {
                 self.status = UiStatus::Error;
                 self.message = if status == 422 {
                     "Illegal move".into()
-                } else if status == 409 {
+                } else if status == 409 && !self.needs_refresh {
                     "Server state updated; select your move again".into()
                 } else {
                     self.needs_refresh = true;

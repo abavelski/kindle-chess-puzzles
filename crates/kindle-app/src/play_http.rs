@@ -1,7 +1,7 @@
 //! Bounded plain HTTP transport for Play's fixed trusted-LAN routes.
 use chess_core::play::{parse_response, Request, Response, MAX_RESPONSE};
 use std::{
-    io::{Read, Write},
+    io::{ErrorKind, Read, Write},
     net::{Ipv4Addr, SocketAddrV4, TcpStream},
     time::{Duration, Instant},
 };
@@ -54,10 +54,10 @@ impl HttpClient {
             &self.endpoint.address.into(),
             self.timeout.min(Duration::from_secs(5)),
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(network_error)?;
         socket
             .set_write_timeout(Some(self.timeout.min(Duration::from_secs(5))))
-            .map_err(|e| e.to_string())?;
+            .map_err(network_error)?;
         let (method, path, body) = request.wire();
         if body.len() > 4096 {
             return Err("Request too large".into());
@@ -71,9 +71,9 @@ impl HttpClient {
                 .ok_or("Request timed out")?;
             socket
                 .set_read_timeout(Some(remaining))
-                .map_err(|e| e.to_string())?;
+                .map_err(network_error)?;
             let mut buf = [0; 4096];
-            let count = socket.read(&mut buf).map_err(|e| e.to_string())?;
+            let count = socket.read(&mut buf).map_err(network_error)?;
             if count == 0 {
                 break;
             }
@@ -188,5 +188,13 @@ fn decode_chunks(mut data: &[u8]) -> Result<Vec<u8>, String> {
         }
         body.extend_from_slice(&data[..size]);
         data = &data[size + 2..];
+    }
+}
+
+fn network_error(error: std::io::Error) -> String {
+    if matches!(error.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) {
+        "Request timed out".into()
+    } else {
+        error.to_string()
     }
 }
