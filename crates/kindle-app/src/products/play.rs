@@ -159,9 +159,11 @@ impl Application for PlayRuntime {
                 self.state.change_rating(100);
                 None
             }
-            PlayTarget::NewGame => Some(Request::New {
-                rating: self.state.rating,
-            }),
+            PlayTarget::NewGame => Some(self.state.new_game_request()),
+            PlayTarget::ChooseColor(color) => {
+                self.state.choose_color(color);
+                None
+            }
             PlayTarget::Resign => Some(Request::Resign),
             PlayTarget::Retry => {
                 self.reconnect();

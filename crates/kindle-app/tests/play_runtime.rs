@@ -181,3 +181,82 @@ fn configured_http_worker_recovers_current_state_after_sleep() {
     assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn black_new_game_uses_server_side_and_keeps_canonical_move_intent() {
+    let (entered, requests) = mpsc::channel();
+    let (reply, replies) = mpsc::channel();
+    let mut runtime = PlayRuntime::with_client(Fake {
+        entered,
+        replies: std::sync::Mutex::new(replies),
+    });
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::Health
+    );
+    reply.send(Ok(Response::Health(true))).unwrap();
+    poll_changed(&mut runtime);
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::Current
+    );
+    reply.send(Ok(Response::NoGame)).unwrap();
+    poll_changed(&mut runtime);
+    runtime.tap(HitTarget::Play(PlayTarget::ChooseColor(
+        chess_core::Color::Black,
+    )));
+    runtime.tap(HitTarget::Play(PlayTarget::NewGame));
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::New {
+            rating: 1500,
+            player_color: chess_core::Color::Black
+        }
+    );
+    let state=Snapshot::parse(&serde_json::json!({"apiVersion":1,"rating":1500,"playerColor":"black","fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1","moves":["e2e4"],"ply":1,"status":"playing","result":null,"lastMove":"e2e4"})).unwrap();
+    reply.send(Ok(Response::Game(state.clone()))).unwrap();
+    poll_changed(&mut runtime);
+    assert!(runtime.state().flipped());
+    assert_eq!(runtime.state().snapshot.as_ref().unwrap().ply, 1);
+    runtime.tap(HitTarget::Play(PlayTarget::Square(12)));
+    runtime.tap(HitTarget::Play(PlayTarget::Square(28)));
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::Move {
+            uci: "e7e5".into(),
+            expected_ply: 1
+        }
+    );
+    reply
+        .send(Ok(Response::Error {
+            status: 422,
+            code: "ILLEGAL_MOVE".into(),
+            message: "fixture".into(),
+            state: Some(state.clone()),
+        }))
+        .unwrap();
+    poll_changed(&mut runtime);
+    assert!(runtime.state().flipped());
+    assert_eq!(runtime.state().snapshot.as_ref().unwrap().ply, 1);
+    runtime.tap(HitTarget::Play(PlayTarget::Retry));
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::Health
+    );
+    reply.send(Ok(Response::Health(true))).unwrap();
+    poll_changed(&mut runtime);
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::Current
+    );
+    reply
+        .send(Ok(Response::Error {
+            status: 409,
+            code: "STALE_PLY".into(),
+            message: "stale".into(),
+            state: Some(state),
+        }))
+        .unwrap();
+    poll_changed(&mut runtime);
+    assert!(runtime.state().flipped());
+}

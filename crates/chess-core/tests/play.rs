@@ -79,7 +79,12 @@ fn illegal_stale_finished_and_late_responses() {
     app.complete(id, Ok(Response::Game(snapshot)));
     assert_eq!(app.status, UiStatus::Finished);
     assert!(app.tap(sq("e2").unwrap()).is_none());
-    assert!(app.begin(Request::New { rating: 1500 }).is_some());
+    assert!(app
+        .begin(Request::New {
+            rating: 1500,
+            player_color: chess_core::Color::White
+        })
+        .is_some());
 }
 #[test]
 fn ratings_health_reconnect_and_contract_validation() {
@@ -212,4 +217,96 @@ fn finished_conflict_shows_result_and_keeps_board_disabled() {
     assert!(app.message.contains("resignation"));
     assert!(!app.can_move());
     assert!(app.can_new());
+}
+
+fn black_opening() -> Snapshot {
+    Snapshot::parse(&json!({"apiVersion":1,"rating":1500,"playerColor":"black","fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1","moves":["e2e4"],"ply":1,"status":"playing","result":null,"lastMove":"e2e4"})).unwrap()
+}
+#[test]
+fn black_creation_reconnect_selection_and_turn_parity() {
+    let mut app = PlayApp::default();
+    app.choose_color(chess_model::Color::Black);
+    let request = Request::New {
+        rating: 1500,
+        player_color: chess_model::Color::Black,
+    };
+    let (_, _, body) = request.wire();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&body).unwrap(),
+        json!({"rating":1500,"playerColor":"black"})
+    );
+    let id = app.begin(request).unwrap();
+    app.complete(id, Ok(Response::Game(black_opening())));
+    assert!(app.flipped());
+    assert_eq!(app.message, "Black to move");
+    assert_eq!(app.snapshot.as_ref().unwrap().ply, 1);
+    app.choose_color(chess_model::Color::White);
+    assert!(app.flipped());
+    app.tap(sq("e4").unwrap());
+    assert!(app.selected.is_none());
+    app.tap(sq("e7").unwrap());
+    assert_eq!(
+        app.tap(sq("e5").unwrap()),
+        Some(Request::Move {
+            uci: "e7e5".into(),
+            expected_ply: 1
+        })
+    );
+    let id = app.begin(Request::Current).unwrap();
+    app.complete(id, Ok(Response::Game(initial())));
+    assert!(!app.flipped());
+    let mut value = serde_json::to_value(black_opening()).unwrap();
+    value["playerColor"] = json!("white");
+    assert!(Snapshot::parse(&value).is_err());
+    value["status"] = json!("finished");
+    value["result"] = json!({"outcome":"white_win","reason":"resignation"});
+    assert!(Snapshot::parse(&value).is_err()); // White cannot resign to a White win.
+    value["playerColor"] = json!("black");
+    assert!(Snapshot::parse(&value).is_ok());
+}
+#[test]
+fn black_promotion_and_legacy_response_are_safe() {
+    let mut app = PlayApp::default();
+    let id = app.begin(Request::Current).unwrap();
+    app.complete(id, Ok(Response::Game(black_opening())));
+    app.board = chess_model::Board::from_fen("4k3/8/8/8/8/8/p7/4K3 b - - 0 1").unwrap();
+    for kind in [
+        chess_model::PieceKind::Queen,
+        chess_model::PieceKind::Rook,
+        chess_model::PieceKind::Bishop,
+        chess_model::PieceKind::Knight,
+    ] {
+        app.tap(sq("a2").unwrap());
+        app.tap(sq("a1").unwrap());
+        assert!(app.promotion.is_some());
+        let before = app.board.clone();
+        let request = app.promote(kind).unwrap();
+        assert_eq!(
+            request,
+            Request::Move {
+                uci: format!(
+                    "a2a1{}",
+                    match kind {
+                        chess_model::PieceKind::Queen => 'q',
+                        chess_model::PieceKind::Rook => 'r',
+                        chess_model::PieceKind::Bishop => 'b',
+                        _ => 'n',
+                    }
+                ),
+                expected_ply: 1
+            }
+        );
+        assert_eq!(app.board, before);
+    }
+    let request = Request::New {
+        rating: 1500,
+        player_color: chess_model::Color::Black,
+    };
+    assert!(chess_core::play::parse_response(
+        &request,
+        201,
+        &serde_json::to_vec(&initial()).unwrap()
+    )
+    .unwrap_err()
+    .contains("updated desktop"));
 }

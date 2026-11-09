@@ -24,6 +24,16 @@ impl BoardGeometry {
         self.gutter
     }
 }
+/// Convert between canonical and display squares; the transform is its own inverse.
+pub fn oriented_square(square: usize, flipped: bool) -> usize {
+    debug_assert!(square < 64);
+    if flipped {
+        63 - square
+    } else {
+        square
+    }
+}
+
 pub fn draw_board(
     frame: &mut Gray8,
     board: &chess_model::Board,
@@ -42,11 +52,7 @@ pub fn draw_board(
         };
         frame.fill_rect(rect, tone);
 
-        let logical_square = if flipped {
-            63 - display_square
-        } else {
-            display_square
-        };
+        let logical_square = oriented_square(display_square, flipped);
         if let Some(piece) = board.piece_at(logical_square) {
             draw_piece(frame, piece, rect);
         }

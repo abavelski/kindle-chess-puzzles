@@ -47,7 +47,13 @@ fn validates_base_url_and_exact_routes() {
     let request = handle.join().unwrap();
     assert!(request.starts_with("GET /api/v1/health HTTP/1.1\r\n"));
     for (req, path) in [
-        (Request::New { rating: 1500 }, "/api/v1/games"),
+        (
+            Request::New {
+                rating: 1500,
+                player_color: chess_core::Color::White,
+            },
+            "/api/v1/games",
+        ),
         (
             Request::Move {
                 uci: "e2e4".into(),

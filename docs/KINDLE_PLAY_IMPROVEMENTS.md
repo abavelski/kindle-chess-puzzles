@@ -1,6 +1,6 @@
 # Kindle Chess Play — post-MVP improvements (Kindle)
 
-**FKP-01 implemented — Waiting for human.** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
+**Implementation in progress — common feature branch; owner tests the complete set.** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
 
 ## Goal and existing architecture
 
@@ -36,6 +36,8 @@ Follow the [desktop extension contract](https://github.com/abavelski/chess-games
 
 No optimistic commit: 200/201 and GET update the authoritative board/history together; timeout => GET before retry; 409 carries state; 422 preserves state. The UI must not locally issue Maia moves, retroactively submit past-line moves, or use a history selection as expectedPly.
 
+Owner override (2026-11-09): implement all Kindle tasks on `feature/kindle-play-improvements`, commit directly to that common branch, and defer human verification until the complete build is ready. Per-task human/dependency holds below are superseded for implementation; desktop acceptance and device results are never inferred.
+
 ## Codex task execution
 
 **Token-efficient CLI option:** use [`bash scripts/codex-play.sh`](CODEX_PLAY_CLI.md) from this repository. It invokes Codex on one Ready task with Sol 6.1/medium by default, then uses existing focused tests and pinned build/stage/artifact scripts outside the model. Use `verify` for a no-model check and `fix` to resume with only the relevant failing-log excerpt. Human/device verification is still required and is never automated. Do not duplicate the wrapper's full build/tests inside the Codex turn.
@@ -45,14 +47,14 @@ One task per branch/PR. Start the first **Ready** task with dependencies Done. F
 
 | Order | Task | Depends on | Initial status | Deliverable |
 | --- | --- | --- | --- | --- |
-| 1 | FKP-01 — match existing close icon | MVP | **Waiting for human** | Shared X-icon rendering, same close position/hit target |
-| 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Blocked | Side selector, rotated board/taps, server contract |
-| 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Blocked | Paged SAN move panel, historical FEN viewer, return-to-live |
+| 1 | FKP-01 — match existing close icon | MVP | **Implemented; final testing deferred** | Shared X-icon rendering, same close position/hit target |
+| 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Implemented; final verification pending | Side selector, rotated board/taps, server contract |
+| 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | In progress (owner override) | Paged SAN move panel, historical FEN viewer, return-to-live |
 | 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Blocked | End-to-end human verification/evidence only |
 
 ### FKP-01 — close icon parity
 
-**Status: Waiting for human.** Owner: Codex implementation / human acceptance. Branch: `codex/fkp-01`. Started/automated verification: 2026-11-09. Implementation revision: `95eeabb`.
+**Status: Implemented; owner testing deferred to the complete build.** Owner: Codex implementation / human acceptance. Branch: `feature/kindle-play-improvements`. Started/automated verification: 2026-11-09. Implementation revision: `95eeabb`.
 
 Reuse: Play now calls the existing `draw_close_button` and `header_control_visual_rect` helpers used by Puzzles/Review. `Layout.exit`, `PlayTarget::Close` and the existing runtime exit path are unchanged. Extraction: none; the two existing helpers were made `pub(crate)` without changing their drawing bodies. New: a focused pixel-parity/X-endpoint and touch-boundary test in the existing Play render harness, because Play previously had no comparison against the other products' close chrome. No new production widget, state, geometry or network code.
 
@@ -67,7 +69,9 @@ Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`. Bi
 
 ### FKP-02 — choose White/Black before New Game
 
-**Status: Blocked (FKP-01 and BKP-03).** Owner: Codex implementation / human acceptance.
+**Status: Implemented; final verification pending.** Owner: Codex implementation / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
+
+Reuse: existing Play state, worker/client, UCI/FEN validation, board geometry, board painter and button selection chrome. Extracted the existing canonical/display-square transform into `eink_ui::board::oriented_square` for board drawing, selection highlights and taps. New: side-selection target/state and color-neutral request/turn checks, because Play previously represented White only. Focused tests cover Black opening ply 1, White legacy snapshots, both orientations/all 64 squares, promotions, error/reconnect color and canonical move requests. White/Black previews were inspected. Full matrix verification follows after FKP-03 under the owner override.
 
 1. Add a clear side selector (WHITE / BLACK) beside pre-game Elo controls, using existing button/selection visuals and Play's control layout rather than a new widget framework. Default White. Only editable when New Game is permitted; selecting after game start must not mutate the active session. Request::New sends {rating,playerColor}; retain a legacy White path only where appropriate. On GET reconnect, use snapshot.playerColor as source of truth rather than cached selection.
 2. Update Snapshot validation: accept both color strings; active side follows FEN and ply, while nonterminal states end **on the human turn** (White => even ply; Black => odd ply). Retain authoritative FEN, UCI history replay/consistency checks, terminal parity exception and error semantics; avoid simplistic White-only assumptions. Human Black 201 may contain one Maia opening move and must render that board immediately.
@@ -78,7 +82,7 @@ Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`. Bi
 
 ### FKP-03 — paged move-history panel and read-only navigation
 
-**Status: Blocked (FKP-02 and BKP-03).** Owner: Codex implementation / human acceptance.
+**Status: In progress (owner override).** Owner: Codex implementation / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
 
 1. Rework the **existing** Play status area (currently a text box) to retain a clearly readable network/game-status message **and** show all committed moves in an e-ink-friendly, paginated move list. Reuse the neutral presentation, font, hit-test and pagination primitives behind the Puzzles/Review analysis panel where feasible; do not create fake analysis-tree data to force reuse. Reuse typography, border and controls consistent with the Puzzles/Review analysis panel; do not import those products' persisted trees or states. Display move numbers and SAN from optional sanMoves; if missing, fall back to UCI. Black's initial Maia White move is immediately visible. Highlight selected ply and expose page navigation; do not truncate older moves silently.
 2. Add Play-only hit targets: HistoryPly(n), HistoryPreviousPage, HistoryNextPage, Latest. Tapping a move displays **the position after that ply**, from the server-authoritative starting position and UCI sequence. **Refactor and reuse the existing replay loop in `chess-core/src/play.rs` `Snapshot::parse`** to obtain intermediate positions (castling, en passant and q/r/b/n promotions); keep one replay implementation for both validation and history rather than writing a second one. No on-device legality/search/PGN parsing. A tap on the current last move or **Latest** displays the exact snapshot.fen; the initial position is reachable (Start/ply 0).

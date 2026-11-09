@@ -1226,7 +1226,7 @@ fn draw_button(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale
     );
 }
 
-fn draw_button_spec(
+pub(crate) fn draw_button_spec(
     frame: &mut Gray8,
     rect: Rect,
     button: ButtonSpec<'_>,

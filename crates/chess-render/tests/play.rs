@@ -232,3 +232,37 @@ fn close_icon_matches_existing_products_and_keeps_its_touch_rectangle() {
         }
     }
 }
+
+#[test]
+fn black_orientation_maps_all_squares_and_color_controls_are_guarded() {
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = PlayApp::default();
+        app.choose_color(chess_core::Color::Black);
+        let value = serde_json::json!({"apiVersion":1,"rating":1500,"playerColor":"black","fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1","moves":["e2e4"],"ply":1,"status":"playing","result":null,"lastMove":"e2e4"});
+        let id = app.begin(Request::Current).unwrap();
+        app.complete(id, Ok(Response::Game(Snapshot::parse(&value).unwrap())));
+        let frame = render(&app, metrics).unwrap();
+        std::fs::write(
+            format!("../../target/play-black-{}.pgm", metrics.width),
+            frame.frame.to_pgm(),
+        )
+        .unwrap();
+        for displayed in 0..64 {
+            let r = frame.layout.square_rect(displayed);
+            assert_eq!(
+                frame.hit_test_app(r.x + r.width / 2, r.y + r.height / 2, &app),
+                Some(HitTarget::Play(PlayTarget::Square(63 - displayed)))
+            );
+        }
+        for (target, rect, enabled) in PlayLayout::new(metrics).unwrap().controls(&app) {
+            if matches!(target, PlayTarget::ChooseColor(_)) {
+                assert!(!enabled);
+                assert_eq!(
+                    frame.hit_test_app(rect.x + rect.width / 2, rect.y + rect.height / 2, &app),
+                    None
+                );
+            }
+        }
+        assert!(chess_render::ScreenState::flipped(&app));
+    }
+}

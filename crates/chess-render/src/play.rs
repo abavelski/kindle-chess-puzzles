@@ -1,11 +1,13 @@
 //! Dedicated Play view. Existing product layout/settings and hit paths stay separate.
 use crate::{DisplayMetrics, Gray8, HitTarget, Layout, LayoutError, Rect, RenderOutput};
-use chess_core::{play::PlayApp, PieceKind};
+use chess_core::{play::PlayApp, Color, PieceKind};
+use eink_ui::board::oriented_square;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PlayTarget {
     Square(usize),
     RatingDown,
     RatingUp,
+    ChooseColor(Color),
     NewGame,
     Retry,
     Resign,
@@ -29,32 +31,39 @@ impl PlayLayout {
         base.status.height = metrics.height.saturating_sub(base.status.y + 20);
         Ok(Self { base })
     }
+    pub fn rating_rects(self) -> [Rect; 5] {
+        let unit = (self.base.board_outer.width - 48) / 8;
+        let mut x = self.base.board_outer.x;
+        [1, 2, 1, 2, 2].map(|span| {
+            let rect = Rect::new(
+                x,
+                self.base.previous.y,
+                unit * span,
+                self.base.previous.height,
+            );
+            x = rect.right() + 12;
+            rect
+        })
+    }
     pub fn controls(self, app: &PlayApp) -> Vec<(PlayTarget, Rect, bool)> {
         let base = self.base;
         let gap = 12;
         let width = (base.toolbar.width - gap * 3) / 4;
+        let row = self.rating_rects();
         let mut controls = vec![
             (PlayTarget::Close, base.exit, true),
             (
                 PlayTarget::RatingDown,
-                Rect::new(
-                    base.previous.x,
-                    base.previous.y,
-                    base.board_outer.width / 4,
-                    base.previous.height,
-                ),
+                row[0],
                 app.can_new() && app.rating > 600,
             ),
             (
                 PlayTarget::RatingUp,
-                Rect::new(
-                    base.board_outer.right() - base.board_outer.width / 4,
-                    base.next.y,
-                    base.board_outer.width / 4,
-                    base.next.height,
-                ),
+                row[2],
                 app.can_new() && app.rating < 2600,
             ),
+            (PlayTarget::ChooseColor(Color::White), row[3], app.can_new()),
+            (PlayTarget::ChooseColor(Color::Black), row[4], app.can_new()),
         ];
         for (index, (target, enabled)) in [
             (PlayTarget::NewGame, app.can_new()),
@@ -112,10 +121,11 @@ impl PlayLayout {
                         return None;
                     }
                     let size = self.base.board.width / 8;
-                    Some(PlayTarget::Square(
+                    Some(PlayTarget::Square(oriented_square(
                         ((y - self.base.board.y) / size * 8 + (x - self.base.board.x) / size)
                             as usize,
-                    ))
+                        app.flipped(),
+                    )))
                 })
         };
         target.map(HitTarget::Play)
@@ -124,6 +134,9 @@ impl PlayLayout {
 impl crate::ScreenState for PlayApp {
     fn board(&self) -> &chess_core::Board {
         &self.board
+    }
+    fn flipped(&self) -> bool {
+        PlayApp::flipped(self)
     }
     fn play(&self) -> Option<&PlayApp> {
         Some(self)
@@ -149,7 +162,7 @@ pub fn render_play(app: &PlayApp, metrics: DisplayMetrics) -> Result<RenderOutpu
     eink_ui::board::draw_board(
         &mut frame,
         &app.board,
-        false,
+        app.flipped(),
         eink_ui::board::BoardGeometry {
             board: base.board,
             board_outer: base.board_outer,
@@ -158,7 +171,7 @@ pub fn render_play(app: &PlayApp, metrics: DisplayMetrics) -> Result<RenderOutpu
         scale,
     );
     if let Some(square) = app.selected {
-        let rect = base.square_rect(square);
+        let rect = base.square_rect(oriented_square(square, app.flipped()));
         frame.stroke_rect(rect, 6, 0);
         frame.stroke_rect(rect.inset(7), 3, 255);
     }
@@ -167,6 +180,25 @@ pub fn render_play(app: &PlayApp, metrics: DisplayMetrics) -> Result<RenderOutpu
             crate::render::draw_close_button(
                 &mut frame,
                 crate::render::header_control_visual_rect(base, rect),
+            );
+            continue;
+        }
+        if let PlayTarget::ChooseColor(color) = target {
+            crate::render::draw_button_spec(
+                &mut frame,
+                rect,
+                crate::ButtonSpec {
+                    icon: None,
+                    text: Some(if color == Color::White {
+                        "WHITE"
+                    } else {
+                        "BLACK"
+                    }),
+                    button_type: crate::ButtonType::Text,
+                },
+                app.player_color == color,
+                enabled,
+                scale,
             );
             continue;
         }
@@ -183,12 +215,7 @@ pub fn render_play(app: &PlayApp, metrics: DisplayMetrics) -> Result<RenderOutpu
     }
     crate::font::draw_text_centered(
         &mut frame,
-        Rect::new(
-            base.board_outer.x + base.board_outer.width / 4 + 12,
-            base.previous.y,
-            base.board_outer.width / 2 - 24,
-            base.previous.height,
-        ),
+        play.rating_rects()[1],
         &format!("Maia {}", app.rating),
         scale,
         0,
