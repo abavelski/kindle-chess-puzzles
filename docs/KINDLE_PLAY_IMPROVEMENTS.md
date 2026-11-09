@@ -1,0 +1,79 @@
+# Kindle Chess Play — post-MVP improvements (Kindle)
+
+**Planning only — no implementation changes.** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
+
+## Goal and existing architecture
+
+Make the standalone Kindle Chess Play UI match the Puzzle/Review close-button icon; let the player choose **White or Black** before starting a game; replace the “last move” text with a paginated, clickable move-history panel styled consistently with Puzzles/Game Review. Tapping a historical move displays the board *after that ply* without changing server game state; **Latest** jumps to the current authoritative FEN so the player can resume playing.
+
+Retain a lightweight Kindle client: desktop alone validates chess moves, computes SAN, owns the full session and persists My Studies. Do not introduce a Kindle chess engine, PGN parser, local game files, or shared puzzle/review state. Keep its independent package, config/lock/runtime and the existing pinned build + e-ink refresh lifecycle; avoid altering Puzzles/Review goldens or app data.
+
+Code anchors verified on main:
+- crates/chess-render/src/play.rs: PlayLayout, PlayTarget, render_play. Today Close is text “CLOSE”, the board is always drawn White-up (false orientation), and base.status contains message + only last UCI.
+- crates/chess-render/src/render.rs: Puzzles/Review share draw_close_button with an X icon; existing analysis move panel and layout styles can be reused where appropriate, without coupling Play to puzzle/review models.
+- crates/chess-core/src/play.rs: Snapshot validation currently demands playerColor == white, even ply while playing, selection is White-only, and New sends only rating. Snapshot already carries ordered standard-UCI moves.
+- crates/kindle-app/src/products/play.rs: PlayRuntime dispatches PlayTarget and uses an asynchronous HTTP worker; errors/reconnection replace snapshot with GET state, never optimistically commit moves.
+- Existing checks: cargo test -p chess-core --test play; cargo test -p chess-render --test play; cargo test -p kindle-app --test play_http --test play_runtime; scripts/check.sh; scripts/app.sh build/stage play and the artifact verifier.
+
+## Required desktop wire behavior
+
+Follow the [desktop extension contract](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md#cross-repository-api-agreement-implement-in-bkp-03-before-fkp-02fkp-03) once **BKP-03** is accepted. API version and routes remain v1. POST /api/v1/games accepts rating with optional playerColor: white/black (omitting means legacy White). Snapshot playerColor indicates the human side; fen is server-authoritative, moves are ordered UCI from initial setup, ply == moves.length, and sanMoves is a parallel SAN array when supported. Black starts with a legal Maia White move already made (ply=1, Black to move), so **odd ply can be playing**. Optional server metadata: gameId, startedAt and lastMoveAt. Never reject an otherwise valid older White-only snapshot merely for missing additive metadata/SAN; render UCI history as fallback. New user-selected Black requires the upgraded server (show an actionable error otherwise).
+
+No optimistic commit: 200/201 and GET update the authoritative board/history together; timeout => GET before retry; 409 carries state; 422 preserves state. The UI must not locally issue Maia moves, retroactively submit past-line moves, or use a history selection as expectedPly.
+
+## Codex task execution
+
+One task per branch/PR. Start the first **Ready** task with dependencies Done. Before coding, read AGENTS.md, README.md, docs/ARCHITECTURE.md, docs/TESTING.md, this plan and linked desktop contract. Change the row and detailed status to In progress (owner/branch/date). Add focused failing tests/snapshots first, implement that task only, then run focused tests and scripts/check.sh; build/stage/verify Play if package/runtime changes. Preserve old Puzzles and Review golden frames. Record commands + results and commit SHA in task details. Set **Waiting for human** after automated checks; **human verification is the last step** and is never inferred from passing tests. Only owner-confirmed device observations can mark Done; update both status locations together in one commit. Keep dependent tasks Blocked until accepted.
+
+| Order | Task | Depends on | Initial status | Deliverable |
+| --- | --- | --- | --- | --- |
+| 1 | FKP-01 — match existing close icon | MVP | **Ready** | Shared X-icon rendering, same close position/hit target |
+| 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Blocked | Side selector, rotated board/taps, server contract |
+| 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Blocked | Paged SAN move panel, historical FEN viewer, return-to-live |
+| 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Blocked | End-to-end human verification/evidence only |
+
+### FKP-01 — close icon parity
+
+**Status: Ready.** Owner: Codex implementation / human acceptance.
+
+1. Replace the literal “CLOSE” in Play render with the same X icon, size, contrast and top-right visual placement as Puzzles/Review. Reuse/extract the existing close drawing/button primitive; keep Play's Close target in the same touch rectangle and retain clean shutdown. Do not change Puzzles/Review source appearance or hit geometry.
+2. Add visual/snapshot and hit-target tests on 1860×2480 and 1404×1872 layouts; assert X renders, text CLOSE absent, tap hits only its configured target, and existing product goldens remain unchanged.
+
+**Automated acceptance:** focused render/runtime tests and scripts/check.sh. **Human verification (last step):** on Scribe compare Play and Puzzles close icons visually; tap Play X and confirm reliable shutdown. Wait for owner approval before Done.
+
+### FKP-02 — choose White/Black before New Game
+
+**Status: Blocked (FKP-01 and BKP-03).** Owner: Codex implementation / human acceptance.
+
+1. Add a clear side selector (WHITE / BLACK) beside pre-game Elo controls. Default White. Only editable when New Game is permitted; selecting after game start must not mutate the active session. Request::New sends {rating,playerColor}; retain a legacy White path only where appropriate. On GET reconnect, use snapshot.playerColor as source of truth rather than cached selection.
+2. Update Snapshot validation: accept both color strings; active side follows FEN and ply, while nonterminal states end **on the human turn** (White => even ply; Black => odd ply). Retain authoritative FEN, UCI history replay/consistency checks, terminal parity exception and error semantics; avoid simplistic White-only assumptions. Human Black 201 may contain one Maia opening move and must render that board immediately.
+3. Rotate board 180 degrees for Black, with correct file/rank labels, last-move highlighting (if any), and inverse touch mapping from on-screen squares to canonical board indices. Only the human's pieces can be selected; Black promotion happens at the opposite edge from White. Both ordinary and promotion UCI remain canonical standard coordinates. Disable input during requests/errors/finished states. Update status copy to say “Black to move”/“White to move” based on state.
+4. Tests first: new-game JSON, legacy responses, Black 201 ply=1, White normal ply=0, both orientation layouts + all 64 touch squares, Black promotion/castling, unexpected response, 409/422 and reconnect showing server-chosen color. Do not change shared board model or make Kindle decide chess legality.
+
+**Automated acceptance:** core + HTTP + render + runtime focused tests, scripts/check.sh; pinned Play build/stage/verify if runtime artifacts changed. **Human verification (last step):** on Scribe start and complete two moves as White and Black with real desktop Maia; confirm Black board orientation, taps, status and no extra opening move; reconnect and verify color preserved. Owner approval gates Done.
+
+### FKP-03 — paged move-history panel and read-only navigation
+
+**Status: Blocked (FKP-02 and BKP-03).** Owner: Codex implementation / human acceptance.
+
+1. Rework the Play status area (currently a text box) to retain a clearly readable network/game-status message **and** show all committed moves in an e-ink-friendly, paginated move list. Reuse typography, border and controls consistent with the Puzzles/Review analysis panel; do not import those products' persisted trees or states. Display move numbers and SAN from optional sanMoves; if missing, fall back to UCI. Black's initial Maia White move is immediately visible. Highlight selected ply and expose page navigation; do not truncate older moves silently.
+2. Add Play-only hit targets: HistoryPly(n), HistoryPreviousPage, HistoryNextPage, Latest. Tapping a move displays **the position after that ply**, from server-authoritative start FEN + the received UCI sequence (a small deterministic replay helper using existing piece movement logic, including castling, en passant and all promotions). No on-device legality/search/PGN parsing. A tap on the current last move or **Latest** displays the exact snapshot.fen; the initial position is reachable (Start/ply 0).
+3. Keep immutable latest snapshot (FEN/history/ply) separate from viewPly and display board. While viewing the past, block move entry, promotion, resign/other mutating board actions as appropriate; never send an HTTP move based on viewPly. Make **LATEST / PLAY** button obvious and enable input only after returning to live end. Preserve current server expectedPly for future moves. On new snapshot/reconnect, clear stale selection and return to Latest; errors and pending requests never fabricate history.
+4. Paginate deterministically for short and long games, maintain safe  e-ink touch regions and avoid overlap with toolbar, color controls, status text, or promotion modal. Verify normal Scribe and smaller display sizes, full refresh/damage correctness, and no regressions to Puzzles/Review snapshots.
+5. Tests first: 0/1/2/100+ ply, Black starts at ply 1, both SAN/UCI labels, tapping first/middle/latest, Start, page boundaries, parity, en passant, both castles, q/r/b/n promotion, old-vs-live board selection, no network write on history navigation, restoring exact canonical FEN on Latest, finished games browseable.
+
+**Automated acceptance:** focused core/render/runtime HTTP tests; scripts/check.sh, Play build/stage/verify where appropriate. **Human verification (last step):** on physical Scribe play 6+ plies, tap early move and verify board/selection/highlight, page through moves, tap Latest, make next live move, disconnect/reconnect and confirm preserved server sequence. Owner approval gates Done.
+
+### FKP-04 — final cross-repository acceptance (human is the last step)
+
+**Status: Blocked (FKP-03 and desktop BKP-04).** Owner: Codex test prep / human device acceptance.
+
+1. Codex prepares automated verification only: desktop npm test, npm run build, npm run test:desktop; Kindle focused tests and scripts/check.sh; pinned scripts/app.sh build play, scripts/app.sh stage play, python3 tools/verify_app_artifacts.py --app play; confirm old two products still pass check.sh. Record exact actual pass/fail evidence and both source SHAs. This stage may be marked Waiting for human, **not Done**.
+2. Owner on real desktop + jailbroken Kindle Scribe on trusted Wi-Fi: manually Start/Stop in Maia tab; play both colors and at least two Elo settings; verify GUI game/last-move time; make several moves, leave Kindle, confirm matching dated/rated PGN in My Studies and update after next move; tap old plies and Latest on Scribe; verify resign result for each color, reconnect after timeout, and stop/restart listener. Confirm no writes to other Kindle apps, Games or Openings data, and no loss of user-edited studies. Record firmware, app binary/source revisions, dates, what was actually observed and any failed steps in docs/device/ks1-barolo.md.
+3. **Human verification is the final gate:** request explicit owner approval based on that record; only then mark FKP-04 Done in both status locations and declare the cross-repo improvement set accepted. Do not claim a device pass from automated tests, remote CI, or mock Maia.
+
+## How to hand the next task to Codex
+
+“Read docs/KINDLE_PLAY_IMPROVEMENTS.md, AGENTS.md and the linked backend contract. Implement only the first Ready FKP task, tests first; update table and detailed status/evidence together; stop after automated tests at Waiting for human. Do not start dependent tasks before owner verification.”
+
+The MVP is already accepted. This is a new queue and does not reopen PLAY-01..05 or the unrelated DATA-01/02 migration.
