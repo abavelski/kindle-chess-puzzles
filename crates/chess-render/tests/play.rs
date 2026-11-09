@@ -176,3 +176,59 @@ fn promotion_modal_is_exclusive_and_finished_board_is_read_only() {
     let r = layout.base.square_rect(52);
     assert!(output.hit_test_app(r.x + 5, r.y + 5, &app).is_none());
 }
+
+#[test]
+fn close_icon_matches_existing_products_and_keeps_its_touch_rectangle() {
+    use chess_core::{parse_puzzle_file, ActiveCollection, AppState, Progress, WorkspaceSettings};
+    let puzzles = AppState::new(
+        ActiveCollection::from_collection(
+            "puzzles.json",
+            parse_puzzle_file(include_bytes!("../../../tests/fixtures/puzzles.json")).unwrap(),
+        ),
+        Progress::new(),
+    );
+    let review = chess_core::review_app::ReviewApp::new(vec![], WorkspaceSettings::default());
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let app = PlayApp::default();
+        let play = render(&app, metrics).unwrap();
+        let exit = play.layout.exit;
+        let visual = exit.inset(play.layout.header.height / 10);
+        for reference in [
+            render(&puzzles, metrics).unwrap(),
+            render(&review, metrics).unwrap(),
+        ] {
+            assert_eq!(exit, reference.layout.exit);
+            for y in visual.y..visual.bottom() {
+                for x in visual.x..visual.right() {
+                    assert_eq!(play.frame.pixel(x,y), reference.frame.pixel(x,y),
+                        "Play close must contain the same X and chrome, without CLOSE text, at {x},{y} for {metrics:?}");
+                }
+            }
+        }
+        let icon = visual.inset(visual.width.min(visual.height) / 4);
+        for (x, y) in [
+            (icon.x, icon.y),
+            (icon.right() - 1, icon.y),
+            (icon.x, icon.bottom() - 1),
+            (icon.right() - 1, icon.bottom() - 1),
+        ] {
+            assert_eq!(play.frame.pixel(x, y), Some(0), "X diagonal endpoint");
+        }
+        for (x, y) in [
+            (exit.x, exit.y),
+            (exit.right() - 1, exit.bottom() - 1),
+            (exit.x + exit.width / 2, exit.y + exit.height / 2),
+        ] {
+            assert_eq!(
+                play.hit_test_app(x, y, &app),
+                Some(HitTarget::Play(PlayTarget::Close))
+            );
+        }
+        for (x, y) in [
+            (exit.x - 1, exit.y + exit.height / 2),
+            (exit.x + exit.width / 2, exit.bottom()),
+        ] {
+            assert_eq!(play.hit_test_app(x, y, &app), None);
+        }
+    }
+}

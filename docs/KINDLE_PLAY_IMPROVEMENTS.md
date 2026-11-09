@@ -1,6 +1,6 @@
 # Kindle Chess Play — post-MVP improvements (Kindle)
 
-**Planning only — no implementation changes.** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
+**FKP-01 implemented — Waiting for human.** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
 
 ## Goal and existing architecture
 
@@ -45,17 +45,23 @@ One task per branch/PR. Start the first **Ready** task with dependencies Done. F
 
 | Order | Task | Depends on | Initial status | Deliverable |
 | --- | --- | --- | --- | --- |
-| 1 | FKP-01 — match existing close icon | MVP | **Ready** | Shared X-icon rendering, same close position/hit target |
+| 1 | FKP-01 — match existing close icon | MVP | **Waiting for human** | Shared X-icon rendering, same close position/hit target |
 | 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Blocked | Side selector, rotated board/taps, server contract |
 | 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Blocked | Paged SAN move panel, historical FEN viewer, return-to-live |
 | 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Blocked | End-to-end human verification/evidence only |
 
 ### FKP-01 — close icon parity
 
-**Status: Ready.** Owner: Codex implementation / human acceptance.
+**Status: Waiting for human.** Owner: Codex implementation / human acceptance. Branch: `codex/fkp-01`. Started/automated verification: 2026-11-09.
+
+Reuse: Play now calls the existing `draw_close_button` and `header_control_visual_rect` helpers used by Puzzles/Review. `Layout.exit`, `PlayTarget::Close` and the existing runtime exit path are unchanged. Extraction: none; the two existing helpers were made `pub(crate)` without changing their drawing bodies. New: a focused pixel-parity/X-endpoint and touch-boundary test in the existing Play render harness, because Play previously had no comparison against the other products' close chrome. No new production widget, state, geometry or network code.
 
 1. Replace the literal “CLOSE” in Play render by calling the **existing X close-button renderer**, exposing or extracting its shared helper if necessary, with the same size, contrast and top-right visual placement as Puzzles/Review. Do not copy the X drawing code. Reuse/extract the existing close drawing/button primitive; keep Play's Close target in the same touch rectangle and retain clean shutdown. Do not change Puzzles/Review source appearance or hit geometry.
 2. Add visual/snapshot and hit-target tests on 1860×2480 and 1404×1872 layouts; assert X renders, text CLOSE absent, tap hits only its configured target, and existing product goldens remain unchanged.
+
+Automated evidence (2026-11-09, local): the new parity test first failed against the literal CLOSE button, then passed after reusing the existing helpers. `PATH="$PWD/.venv/bin:$PATH" bash scripts/codex-play.sh verify FKP-01` passed in full: Play render/touch tests (5), HTTP/runtime tests (5), pinned Play build including `scripts/check.sh`, stage and artifact verification. Existing Puzzles/Review goldens passed unchanged. Only the six Play golden checksums changed; all six close-icon crops and the ready full frame were visually inspected (`target/fkp-01-close-states.png`, `target/fkp-01-ready.png`). Verification log: `.git/codex-play-runs/` via `latest-FKP-01`.
+
+Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`. Binary SHA256: `2e82dc2680eef91f919824a6d2ee0657967cabf888ad3996f97f07c77b03c965` (3088568 bytes). Toolchain/target checks passed: Rust 1.85.1, Zig 0.13.0, ARMv7 hard-float/glibc 2.35 and pinned FBInk. No device connection/deployment or human pass is claimed. [Prepared checkpoint](device/ks1-barolo.md#fkp-01--prepared-close-icon-parity-waiting-for-human-2026-11-09). FKP-02 stays Blocked until this human acceptance and desktop BKP-03 are Done.
 
 **Automated acceptance:** focused render/runtime tests and scripts/check.sh. **Human verification (last step):** on Scribe compare Play and Puzzles close icons visually; tap Play X and confirm reliable shutdown. Wait for owner approval before Done.
 

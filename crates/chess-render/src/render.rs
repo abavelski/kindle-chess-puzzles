@@ -341,7 +341,7 @@ fn draw_fitted_bold_centered(
     draw_text_bold_vertically_centered(frame, x, rect, &display, scale, tone);
 }
 
-fn header_control_visual_rect(layout: Layout, rect: Rect) -> Rect {
+pub(crate) fn header_control_visual_rect(layout: Layout, rect: Rect) -> Rect {
     rect.inset(layout.header.height / 10)
 }
 
@@ -1180,7 +1180,7 @@ fn draw_settings_button(frame: &mut Gray8, rect: Rect) {
     }
 }
 
-fn draw_close_button(frame: &mut Gray8, rect: Rect) {
+pub(crate) fn draw_close_button(frame: &mut Gray8, rect: Rect) {
     draw_button_chrome(frame, rect, WHITE, INK, false);
     let size = rect.width.min(rect.height);
     let icon = rect.inset(size / 4);

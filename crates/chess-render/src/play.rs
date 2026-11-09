@@ -163,8 +163,14 @@ pub fn render_play(app: &PlayApp, metrics: DisplayMetrics) -> Result<RenderOutpu
         frame.stroke_rect(rect.inset(7), 3, 255);
     }
     for (target, rect, enabled) in play.controls(app) {
+        if target == PlayTarget::Close {
+            crate::render::draw_close_button(
+                &mut frame,
+                crate::render::header_control_visual_rect(base, rect),
+            );
+            continue;
+        }
         let label = match target {
-            PlayTarget::Close => "CLOSE",
             PlayTarget::RatingDown => "-",
             PlayTarget::RatingUp => "+",
             PlayTarget::NewGame => "NEW GAME",

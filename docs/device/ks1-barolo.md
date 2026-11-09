@@ -2685,3 +2685,28 @@ The owner's report is overall MVP acceptance; it is not an invented per-item
 report for the remaining edge cases listed in the prior entry. Existing focused
 host fixtures cover those behaviors. No new device action or redeployment was
 needed for this documentation-only acceptance closeout.
+
+
+### FKP-01 — prepared close icon parity, Waiting for human (2026-11-09)
+
+Status: **Waiting for human**. Branch: `codex/fkp-01`. Play now reuses the exact
+Puzzles/Review X renderer and header visual inset, with its original close touch
+rectangle and runtime exit path. The new regression compares rendered close
+pixels against both older products at 1860×2480 and 1404×1872, verifies diagonal
+X endpoints and checks inside/outside touch boundaries.
+
+`PATH="$PWD/.venv/bin:$PATH" bash scripts/codex-play.sh verify FKP-01` passed all
+focused render/HTTP/runtime tests and the pinned Play build (including
+`scripts/check.sh`), stage and artifact verification. Existing Puzzles/Review
+goldens remained unchanged. Six Play snapshots were updated after visual review;
+inspectable previews are in `target/fkp-01-ready.png` and
+`target/fkp-01-close-states.png`.
+
+Prepared binary SHA256:
+`2e82dc2680eef91f919824a6d2ee0657967cabf888ad3996f97f07c77b03c965`.
+Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`.
+No device connection, installation, launch or physical observation was performed
+for this task. Firmware 5.19.6 / Barolo remains the previously observed baseline,
+not a new probe. Required last step: deploy the verified Play package, compare
+its X icon with Puzzles on the Scribe, tap the X and confirm reliable shutdown,
+then record the owner's acceptance. Host tests do not supply that acceptance.
