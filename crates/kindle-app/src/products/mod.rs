@@ -38,3 +38,14 @@ fn is_persistence_warning(message: &str) -> bool {
     .iter()
     .any(|prefix| message.starts_with(prefix))
 }
+
+mod play;
+pub use play::PlayRuntime;
+
+pub fn run_play() -> Result<(), Box<dyn std::error::Error>> {
+    let start = std::time::Instant::now();
+    let root = std::env::var_os("KINDLE_CHESS_PLAY_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| "/mnt/us/kindle-chess-play".into());
+    crate::runtime::run(PlayRuntime::open(root), start)
+}

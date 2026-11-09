@@ -1,6 +1,6 @@
 # Kindle Chess Play — third app MVP
 
-Status: **Planned** (documentation only). Date: 2026-11-08.
+Status: **Done — owner accepted 2026-11-09**. Deployed/configured: 2026-11-09. Host implementation/validation completed: 2026-11-09.
 Repository: `abavelski/kindle-chess-puzzles`; default branch **main**.
 Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess Play**, to play White against Maia on a desktop reachable over trusted local Wi-Fi. This plan is standalone: the Kindle agent can implement everything with a fake HTTP server without checking out the desktop repo.
 
@@ -74,13 +74,17 @@ Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess P
 
 | Task | Depends on | Status | Deliverable |
 | --- | --- | --- | --- |
-| PLAY-01 | — | Ready | Pure Play state machine + mockable HTTP client/contract fixtures |
-| PLAY-02 | PLAY-01 | Blocked | Product-specific Play board, touch targets and status screens |
-| PLAY-03 | PLAY-01, PLAY-02 | Blocked | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
-| PLAY-04 | PLAY-03 | Blocked | Third independent Cargo binary, staging/install/release matrix |
-| PLAY-05 | PLAY-04 | Blocked | Host regressions, pinned build and physical Scribe LAN acceptance |
+| PLAY-01 | — | Done | Pure Play state machine + mockable HTTP client/contract fixtures |
+| PLAY-02 | PLAY-01 | Done | Product-specific Play board, touch targets and status screens |
+| PLAY-03 | PLAY-01, PLAY-02 | Done | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
+| PLAY-04 | PLAY-03 | Done | Third independent Cargo binary, staging/install/release matrix |
+| PLAY-05 | PLAY-04 | Done | Host regressions, pinned build and physical Scribe LAN acceptance |
 
 ### PLAY-01 — state/client tests first
+
+Status: **Done**. Owner: Codex. Branch: `feature/kindle-chess-play-mvp`. Started/completed: 2026-11-09.
+
+Evidence: tests first failed with missing Play modules, then `cargo test -p chess-core --test play` (5 tests) and `cargo test -p kindle-app --test play_http` (2 tests) passed. `PATH="$PWD/.venv/bin:$PATH" scripts/check.sh` passed, including both existing app targets and unchanged golden frames. Fixtures cover both castles, q/r/b/n promotions and en passant; snapshot validation reconstructs recorded placement without deciding legality. Network tests use local HTTP responses for refusal, delay, 409/422/503/504, malformed/oversize bodies and reconnect GET. No device deployment.
 
 - Add product-owned state: rating (100-Elo steps), server state snapshot, selected piece/promotion, `idle|connecting|waiting|playing|error|finished` UI status and in-flight request guard. No puzzle/review model dependency or writes.
 - Implement minimal client for `GET /health`, `POST /games`, `GET /games/current`, `POST /moves`, `POST /resign`. Use endpoint paths from frozen contract above. Parse full six-field FEN, `moves`, `ply`, `lastMove`, result and `error.code`; safely reject oversized/malformed JSON. Validate `moves.length === ply` and consistency with the board. No optimistic mutation.
@@ -88,24 +92,60 @@ Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess P
 
 ### PLAY-02 — Play-specific e-ink UI
 
+Status: **Done**. Owner: Codex. Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09.
+
 - Create a Play screen/view inside `chess-render` that delegates board, fonts, buttons and Gray8 drawing to existing reusable code; add Play-only `HitTarget` mappings. Avoid using authored puzzle data as fake game data and avoid changing the Puzzles/Review UI to expose Play controls.
 - Render White board from server FEN, selected piece, pending promotion chooser, rating +/- and New Game/Resign/Refresh/Close, result/status/errors. Disable interactions appropriately while waiting or after end. Status must remain legible on e-ink; refresh damage on both changed squares and status; full refresh still available.
 - Host layout/hit-test tests at standard and small Scribe display dimensions; snapshots for disconnected, ready, playing, waiting, illegal move and finished. Preserve all old product golden frames.
 
+Evidence (2026-11-09): `cargo test -p chess-render --test play` first failed on missing Play view/targets, then passed all 4 tests. Checked all 64 White square targets at 1860×2480 and 1404×1872, disabled controls, promotion modal, finished input, pixel damage reconstruction and six visually inspected Gray8 snapshots (`target/play-*.pgm`). `PATH="$PWD/.venv/bin:$PATH" scripts/check.sh` passed, including existing product goldens. No device deployment.
+
 ### PLAY-03 — PlayRuntime and device boundary
+
+Status: **Done**. Owner: Codex. Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09.
 
 - Use `kindle_app::runtime::Application` shared foreground framebuffer/input/power loop and supervisor lock. Worker owns socket/timeouts; screen thread checks completion in `poll` and re-renders. No blocking TCP during touch/power processing.
 - On startup load **only** Play's `config.json`; if valid, health/current GET. On move, send `expectedPly` from last server snapshot; after 200 replace FEN and history atomically. On 409 apply `state`; on 422 keep board + show rejection; after timeout show "Refresh server state" rather than automatically replaying POST.
 - Handle cancel selection, promotions q/r/b/n, Black reply update, checkmate/draw/resign and clean close. Test the worker against a mock server, including a server response after user sleeps/wakes; avoid stale UI overwrite (per-request sequence/generation).
 - No modifications to DATA-01/02 migration, legacy settings fallbacks, or Puzzles/Review persistence.
 
+Evidence (2026-11-09): `cargo test -p kindle-app --test play_runtime` failed before the adapter existed, then passed 3 tests with a controllable fake client and real loopback HTTP server. Covered nonblocking health/current/move completion, delayed completion over sleep, failure followed by GET reconciliation without POST replay, immediate close during a blocked request, config reload and preservation of malformed/future bytes. `PATH="$PWD/.venv/bin:$PATH" scripts/check.sh` passed. RETRY reloads config and fetches health/current; REFRESH retains the shared full-screen redraw. Pinned third-product builds follow in PLAY-04/05; no device deployment.
+
 ### PLAY-04 — independent app packaging
+
+Status: **Done**. Owner: Codex. Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09.
 
 - Add workspace member and product entrypoint; expose `run_play()`. Update only the product selector/packaging/release logic required for the third product. Separate package/app identity, scriptlet, data root, locks and logging, but share the global display owner as before.
 - Add Play manifest and launch/install/uninstall template handling. Update artifact verifier/test scripts/CI matrix to build/stage/verify all **three** independently. Verify no game/puzzle library or Chessnut binary is included in Play; verify existing two build artifacts still pass their checks.
 - Add a short operator section here explaining how to set `serverUrl` over SSH or USB and launch each app (no new configuration UI needed).
 
+Evidence (2026-11-09, local): packaging tests first failed for the missing Play product and CI matrix entry, then passed. `PATH="$PWD/.venv/bin:$PATH" scripts/app.sh build APP`, `scripts/app.sh stage APP` and `python3 tools/verify_app_artifacts.py --app APP` passed for each of `play`, `puzzles`, `review` against the final source. Each build ran `scripts/check.sh`, including all existing goldens and both older app targets. All three current receipts match their product-specific source digest; ARMv7 hard-float, glibc 2.35, Zig 0.13.0 and pinned FBInk checks passed. Play package/installer regressions cover isolated identity/launcher, foreign-asset rejection, update/uninstall/config preservation and cross-app root conflicts. Release review also added failing/passing regressions for unavailable Maia with no game, finished conflicts retaining results, and explicit socket timeout messages. No deployment or remote CI run claimed.
+
 ### PLAY-05 — validation and human checkpoint
+
+Status: **Done**. Owner: Codex (deployment), owner (device acceptance). Accepted/completed: 2026-11-09. Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09. Host-tested source commit: `a1e5df2`.
+
+Host evidence (2026-11-09): focused `cargo test -p chess-core --test play` (7), `cargo test -p chess-render --test play` (4), and `cargo test -p kindle-app --test play_http --test play_runtime` (5) passed. The final unchanged-source matrix from PLAY-04 ran `scripts/check.sh` through each pinned build; all existing golden frames and all three app targets passed. Reused those successful builds rather than rebuilding unchanged code. All local build/stage/verify commands below succeeded; no remote CI or physical result is inferred:
+
+```sh
+# Use the existing host tooling environment.
+. .venv/bin/activate
+for app in play puzzles review; do
+    scripts/app.sh build "$app"
+    scripts/app.sh stage "$app"
+    python3 tools/verify_app_artifacts.py --app "$app"
+done
+```
+
+Prepared artifacts (under `target/kindle/APP/`, receipts and stage/tar/KPM verified):
+
+| App | Binary bytes | Binary SHA256 |
+| --- | ---: | --- |
+| play | 3087936 | `c3a63ffd893b0daf6fce9aa6efb7f4e4a048802b118029a4edf420b3aed68b50` |
+| puzzles | 3468744 | `e51a60425538c7d0c4dfe4a72d3e7ef4dfef1bb1f9971f69a7535197ecfdaae7` |
+| review | 3176572 | `4fc228b04c44b0d878e32258f6b9a1ffd5d3a2e9fffa397c42b2ef69c21f54eb` |
+
+**Device deployment (2026-11-09):** the owner authorized deployment. Installed Play on Barolo / firmware 5.19.6 using the existing deploy script, verified installed hashes, and configured `http://192.168.1.15:8765`. Device-to-server health reported Maia available. Launch, exclusive finger input, framebuffer rendering, shared display-lock refusal, verified-PID SIGTERM cleanup/native-process recovery and relaunch passed. All 161 files in the older app roots retained their original paths and hashes. During owner interaction, a 1500-rated game reached ply 18 with nine legal White/Black exchanges, including White castling; server FEN and the captured framebuffer agreed. No game-changing API request was sent by the agent. The owner subsequently reported “works great” and explicitly requested completion, reintegration into main and push. This closes the MVP human checkpoint. No separate device pass is asserted for edge cases without an individual recorded observation; their focused host coverage remains as documented. See the [owner acceptance record](device/ks1-barolo.md#play-05--owner-acceptance-2026-11-09).
 
 - Run focused Rust state/client/UI tests then `scripts/check.sh`; build/stage/verify `puzzles`, `review`, and `play` using the pinned Scribe target. Record commands and results, and ensure old snapshot tests remain green.
 - With a physical jailbroken Scribe + desktop server on same trusted Wi-Fi, install Play and check: configure server URL; NEW game at two ratings; legal white move and Maia response; illegal move unchanged; promotion chooser via fixture or test position; disconnect/reconnect GET; resignation; finish message; close; and distinct co-installation with the other apps. Confirm input exclusivity and no extra files created in either older app's data root.
@@ -114,3 +154,36 @@ Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess P
 ## Done when
 
 The third app installs and runs separately on Kindle Scribe without reading/writing any Puzzle or Review data. It starts an Elo-selected game, submits White's standard UCI move to the LAN server, shows Maia's **validated** reply from server FEN, rejects invalid moves without desynchronization, recovers by GET after connection problems, and ends on checkmate/draw/resign. Existing two apps and pending data separation tasks remain untouched.
+
+## Operator setup
+
+Use `scripts/app.sh build play`, `scripts/app.sh stage play` and
+`python3 tools/verify_app_artifacts.py --app play` on the host. Outputs are in
+`target/kindle/play/`, including `kindle_chess_play_0.1.0_kindlehf.kpkg` and the
+inspectable `stage/`. The same commands select `puzzles` and `review` for their
+independent artifacts. The owner authorized deployment on 2026-11-09; Play is
+installed and configured on the Scribe. The owner accepted the MVP; deployment
+and acceptance evidence are recorded in PLAY-05 above.
+
+Once Play is installed, create `/mnt/us/kindle-chess-play/config.json` via USB
+(the `kindle-chess-play` folder on the mounted Kindle) or SSH. Its entire content
+can be:
+
+```json
+{"serverUrl":"http://192.168.1.23:8765"}
+```
+
+Replace the address with the desktop's trusted-LAN IPv4 and port. Paths, query
+strings, credentials, DNS names and HTTPS are unsupported in this MVP. Keep the
+Kindle and desktop on the same trusted Wi-Fi and start the desktop server first.
+Missing or invalid config displays its path; edit the file and tap RETRY to
+reload it. Config is read-only to the app and is preserved by update/uninstall.
+
+Launch **Kindle Chess Play**, **Kindle Chess Puzzles**, or **Kindle Game Review**
+from the library using their separate scriptlets. Only one may own the screen;
+close the current app before opening another. Play starts with health/current
+GET requests and restores the desktop's in-memory game. Choose the Maia rating
+with −/+ before NEW GAME; rating stays fixed during play. RETRY fetches current
+server state after a connection problem and never repeats a move POST. REFRESH
+only redraws the screen. Close exits without waiting for a blocked HTTP request.
+Desktop restart loses the game; the next RETRY shows No game.

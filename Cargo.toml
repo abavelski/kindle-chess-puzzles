@@ -11,6 +11,7 @@ members = [
     "app/kindle-chess",
     "apps/kindle-puzzles",
     "apps/kindle-game-review",
+    "apps/kindle-chess-play",
 ]
 resolver = "2"
 

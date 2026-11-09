@@ -108,6 +108,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kindle-chess-play"
+version = "0.1.0"
+dependencies = [
+ "kindle-app",
+]
+
+[[package]]
 name = "kindle-game-review"
 version = "0.1.0"
 dependencies = [

@@ -2565,3 +2565,123 @@ deploy and launch logs, loader output, deployment attestation and inspected
 physical panel/ghosting assessment, touch-navigation retest or Bluetooth test is
 inferred from these runtime/framebuffer checks. No unrelated data cleanup or
 backup-system change was performed.
+
+
+### PLAY-05 — prepared host artifacts, Waiting for device (2026-11-09)
+
+Status: **Waiting for device**. Host source: `a1e5df2` on
+`feature/kindle-chess-play-mvp`. Play implementation and packaging (PLAY-01–04)
+are committed. Local focused state/HTTP/runtime/UI tests, `scripts/check.sh`, and
+pinned build/stage/artifact verification passed for **play, puzzles and review**.
+The [Play tracker](../KINDLE_PLAY_MVP.md#play-05--validation-and-human-checkpoint)
+records commands and all three prepared binary hashes. Existing product golden
+frames remain unchanged. These are host results, not device observations.
+
+Prepared Play artifact: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`.
+Binary SHA256:
+`c3a63ffd893b0daf6fce9aa6efb7f4e4a048802b118029a4edf420b3aed68b50`.
+KPM SHA256:
+`6252ae4045d903ae2d32e0be65ae8b840c158da4de03dd418fb190cdac04cb4a`.
+Target/toolchain verification: ARMv7 hard-float / glibc 2.35, Rust 1.85.1,
+Zig 0.13.0, FBInk `92e127008145b2a22fba7c59815d810d716310dd`.
+
+**No device connection, deployment, install or launch was attempted for this
+checkpoint.** The owner's go is required before deployment. Barolo / firmware
+5.19.6 is the previously recorded device baseline; it was not re-probed here.
+The desktop Maia server was not exercised. Configuration, two ratings, actual
+Maia reply, illegal move, promotion, disconnect/reconnect, resignation/finish,
+close, co-installation, input/display exclusion and unchanged older-app data all
+remain pending physical/LAN acceptance. Record the actual deployed version,
+firmware and observations here after that run; do not mark PLAY-05 Done from
+these host artifacts.
+
+
+### PLAY-05 — authorized Play deployment and live game, 2026-11-09
+
+Status: **Waiting for device** (installed and running; remaining acceptance
+pending). The owner explicitly authorized deployment and supplied desktop
+`192.168.1.15:8765`, superseding the preparation hold above. Device identification
+was read again: first-generation Scribe / Barolo, ARMv7, **firmware 5.19.6**,
+kernel `4.9.77-lab126`. The existing host key was verified; authentication used
+a temporary SSH control connection. No authentication configuration was saved.
+
+Deployed source: `a1e5df2` on `feature/kindle-chess-play-mvp` (later preparation
+commit `bf14212` changes documentation only). Reused the already tested pinned
+Play stage after `python3 tools/verify_app_artifacts.py --app play` passed against
+the current source. Deployment command:
+
+```sh
+scripts/app.sh deploy play --host root@192.168.1.20 --port 2222
+```
+
+The existing SCP/scriptlet installer completed successfully. Installed binary,
+`build.json`, `source.tar` and `/mnt/us/documents/kindle-chess-play.sh` hashes all
+matched the selected stage. Binary SHA256 remains
+`c3a63ffd893b0daf6fce9aa6efb7f4e4a048802b118029a4edf420b3aed68b50`.
+The device loader resolved all dependencies. Created only Play's own config:
+
+```json
+{"serverUrl":"http://192.168.1.15:8765"}
+```
+
+Device-to-desktop GET health returned HTTP 200, API v1 and
+`maiaAvailable: true`. Initial current-game GET returned 404 `NO_GAME`. Direct
+launch through `/mnt/us/kindle-chess-play/runtime/launch.sh` acquired exclusive
+finger input and rendered a complete 1860×2480 Gray8 screen: Maia 1500, standard
+White starting board and “No game. New Game to play White.” First usable frame
+was logged at 467 ms. Captured framebuffer `play-ready.png` was inspected.
+A real Refresh touch was recorded and a full refresh submitted; no physical
+panel/ghosting assessment is inferred from that log.
+
+While Play owned the screen, a second invocation of the shared supervisor using
+a separate temporary process lock exited 1 with `display owned`; the original
+owner remained intact. The probe did not start a second app. For the short exit
+smoke test, the child PID and exact `/proc/PID/exe` path were verified before
+SIGTERM. The child/supervisor exited cleanly with exit=0, both app/display locks
+were removed, Xorg and awesome returned to sleeping (`S`) state, and native
+repaint was requested. This verifies SSH termination cleanup, not touchscreen
+Close. Play was relaunched and left open for the owner; its app/display locks
+are intentionally held during that run.
+
+After deployment and the first launch/exit, **all 161 files** under the existing
+Puzzles and Review roots retained identical paths and SHA256 values, including
+their runtimes, libraries, state, logs and root identities. Neither older app
+was deployed or modified.
+
+During the owner's subsequent touch interaction, the 1500-rated game reached
+**ply 18**: nine White moves and nine server Black replies. The opening was
+`e2e4 d7d5`; White's `e1g1` castle also completed correctly. Read-only GET current
+captured the complete history and FEN; host-side python-chess replay confirmed
+every move legal and the resulting placement identical to server FEN. The
+inspected `play-active.png` framebuffer matched that position and showed
+“White to move” / last move `a5b6`. The agent did not create a game, submit moves,
+resign, reset or otherwise change the desktop game; these moves came from the
+owner's real device input.
+
+Evidence is local under ignored `probe-output/play-20261109/`: deploy/loader and
+lifecycle logs, before/after manifests, installed verification and deployment
+attestation, shared-lock refusal, exit recovery, observed game JSON and both
+inspected framebuffer captures. Remaining acceptance: another rating, illegal
+move unchanged, promotion chooser, disconnect/reconnect by GET, resignation and
+finish message, touchscreen Close, library/co-install launch interaction and
+owner physical panel assessment. PLAY-05 remains Waiting for device until those
+checks are recorded; the current game is left untouched and Play remains open.
+
+
+### PLAY-05 — owner acceptance, 2026-11-09
+
+Status: **Done**. After using the deployed Play app, the owner reported
+“works great” and explicitly requested that the tasks be finished, the feature
+branch reintegrated into main and the result pushed to the remote. This owner
+acceptance supersedes the Waiting for device status in the preparation and
+deployment entries above and closes the MVP checkpoint.
+
+Accepted deployed source: `a1e5df2`, Play binary SHA256
+`c3a63ffd893b0daf6fce9aa6efb7f4e4a048802b118029a4edf420b3aed68b50`,
+on Barolo / firmware 5.19.6, configured for desktop
+`http://192.168.1.15:8765`. The preceding record retains the actual launch,
+network, game/castling, ownership, cleanup and data-preservation observations.
+The owner's report is overall MVP acceptance; it is not an invented per-item
+report for the remaining edge cases listed in the prior entry. Existing focused
+host fixtures cover those behaviors. No new device action or redeployment was
+needed for this documentation-only acceptance closeout.

@@ -16,3 +16,5 @@ pub mod runtime;
 
 pub mod products;
 pub mod startup;
+
+pub mod play_http;

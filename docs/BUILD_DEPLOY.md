@@ -5,12 +5,15 @@
 ## App-selection CLI
 
 Use `scripts/app.sh build puzzles` / `scripts/app.sh stage puzzles`, or select
-`review` for its independent build/stage. Legacy build-kindle.sh and
+`review` or `play` for their independent builds/stages. Play is prepared for
+trusted-LAN Maia play and was deployed with owner approval on 2026-11-09;
+the owner accepted the deployed MVP on the same day. See [Play configuration and launch](KINDLE_PLAY_MVP.md#operator-setup). Legacy build-kindle.sh and
 stage-kindle.sh select Puzzles, now built from kindle-puzzles and installed as
 kindle-chess to preserve the existing package/scriptlet identity. The combined
-entrypoint remains only a compatibility regression target. Select either app for deploy, for example `scripts/app.sh deploy review --host root@DEVICE_IP --port 2222`.
+entrypoint remains only a compatibility regression target. Select an app for deploy, for example `scripts/app.sh deploy review --host root@DEVICE_IP --port 2222`.
 
-Outputs live under `target/kindle/puzzles/` and `target/kindle/review/`: each has
+Outputs live under `target/kindle/puzzles/`, `target/kindle/review/` and
+`target/kindle/play/`: each has
 its own binary, build.json, stage/, tar and KPM package. Receipts bind selected
 app, installed binary, package/root identity and product-specific source digest.
 ELF validation rejects the other product's embedded identity or an unmarked old

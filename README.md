@@ -10,6 +10,10 @@ Kindle Chess Puzzles is written in Rust and renders directly to the Kindle frame
 
 It is intentionally **not a chess engine**. Puzzle grading follows authored solution lines, while rich analysis is prepared offline and shipped as deterministic puzzle data.
 
+The third app, **Kindle Chess Play**, supports trusted-LAN play against a desktop
+Maia server. The owner accepted the deployed MVP on 2026-11-09. See its
+[MVP tracker and setup guide](docs/KINDLE_PLAY_MVP.md) for validation and configuration.
+
 ## Screenshot
 
 ![Kindle Chess Puzzles running on a Kindle Scribe](docs/images/kindle-chess-puzzles.png)

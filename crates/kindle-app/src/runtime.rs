@@ -167,7 +167,10 @@ pub fn run(
 
         if let Some(target) = target {
             eprintln!("kindle-chess: tap ({x},{y}) -> {target:?}");
-            if target == HitTarget::Refresh {
+            if matches!(
+                target,
+                HitTarget::Refresh | HitTarget::Play(chess_render::PlayTarget::FullRefresh)
+            ) {
                 force_full_next = true;
                 eprintln!("kindle-chess: full-screen refresh requested");
                 continue;

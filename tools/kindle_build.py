@@ -43,6 +43,10 @@ PRODUCTS = {
                'binary': 'kindle-game-review', 'package_id': 'kindle_game_review',
                'runtime_root': '/mnt/us/kindle-game-review', 'scriptlet': 'kindle-game-review.sh',
                'manifest': 'packaging/kindle-review/manifest.json'},
+    'play': {'cargo': 'kindle-chess-play', 'cargo_binary': 'kindle-chess-play',
+             'binary': 'kindle-chess-play', 'package_id': 'kindle_chess_play',
+             'runtime_root': '/mnt/us/kindle-chess-play', 'scriptlet': 'kindle-chess-play.sh',
+             'manifest': 'packaging/kindle-play/manifest.json'},
 }
 
 def product(app):
@@ -67,8 +71,8 @@ def validate_receipt(receipt, app):
     expected = {'app': app, **{key: spec[key] for key in ('binary', 'package_id', 'runtime_root')}}
     if any(receipt.get(key) != value for key, value in expected.items()):
         raise ValueError('receipt product identity mismatch')
-    if (app == 'review') and 'chessnut' in receipt:
-        raise ValueError('Review receipt must not include a board worker')
+    if (app != 'puzzles') and 'chessnut' in receipt:
+        raise ValueError('Standalone non-puzzle receipt must not include a board worker')
 
 
 def board_build():
@@ -264,6 +268,15 @@ def stage(binary, receipt_path, destination, app='puzzles'):
                         'export KINDLE_CHESS_LOCK=${KINDLE_GAME_REVIEW_LOCK:-/tmp/kindle-game-review.lock}\n'
                         'export KINDLE_GAME_REVIEW_ROOT=${KINDLE_GAME_REVIEW_ROOT:-$root}\n'
                         'exec sh "$runtime/kindle_launch.sh" "$runtime/kindle-game-review" "$@"\n')
+            if app == 'play':
+                text = text.replace('kindle-chess', 'kindle-chess-play').replace('Kindle Chess Puzzles', 'Kindle Chess Play')
+                text = text.replace('expected_app=puzzles', 'expected_app=play')
+                if name == 'launch.sh':
+                    start = text.index('export KINDLE_CHESS_LOG=')
+                    text = text[:start] + ('export KINDLE_CHESS_LOG="$root/logs/lifecycle.log"\n'
+                        'export KINDLE_CHESS_LOCK=${KINDLE_CHESS_PLAY_LOCK:-/tmp/kindle-chess-play.lock}\n'
+                        'export KINDLE_CHESS_PLAY_ROOT=${KINDLE_CHESS_PLAY_ROOT:-$root}\n'
+                        'exec sh "$runtime/kindle_launch.sh" "$runtime/kindle-chess-play" "$@"\n')
             target.write_text(text)
         shutil.copyfile(ROOT / spec['manifest'], contents / 'manifest.json')
         notices = runtime / 'licenses'
@@ -275,7 +288,7 @@ def stage(binary, receipt_path, destination, app='puzzles'):
                            (ROOT / 'assets/fonts/OFL.txt', 'Atkinson-OFL.txt'),
                            (ROOT / 'assets/fonts/NotoSans-OFL.txt', 'NotoSans-OFL.txt')]:
             shutil.copyfile(path, notices / name)
-        if app == 'review':
+        if app in ('review', 'play'):
             notice = notices / 'NOTICE.md'
             notice.write_text(notice.read_text().split('\nThe optional Chessnut Move integration')[0] + '\n')
         if app == 'puzzles':
@@ -319,7 +332,7 @@ def stage(binary, receipt_path, destination, app='puzzles'):
             source.addfile(config, io.BytesIO(data))
         for path in contents.rglob('*'):
             if path.is_file():
-                path.chmod(0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindle-game-review', 'kindlebt-worker') else 0o644)
+                path.chmod(0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindle-game-review', 'kindle-chess-play', 'kindlebt-worker') else 0o644)
         sums = ''.join(f'{sha256(p)}  {p.relative_to(contents)}\n'
                        for p in sorted(contents.rglob('*')) if p.is_file())
         (contents / 'SHA256SUMS').write_text(sums)
@@ -360,6 +373,8 @@ def verify_stage(directory, app=None, allow_pre_marker=False):
         raise ValueError('stage manifest product mismatch')
     if app == 'review' and any((directory / 'runtime' / name).exists() for name in ('kindle-chess', 'kindlebt-worker', 'lib/libkindlebt.so')):
         raise ValueError('Review stage contains puzzle/board assets')
+    if app == 'play' and any((directory / 'runtime' / name).exists() for name in ('kindle-chess', 'kindle-game-review', 'puzzles', 'games', 'kindlebt-worker', 'lib/libkindlebt.so')):
+        raise ValueError('Play stage contains puzzle/review/board assets')
     # Previously tested stable stages remain valid rollback packages. New stages
     # always require the board bundle in stage() above.
     if 'chessnut' in receipt:
@@ -372,7 +387,7 @@ def add_tar_file(archive_file, path, name):
     data = path.read_bytes()
     info = tarfile.TarInfo(name)
     info.size = len(data)
-    info.mode = 0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindle-game-review', 'kindlebt-worker') else 0o644
+    info.mode = 0o755 if path.suffix == '.sh' or path.name in ('kindle-chess', 'kindle-game-review', 'kindle-chess-play', 'kindlebt-worker') else 0o644
     info.mtime = 0
     archive_file.addfile(info, io.BytesIO(data))
 

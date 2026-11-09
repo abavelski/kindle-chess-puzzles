@@ -31,6 +31,12 @@ class AppCliTests(unittest.TestCase):
             tool.main()
             build.assert_called_once_with('review')
 
+    def test_play_build_dispatches_to_real_product(self):
+        tool = load_tool()
+        with mock.patch.object(sys, 'argv', ['kindle_build.py', 'build', '--app', 'play']), mock.patch.object(tool, 'build') as build:
+            tool.main()
+            build.assert_called_once_with('play')
+
     def test_review_deploy_dispatches_only_to_selected_product(self):
         tool = load_tool()
         with mock.patch.object(sys, 'argv', ['kindle_build.py', 'deploy', '--app', 'review', '--host', 'root@device']), mock.patch.object(tool, 'deploy') as deploy:
