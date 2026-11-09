@@ -75,8 +75,8 @@ Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess P
 | Task | Depends on | Status | Deliverable |
 | --- | --- | --- | --- |
 | PLAY-01 | — | Done | Pure Play state machine + mockable HTTP client/contract fixtures |
-| PLAY-02 | PLAY-01 | Ready | Product-specific Play board, touch targets and status screens |
-| PLAY-03 | PLAY-01, PLAY-02 | Blocked | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
+| PLAY-02 | PLAY-01 | Done | Product-specific Play board, touch targets and status screens |
+| PLAY-03 | PLAY-01, PLAY-02 | Ready | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
 | PLAY-04 | PLAY-03 | Blocked | Third independent Cargo binary, staging/install/release matrix |
 | PLAY-05 | PLAY-04 | Blocked | Host regressions, pinned build and physical Scribe LAN acceptance |
 
@@ -92,9 +92,13 @@ Evidence: tests first failed with missing Play modules, then `cargo test -p ches
 
 ### PLAY-02 — Play-specific e-ink UI
 
+Status: **Done**. Owner: Codex. Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09.
+
 - Create a Play screen/view inside `chess-render` that delegates board, fonts, buttons and Gray8 drawing to existing reusable code; add Play-only `HitTarget` mappings. Avoid using authored puzzle data as fake game data and avoid changing the Puzzles/Review UI to expose Play controls.
 - Render White board from server FEN, selected piece, pending promotion chooser, rating +/- and New Game/Resign/Refresh/Close, result/status/errors. Disable interactions appropriately while waiting or after end. Status must remain legible on e-ink; refresh damage on both changed squares and status; full refresh still available.
 - Host layout/hit-test tests at standard and small Scribe display dimensions; snapshots for disconnected, ready, playing, waiting, illegal move and finished. Preserve all old product golden frames.
+
+Evidence (2026-11-09): `cargo test -p chess-render --test play` first failed on missing Play view/targets, then passed all 4 tests. Checked all 64 White square targets at 1860×2480 and 1404×1872, disabled controls, promotion modal, finished input, pixel damage reconstruction and six visually inspected Gray8 snapshots (`target/play-*.pgm`). `PATH="$PWD/.venv/bin:$PATH" scripts/check.sh` passed, including existing product goldens. No device deployment.
 
 ### PLAY-03 — PlayRuntime and device boundary
 

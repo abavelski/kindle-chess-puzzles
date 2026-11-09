@@ -3,6 +3,9 @@ use chess_core::*;
 use chess_core::{puzzle_app::PuzzleState, review_app::ReviewApp};
 
 pub trait ScreenState {
+    fn play(&self) -> Option<&chess_core::play::PlayApp> {
+        None
+    }
     fn workspace_toggle_visible(&self) -> bool {
         false
     }

@@ -50,6 +50,7 @@ impl std::error::Error for LayoutError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HitTarget {
+    Play(crate::PlayTarget),
     ToggleBoardConnection,
     SendBoardPosition,
     Square(usize),
@@ -103,6 +104,7 @@ pub enum HitTarget {
 impl HitTarget {
     pub fn into_action(self) -> Option<Action> {
         match self {
+            Self::Play(_) => None,
             Self::ToggleBoardConnection => Some(Action::ToggleBoardConnection),
             Self::SendBoardPosition => Some(Action::SendBoardPosition),
 
@@ -156,6 +158,7 @@ impl HitTarget {
     }
     pub fn into_puzzle_action(self) -> Option<chess_core::puzzle_app::PuzzleAction> {
         match self {
+            Self::Play(_) => None,
             Self::ToggleBoardConnection => {
                 Some(chess_core::puzzle_app::PuzzleAction::ToggleBoardConnection)
             }
@@ -252,6 +255,7 @@ impl HitTarget {
 
     pub fn into_review_action(self) -> Option<chess_core::review_app::ReviewAction> {
         match self {
+            Self::Play(_) => None,
             Self::ToggleBoardConnection => None,
             Self::SendBoardPosition => None,
 

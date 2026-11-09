@@ -56,6 +56,9 @@ impl RenderOutput {
         y: u32,
         state: &impl crate::screen::ScreenState,
     ) -> Option<HitTarget> {
+        if let Some(play) = state.play() {
+            return crate::PlayLayout { base: self.layout }.hit_test(x, y, play);
+        }
         if state.settings_open() {
             return self.layout.hit_test_app(x, y, state);
         }
@@ -91,6 +94,9 @@ pub fn render(
     state: &impl crate::screen::ScreenState,
     metrics: DisplayMetrics,
 ) -> Result<RenderOutput, LayoutError> {
+    if let Some(play) = state.play() {
+        return crate::render_play(play, metrics);
+    }
     let layout = Layout::for_app(metrics, state)?;
     let mut frame = Gray8::new(metrics.width, metrics.height, WHITE);
     let text_scale = (metrics.dpi / 100).clamp(2, 5);
@@ -1021,7 +1027,13 @@ fn draw_review_game_picker(
     );
 }
 
-fn draw_navigation_button(frame: &mut Gray8, rect: Rect, label: &str, enabled: bool, scale: u32) {
+pub(crate) fn draw_navigation_button(
+    frame: &mut Gray8,
+    rect: Rect,
+    label: &str,
+    enabled: bool,
+    scale: u32,
+) {
     if enabled {
         draw_button(frame, rect, label, false, scale);
     } else {
