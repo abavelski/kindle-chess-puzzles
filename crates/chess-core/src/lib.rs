@@ -55,3 +55,5 @@ pub use settings::{PhysicalBoardSeat, Settings, WorkspaceSettings, SETTINGS_VERS
 pub use uci::{algebraic_to_square, parse_uci_move, square_to_algebraic, UciError, UciMove};
 
 pub use review_resume::ReviewResume;
+
+pub mod play;

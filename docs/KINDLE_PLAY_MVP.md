@@ -1,6 +1,6 @@
 # Kindle Chess Play — third app MVP
 
-Status: **Planned** (documentation only). Date: 2026-11-08.
+Status: **In progress**. Started: 2026-11-09.
 Repository: `abavelski/kindle-chess-puzzles`; default branch **main**.
 Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess Play**, to play White against Maia on a desktop reachable over trusted local Wi-Fi. This plan is standalone: the Kindle agent can implement everything with a fake HTTP server without checking out the desktop repo.
 
@@ -74,13 +74,17 @@ Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess P
 
 | Task | Depends on | Status | Deliverable |
 | --- | --- | --- | --- |
-| PLAY-01 | — | Ready | Pure Play state machine + mockable HTTP client/contract fixtures |
-| PLAY-02 | PLAY-01 | Blocked | Product-specific Play board, touch targets and status screens |
+| PLAY-01 | — | Done | Pure Play state machine + mockable HTTP client/contract fixtures |
+| PLAY-02 | PLAY-01 | Ready | Product-specific Play board, touch targets and status screens |
 | PLAY-03 | PLAY-01, PLAY-02 | Blocked | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
 | PLAY-04 | PLAY-03 | Blocked | Third independent Cargo binary, staging/install/release matrix |
 | PLAY-05 | PLAY-04 | Blocked | Host regressions, pinned build and physical Scribe LAN acceptance |
 
 ### PLAY-01 — state/client tests first
+
+Status: **Done**. Owner: Codex. Branch: `feature/kindle-chess-play-mvp`. Started/completed: 2026-11-09.
+
+Evidence: tests first failed with missing Play modules, then `cargo test -p chess-core --test play` (5 tests) and `cargo test -p kindle-app --test play_http` (2 tests) passed. `PATH="$PWD/.venv/bin:$PATH" scripts/check.sh` passed, including both existing app targets and unchanged golden frames. Fixtures cover both castles, q/r/b/n promotions and en passant; snapshot validation reconstructs recorded placement without deciding legality. Network tests use local HTTP responses for refusal, delay, 409/422/503/504, malformed/oversize bodies and reconnect GET. No device deployment.
 
 - Add product-owned state: rating (100-Elo steps), server state snapshot, selected piece/promotion, `idle|connecting|waiting|playing|error|finished` UI status and in-flight request guard. No puzzle/review model dependency or writes.
 - Implement minimal client for `GET /health`, `POST /games`, `GET /games/current`, `POST /moves`, `POST /resign`. Use endpoint paths from frozen contract above. Parse full six-field FEN, `moves`, `ply`, `lastMove`, result and `error.code`; safely reject oversized/malformed JSON. Validate `moves.length === ply` and consistency with the board. No optimistic mutation.

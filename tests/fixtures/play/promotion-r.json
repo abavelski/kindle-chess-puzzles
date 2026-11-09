@@ -1,0 +1,22 @@
+{
+  "apiVersion": 1,
+  "rating": 1500,
+  "playerColor": "white",
+  "fen": "Rnbqkbnr/p1ppppp1/8/8/8/8/1PPPPP1P/RNBQKBNq w Qk - 0 6",
+  "moves": [
+    "a2a4",
+    "h7h5",
+    "a4a5",
+    "h5h4",
+    "a5a6",
+    "h4h3",
+    "a6b7",
+    "h3g2",
+    "b7a8r",
+    "g2h1q"
+  ],
+  "ply": 10,
+  "status": "playing",
+  "result": null,
+  "lastMove": "g2h1q"
+}
