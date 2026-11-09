@@ -170,6 +170,18 @@ impl Application for PlayRuntime {
                 None
             }
             PlayTarget::FullRefresh => None,
+            PlayTarget::HistoryPly(ply) => {
+                self.state.view_history(ply);
+                None
+            }
+            PlayTarget::HistoryPreviousPage(page) | PlayTarget::HistoryNextPage(page) => {
+                self.state.history_page(page);
+                None
+            }
+            PlayTarget::Latest => {
+                self.state.latest();
+                None
+            }
         };
         if let Some(request) = request {
             self.request(request);

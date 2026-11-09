@@ -94,12 +94,16 @@ impl Board {
 
     pub fn from_fen(fen: &str) -> Result<Self, FenError> {
         let parsed = parse_fen(fen)?;
-        let squares = parsed.into_squares();
-        Ok(Self {
+        Ok(Self::from_squares(parsed.into_squares()))
+    }
+
+    /// Construct a physical position from already-authored pieces, without legality checks.
+    pub fn from_squares(squares: [Option<Piece>; 64]) -> Self {
+        Self {
             squares,
             starting_squares: squares,
             selected: None,
-        })
+        }
     }
 
     /// Canonical placement in absolute a8..h1 coordinates, independent of display orientation.

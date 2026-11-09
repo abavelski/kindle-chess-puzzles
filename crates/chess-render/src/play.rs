@@ -15,6 +15,10 @@ pub enum PlayTarget {
     FullRefresh,
     Promotion(PieceKind),
     CancelPromotion,
+    HistoryPly(usize),
+    HistoryPreviousPage(usize),
+    HistoryNextPage(usize),
+    Latest,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct PlayLayout {
@@ -25,6 +29,14 @@ impl PlayLayout {
         let mut base = Layout::new(metrics)?;
         let touch = (metrics.dpi * crate::MIN_TOUCH_MM).div_ceil(254) * 10;
         base.toolbar.height = base.toolbar.height.max(touch);
+        let scale = (metrics.dpi / 100).clamp(2, 5);
+        let message_height = eink_ui::font::text_line_height(scale) * 2 + 12;
+        let reserved_history = (touch * 3 + message_height + 48).max(metrics.height / 4);
+        let max_board = metrics.height.saturating_sub(
+            base.board_outer.y + base.toolbar.height + base.previous.height + 56 + reserved_history,
+        );
+        base.limit_board_height(max_board)?;
+        base.toolbar.y = base.board_outer.bottom() + 12;
         base.previous.y = base.toolbar.bottom() + 12;
         base.next.y = base.previous.y;
         base.status.y = base.previous.bottom() + 12;
@@ -32,8 +44,8 @@ impl PlayLayout {
         Ok(Self { base })
     }
     pub fn rating_rects(self) -> [Rect; 5] {
-        let unit = (self.base.board_outer.width - 48) / 8;
-        let mut x = self.base.board_outer.x;
+        let unit = (self.base.toolbar.width - 48) / 8;
+        let mut x = self.base.toolbar.x;
         [1, 2, 1, 2, 2].map(|span| {
             let rect = Rect::new(
                 x,
@@ -87,6 +99,67 @@ impl PlayLayout {
         }
         controls
     }
+    pub fn history(self, app: &PlayApp) -> PlayHistoryLayout {
+        let panel = self.base.status.inset(12);
+        let scale = (self.base.metrics.dpi / 100).clamp(2, 5);
+        let touch = self.base.minimum_touch_px().max(120);
+        let message = Rect::new(
+            panel.x,
+            panel.y,
+            panel.width,
+            eink_ui::font::text_line_height(scale) * 2 + 12,
+        );
+        let footer_y = panel.bottom().saturating_sub(touch);
+        let body = Rect::new(
+            panel.x,
+            message.bottom() + 12,
+            panel.width,
+            footer_y.saturating_sub(message.bottom() + 24),
+        );
+        let rows = (body.height / touch).max(1) as usize;
+        let capacity = rows * 2;
+        let count = app.snapshot.as_ref().map_or(0, |s| s.ply);
+        let requested = app
+            .history_page
+            .unwrap_or_else(|| app.view_ply.saturating_sub(1) / capacity);
+        let window = eink_ui::move_list::PageWindow::new(count, capacity, requested);
+        let mut chips = Vec::new();
+        if let Some(snapshot) = &app.snapshot {
+            let width = (body.width - 12) / 2;
+            for (slot, index) in window.range.clone().enumerate() {
+                let ply = index + 1;
+                let prefix = if ply % 2 == 1 {
+                    format!("{}.", ply.div_ceil(2))
+                } else {
+                    format!("{}...", ply / 2)
+                };
+                chips.push(PlayHistoryChip {
+                    ply,
+                    rect: Rect::new(
+                        body.x + (slot as u32 % 2) * (width + 12),
+                        body.y + (slot as u32 / 2) * touch,
+                        width,
+                        touch,
+                    ),
+                    label: format!("{prefix} {}", snapshot.move_label(ply).unwrap_or("")),
+                });
+            }
+        }
+        let width = (panel.width - 36) / 4;
+        let footer = std::array::from_fn::<_, 4, _>(|i| {
+            Rect::new(panel.x + i as u32 * (width + 12), footer_y, width, touch)
+        });
+        PlayHistoryLayout {
+            window,
+            chips,
+            message,
+            body,
+            previous: footer[0],
+            start: footer[1],
+            latest: footer[2],
+            next: footer[3],
+        }
+    }
     pub fn hit_test(self, x: u32, y: u32, app: &PlayApp) -> Option<HitTarget> {
         let target = if self.base.exit.contains(x, y) {
             Some(PlayTarget::Close)
@@ -112,21 +185,23 @@ impl PlayLayout {
                         .then_some(PlayTarget::CancelPromotion)
                 })
         } else {
-            self.controls(app)
-                .into_iter()
-                .find(|(_, rect, enabled)| *enabled && rect.contains(x, y))
-                .map(|c| c.0)
-                .or_else(|| {
-                    if !app.can_move() || !self.base.board.contains(x, y) {
-                        return None;
-                    }
-                    let size = self.base.board.width / 8;
-                    Some(PlayTarget::Square(oriented_square(
-                        ((y - self.base.board.y) / size * 8 + (x - self.base.board.x) / size)
-                            as usize,
-                        app.flipped(),
-                    )))
-                })
+            self.history(app).hit_test(x, y, app).or_else(|| {
+                self.controls(app)
+                    .into_iter()
+                    .find(|(_, rect, enabled)| *enabled && rect.contains(x, y))
+                    .map(|c| c.0)
+                    .or_else(|| {
+                        if !app.can_move() || !self.base.board.contains(x, y) {
+                            return None;
+                        }
+                        let size = self.base.board.width / 8;
+                        Some(PlayTarget::Square(oriented_square(
+                            ((y - self.base.board.y) / size * 8 + (x - self.base.board.x) / size)
+                                as usize,
+                            app.flipped(),
+                        )))
+                    })
+            })
         };
         target.map(HitTarget::Play)
     }
@@ -221,13 +296,85 @@ pub fn render_play(app: &PlayApp, metrics: DisplayMetrics) -> Result<RenderOutpu
         0,
     );
     frame.stroke_rect(base.status, 2, 0);
-    let last = app
-        .snapshot
-        .as_ref()
-        .and_then(|s| s.last_move.as_deref())
-        .unwrap_or("—");
-    let text = format!("{}\nLast move: {last}", app.message);
-    crate::font::draw_wrapped_text(&mut frame, base.status.inset(20), &text, scale, 0);
+    let history = play.history(app);
+    let message = if app.viewing_history() {
+        format!(
+            "{}\nViewing ply {} of {} — LATEST / PLAY",
+            app.message,
+            app.view_ply,
+            app.snapshot.as_ref().map_or(0, |s| s.ply)
+        )
+    } else {
+        app.message.clone()
+    };
+    crate::font::draw_wrapped_text(&mut frame, history.message, &message, scale, 0);
+    if history.chips.is_empty() {
+        crate::font::draw_text_centered(&mut frame, history.body, "No moves yet", scale, 128);
+    }
+    for chip in &history.chips {
+        eink_ui::move_list::draw_move_chip(
+            &mut frame,
+            chip.rect,
+            &chip.label,
+            app.view_ply == chip.ply,
+            scale,
+        );
+    }
+    for (rect, label, enabled) in [
+        (
+            history.previous,
+            format!(
+                "< {}/{}",
+                history.window.page + 1,
+                history.window.page_count
+            ),
+            history.window.page > 0,
+        ),
+        (history.start, "START".into(), app.snapshot.is_some()),
+        (
+            history.latest,
+            if app.viewing_history() {
+                "LATEST / PLAY"
+            } else {
+                "LATEST"
+            }
+            .into(),
+            app.snapshot.is_some(),
+        ),
+        (
+            history.next,
+            format!(
+                "{}/{} >",
+                history.window.page + 1,
+                history.window.page_count
+            ),
+            history.window.page + 1 < history.window.page_count,
+        ),
+    ] {
+        if enabled
+            && !app.in_flight()
+            && rect == history.start
+            && app.viewing_history()
+            && app.view_ply == 0
+        {
+            crate::render::draw_button_spec(
+                &mut frame,
+                rect,
+                crate::ButtonSpec {
+                    icon: None,
+                    text: Some(&label),
+                    button_type: crate::ButtonType::Text,
+                },
+                true,
+                true,
+                scale,
+            );
+        } else if enabled && !app.in_flight() {
+            eink_ui::move_list::draw_page_control(&mut frame, rect, &label, scale);
+        } else {
+            crate::render::draw_navigation_button(&mut frame, rect, &label, false, scale);
+        }
+    }
     if app.promotion.is_some() {
         frame.fill_rect(base.promotion_modal, 255);
         frame.stroke_rect(base.promotion_modal, 3, 0);
@@ -258,4 +405,51 @@ pub fn render_play(app: &PlayApp, metrics: DisplayMetrics) -> Result<RenderOutpu
         analysis: None,
         analysis_entry: None,
     })
+}
+
+#[derive(Clone, Debug)]
+pub struct PlayHistoryChip {
+    pub ply: usize,
+    pub rect: Rect,
+    pub label: String,
+}
+#[derive(Clone, Debug)]
+pub struct PlayHistoryLayout {
+    pub window: eink_ui::move_list::PageWindow,
+    pub chips: Vec<PlayHistoryChip>,
+    pub message: Rect,
+    pub body: Rect,
+    pub previous: Rect,
+    pub start: Rect,
+    pub latest: Rect,
+    pub next: Rect,
+}
+impl PlayHistoryLayout {
+    fn hit_test(&self, x: u32, y: u32, app: &PlayApp) -> Option<PlayTarget> {
+        if app.in_flight() || app.snapshot.is_none() {
+            return None;
+        }
+        for (rect, target, enabled) in [
+            (
+                self.previous,
+                PlayTarget::HistoryPreviousPage(self.window.page.saturating_sub(1)),
+                self.window.page > 0,
+            ),
+            (
+                self.next,
+                PlayTarget::HistoryNextPage(self.window.page + 1),
+                self.window.page + 1 < self.window.page_count,
+            ),
+            (self.start, PlayTarget::HistoryPly(0), true),
+            (self.latest, PlayTarget::Latest, true),
+        ] {
+            if enabled && rect.contains(x, y) {
+                return Some(target);
+            }
+        }
+        self.chips
+            .iter()
+            .find(|chip| chip.rect.contains(x, y))
+            .map(|chip| PlayTarget::HistoryPly(chip.ply))
+    }
 }

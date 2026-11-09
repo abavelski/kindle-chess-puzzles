@@ -49,8 +49,8 @@ One task per branch/PR. Start the first **Ready** task with dependencies Done. F
 | --- | --- | --- | --- | --- |
 | 1 | FKP-01 — match existing close icon | MVP | **Implemented; final testing deferred** | Shared X-icon rendering, same close position/hit target |
 | 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Implemented; final verification pending | Side selector, rotated board/taps, server contract |
-| 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | In progress (owner override) | Paged SAN move panel, historical FEN viewer, return-to-live |
-| 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Blocked | End-to-end human verification/evidence only |
+| 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Implemented; final verification pending | Paged SAN move panel, historical FEN viewer, return-to-live |
+| 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | In progress (host verification) | End-to-end human verification/evidence only |
 
 ### FKP-01 — close icon parity
 
@@ -82,7 +82,11 @@ Reuse: existing Play state, worker/client, UCI/FEN validation, board geometry, b
 
 ### FKP-03 — paged move-history panel and read-only navigation
 
-**Status: In progress (owner override).** Owner: Codex implementation / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
+**Status: Implemented; final verification pending.** Owner: Codex implementation / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
+
+Reuse: extracted the original Snapshot replay loop into `replay_positions`; validation and all browsing use that single castling/en-passant/promotion path. Added a generic `Board::from_squares` constructor without legality logic. Extracted existing analysis `draw_move_chip`, `draw_page_control` and shared `PageWindow` pagination into neutral `eink_ui::move_list`; the original analysis still uses those identical painters. Play opts into a shared board-height limit to reserve legible history space. New product-owned state/targets track view ply and page, preserve latest FEN/history, block writes in the past, and restore exact authoritative state with Latest. No fake Review/Puzzles trees or persistence.
+
+Focused core tests (12), Play render tests (8) and HTTP/runtime tests (8) pass; Clippy passed before the final focused additions and will run in the full gate. Covered 0/1/2/108 plies, SAN/UCI labels, both colors/orientations, Start/middle/latest, all pagination boundaries, all special-move fixtures, finished browsing, pending requests, no HTTP writes from browsing, reconnect-to-latest, pixel-damage reconstruction and legacy/additive wire data. Twelve history goldens at both resolutions were visually inspected; all older product golden files remain untouched.
 
 1. Rework the **existing** Play status area (currently a text box) to retain a clearly readable network/game-status message **and** show all committed moves in an e-ink-friendly, paginated move list. Reuse the neutral presentation, font, hit-test and pagination primitives behind the Puzzles/Review analysis panel where feasible; do not create fake analysis-tree data to force reuse. Reuse typography, border and controls consistent with the Puzzles/Review analysis panel; do not import those products' persisted trees or states. Display move numbers and SAN from optional sanMoves; if missing, fall back to UCI. Black's initial Maia White move is immediately visible. Highlight selected ply and expose page navigation; do not truncate older moves silently.
 2. Add Play-only hit targets: HistoryPly(n), HistoryPreviousPage, HistoryNextPage, Latest. Tapping a move displays **the position after that ply**, from the server-authoritative starting position and UCI sequence. **Refactor and reuse the existing replay loop in `chess-core/src/play.rs` `Snapshot::parse`** to obtain intermediate positions (castling, en passant and q/r/b/n promotions); keep one replay implementation for both validation and history rather than writing a second one. No on-device legality/search/PGN parsing. A tap on the current last move or **Latest** displays the exact snapshot.fen; the initial position is reachable (Start/ply 0).
@@ -94,7 +98,7 @@ Reuse: existing Play state, worker/client, UCI/FEN validation, board geometry, b
 
 ### FKP-04 — final cross-repository acceptance (human is the last step)
 
-**Status: Blocked (FKP-03 and desktop BKP-04).** Owner: Codex test prep / human device acceptance.
+**Status: In progress (host verification; owner tests once the complete build is ready).** Owner: Codex test prep / final owner acceptance. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
 
 1. Codex prepares automated verification only: desktop npm test, npm run build, npm run test:desktop; Kindle focused tests and scripts/check.sh; pinned scripts/app.sh build play, scripts/app.sh stage play, python3 tools/verify_app_artifacts.py --app play; confirm old two products still pass check.sh. Record exact actual pass/fail evidence and both source SHAs. This stage may be marked Waiting for human, **not Done**.
 2. Owner on real desktop + jailbroken Kindle Scribe on trusted Wi-Fi: manually Start/Stop in Maia tab; play both colors and at least two Elo settings; verify GUI game/last-move time; make several moves, leave Kindle, confirm matching dated/rated PGN in My Studies and update after next move; tap old plies and Latest on Scribe; verify resign result for each color, reconnect after timeout, and stop/restart listener. Confirm no writes to other Kindle apps, Games or Openings data, and no loss of user-edited studies. Record firmware, app binary/source revisions, dates, what was actually observed and any failed steps in docs/device/ks1-barolo.md.
@@ -105,3 +109,21 @@ Reuse: existing Play state, worker/client, UCI/FEN validation, board geometry, b
 “Read docs/KINDLE_PLAY_IMPROVEMENTS.md, AGENTS.md and the linked backend contract. Implement only the first Ready FKP task, tests first; update table and detailed status/evidence together; stop after automated tests at Waiting for human. Do not start dependent tasks before owner verification.”
 
 The MVP is already accepted. This is a new queue and does not reopen PLAY-01..05 or the unrelated DATA-01/02 migration.
+
+
+## Testing the complete feature build
+
+Choose WHITE or BLACK and Elo before NEW GAME. Black waits for the desktop's
+single White opening move and starts with the rotated board; no local Maia move
+is generated. The desktop must implement the additive v1 color extension.
+Snapshots without `sanMoves` still work and display standard UCI instead.
+
+Tap any move to view the position after its ply, or START for the initial board.
+Use the numbered arrows to page through the entire record. While viewing the
+past, board input, promotions, resign and new-game mutations are disabled.
+LATEST / PLAY returns to the exact current server snapshot and enables live
+moves again. A server update/reconnect returns to Latest automatically.
+
+The feature branch keeps all changes together under the owner's 2026-11-09
+override. The complete staged package will be handed over once automatic checks
+finish; owner testing happens once, after all Kindle implementation is ready.

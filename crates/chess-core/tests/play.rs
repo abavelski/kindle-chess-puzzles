@@ -310,3 +310,93 @@ fn black_promotion_and_legacy_response_are_safe() {
     .unwrap_err()
     .contains("updated desktop"));
 }
+
+#[test]
+fn history_is_read_only_latest_restores_exact_server_state_and_san_is_additive() {
+    let mut value: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/fixtures/play/castle.json")).unwrap();
+    value["sanMoves"] = json!(["Nf3", "Nf6", "e3", "e6", "Be2", "Be7", "O-O", "O-O"]);
+    value["gameId"] = json!("fixture-game");
+    value["startedAt"] = json!("2026-11-09T12:00:00Z");
+    value["lastMoveAt"] = json!("2026-11-09T12:01:00Z");
+    let state = Snapshot::parse(&value).unwrap();
+    assert_eq!(state.move_label(7), Some("O-O"));
+    let positions = chess_core::play::replay_positions(&state.moves).unwrap();
+    assert_eq!(positions.len(), state.ply + 1);
+    let mut app = PlayApp::default();
+    let id = app.begin(Request::Current).unwrap();
+    app.complete(id, Ok(Response::Game(state.clone())));
+    for ply in [0, 1, 4, 7] {
+        assert!(app.view_history(ply));
+        assert_eq!(app.board.placement(), positions[ply].placement());
+        assert!(app.viewing_history());
+        assert!(!app.can_move());
+        assert!(app.begin(Request::Resign).is_none());
+        assert!(app.tap(sq("e2").unwrap()).is_none());
+        assert_eq!(app.snapshot.as_ref().unwrap(), &state);
+    }
+    app.latest();
+    assert!(!app.viewing_history());
+    assert_eq!(app.view_ply, state.ply);
+    assert_eq!(app.board, chess_model::Board::from_fen(&state.fen).unwrap());
+    assert!(app.can_move());
+    app.view_history(0);
+    let id = app.begin(Request::Current).unwrap();
+    assert!(!app.view_history(1));
+    app.complete(id, Ok(Response::Game(state)));
+    assert!(!app.viewing_history());
+    value["sanMoves"] = json!(["Nf3"]);
+    assert!(Snapshot::parse(&value).is_err());
+    value.as_object_mut().unwrap().remove("sanMoves");
+    assert_eq!(Snapshot::parse(&value).unwrap().move_label(7), Some("e1g1"));
+}
+#[test]
+fn replay_positions_cover_all_special_moves_and_finished_history() {
+    for fixture in [
+        include_str!("../../../tests/fixtures/play/castle.json"),
+        include_str!("../../../tests/fixtures/play/en-passant.json"),
+        include_str!("../../../tests/fixtures/play/promotion-q.json"),
+        include_str!("../../../tests/fixtures/play/promotion-r.json"),
+        include_str!("../../../tests/fixtures/play/promotion-b.json"),
+        include_str!("../../../tests/fixtures/play/promotion-n.json"),
+    ] {
+        let mut value: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        value["status"] = json!("finished");
+        value["result"] = json!({"outcome":"draw","reason":"draw"});
+        let state = Snapshot::parse(&value).unwrap();
+        let positions = chess_core::play::replay_positions(&state.moves).unwrap();
+        assert_eq!(
+            positions.last().unwrap().placement(),
+            state.fen.split_whitespace().next().unwrap()
+        );
+        let mut app = PlayApp::default();
+        let id = app.begin(Request::Current).unwrap();
+        app.complete(id, Ok(Response::Game(state.clone())));
+        for (ply, position) in positions.iter().enumerate() {
+            assert!(app.view_history(ply));
+            assert_eq!(app.board.placement(), position.placement());
+            assert!(!app.can_move());
+        }
+    }
+}
+
+#[test]
+fn unsupported_black_start_is_actionable_and_does_not_commit() {
+    let mut app = PlayApp::default();
+    app.choose_color(chess_model::Color::Black);
+    let before = app.board.clone();
+    let id = app.begin(app.new_game_request()).unwrap();
+    app.complete(
+        id,
+        Ok(Response::Error {
+            status: 400,
+            code: "BAD_REQUEST".into(),
+            message: "unknown field".into(),
+            state: None,
+        }),
+    );
+    assert!(app.message.contains("updated desktop"));
+    assert_eq!(app.board, before);
+    assert!(app.snapshot.is_none());
+    assert!(!app.can_new());
+}

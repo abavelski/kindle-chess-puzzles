@@ -407,6 +407,28 @@ impl Layout {
         )
     }
 
+    /// Limit board geometry to reserve space for another product-neutral panel.
+    /// Existing layouts are unchanged unless a product explicitly opts in.
+    pub fn limit_board_height(&mut self, max_outer_height: u32) -> Result<(), LayoutError> {
+        let size = (max_outer_height
+            .min(self.board_outer.height)
+            .saturating_sub(self.coordinate_gutter * 2)
+            / 8)
+            * 8;
+        if size < 8 * 24 {
+            return Err(LayoutError::TooSmall);
+        }
+        self.square_size = size / 8;
+        self.board = Rect::new((self.metrics.width - size) / 2, self.board.y, size, size);
+        self.board_outer = Rect::new(
+            self.board.x - self.coordinate_gutter,
+            self.board_outer.y,
+            size + self.coordinate_gutter * 2,
+            size + self.coordinate_gutter * 2,
+        );
+        Ok(())
+    }
+
     pub fn for_app(
         metrics: DisplayMetrics,
         state: &impl crate::screen::ScreenState,

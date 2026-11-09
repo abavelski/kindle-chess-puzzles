@@ -22,6 +22,14 @@ pub struct Snapshot {
     pub status: String,
     pub result: Option<GameResult>,
     pub last_move: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub san_moves: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub game_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_move_at: Option<String>,
 }
 fn rating_valid(rating: u16) -> bool {
     (600..=2600).contains(&rating) && rating % 100 == 0
@@ -33,6 +41,15 @@ pub fn color_name(color: Color) -> &'static str {
     }
 }
 impl Snapshot {
+    pub fn move_label(&self, ply: usize) -> Option<&str> {
+        let index = ply.checked_sub(1)?;
+        self.san_moves
+            .as_ref()
+            .unwrap_or(&self.moves)
+            .get(index)
+            .map(String::as_str)
+    }
+
     pub fn human_color(&self) -> Color {
         if self.player_color == "black" {
             Color::Black
@@ -103,50 +120,20 @@ impl Snapshot {
         for movement in &state.moves {
             parse_uci_move(movement).map_err(|e| e.to_string())?;
         }
-        // Reconstruct placement from already-authored UCI records. This is not a
-        // legality checker: no move generation, check detection or rules engine.
-        let initial = Board::starting_position();
-        let mut pieces: Vec<_> = (0..64).map(|sq| initial.piece_at(sq)).collect();
-        for (ply, record) in state.moves.iter().enumerate() {
-            let movement = parse_uci_move(record).map_err(|e| e.to_string())?;
-            let mut piece = pieces[movement.from]
-                .take()
-                .ok_or("History origin is empty")?;
-            if piece.color
-                != if ply % 2 == 0 {
-                    Color::White
-                } else {
-                    Color::Black
-                }
+        if let Some(san) = &state.san_moves {
+            if san.len() != state.ply
+                || san.iter().any(|label| {
+                    label.trim().is_empty()
+                        || label.len() > 64
+                        || label.chars().any(char::is_control)
+                })
             {
-                return Err("History color mismatch".into());
+                return Err("Invalid SAN history".into());
             }
-            if piece.kind == PieceKind::Pawn
-                && movement.from % 8 != movement.to % 8
-                && pieces[movement.to].is_none()
-            {
-                // Standard UCI en-passant records omit the captured pawn square.
-                let captured = movement.from / 8 * 8 + movement.to % 8;
-                pieces[captured] = None;
-            }
-            if piece.kind == PieceKind::King {
-                let rook = match (movement.from, movement.to) {
-                    (60, 62) => Some((63, 61)),
-                    (60, 58) => Some((56, 59)),
-                    (4, 6) => Some((7, 5)),
-                    (4, 2) => Some((0, 3)),
-                    _ => None,
-                };
-                if let Some((from, to)) = rook {
-                    pieces[to] = pieces[from].take();
-                }
-            }
-            if let Some(kind) = movement.promotion {
-                piece.kind = kind;
-            }
-            pieces[movement.to] = Some(piece);
         }
-        if (0..64).any(|sq| pieces[sq] != position.piece_at(sq)) {
+        let positions = replay_positions(&state.moves)?;
+        let pieces = positions.last().expect("initial position");
+        if (0..64).any(|sq| pieces.piece_at(sq) != position.piece_at(sq)) {
             return Err("History placement disagrees with FEN".into());
         }
         if state.ply == 0 && state.fen != START_FEN {
@@ -169,6 +156,57 @@ impl Snapshot {
         Ok(state)
     }
 }
+/// Replay authored placements once for validation and read-only browsing; no legality engine.
+pub fn replay_positions(moves: &[String]) -> Result<Vec<Board>, String> {
+    // Reconstruct placement from already-authored UCI records. This is not a
+    // legality checker: no move generation, check detection or rules engine.
+    let initial = Board::starting_position();
+    let mut pieces: [Option<chess_model::Piece>; 64] =
+        std::array::from_fn(|sq| initial.piece_at(sq));
+    let mut positions = vec![initial];
+    for (ply, record) in moves.iter().enumerate() {
+        let movement = parse_uci_move(record).map_err(|e| e.to_string())?;
+        let mut piece = pieces[movement.from]
+            .take()
+            .ok_or("History origin is empty")?;
+        if piece.color
+            != if ply % 2 == 0 {
+                Color::White
+            } else {
+                Color::Black
+            }
+        {
+            return Err("History color mismatch".into());
+        }
+        if piece.kind == PieceKind::Pawn
+            && movement.from % 8 != movement.to % 8
+            && pieces[movement.to].is_none()
+        {
+            // Standard UCI en-passant records omit the captured pawn square.
+            let captured = movement.from / 8 * 8 + movement.to % 8;
+            pieces[captured] = None;
+        }
+        if piece.kind == PieceKind::King {
+            let rook = match (movement.from, movement.to) {
+                (60, 62) => Some((63, 61)),
+                (60, 58) => Some((56, 59)),
+                (4, 6) => Some((7, 5)),
+                (4, 2) => Some((0, 3)),
+                _ => None,
+            };
+            if let Some((from, to)) = rook {
+                pieces[to] = pieces[from].take();
+            }
+        }
+        if let Some(kind) = movement.promotion {
+            piece.kind = kind;
+        }
+        pieces[movement.to] = Some(piece);
+        positions.push(Board::from_squares(pieces));
+    }
+    Ok(positions)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Request {
     Health,
@@ -267,6 +305,9 @@ pub enum UiStatus {
 #[derive(Clone, Debug)]
 pub struct PlayApp {
     pub player_color: Color,
+    pub view_ply: usize,
+    pub history_page: Option<usize>,
+    positions: Vec<Board>,
     pub rating: u16,
     pub maia_available: bool,
     pub snapshot: Option<Snapshot>,
@@ -283,6 +324,9 @@ impl Default for PlayApp {
     fn default() -> Self {
         Self {
             player_color: Color::White,
+            view_ply: 0,
+            history_page: None,
+            positions: vec![Board::starting_position()],
             rating: 1500,
             maia_available: true,
             snapshot: None,
@@ -298,6 +342,42 @@ impl Default for PlayApp {
     }
 }
 impl PlayApp {
+    pub fn viewing_history(&self) -> bool {
+        self.snapshot
+            .as_ref()
+            .is_some_and(|s| self.view_ply < s.ply)
+    }
+    pub fn view_history(&mut self, ply: usize) -> bool {
+        if self.in_flight() {
+            return false;
+        }
+        let Some(snapshot) = &self.snapshot else {
+            return false;
+        };
+        if ply > snapshot.ply {
+            return false;
+        }
+        self.board = if ply == snapshot.ply {
+            Board::from_fen(&snapshot.fen).expect("validated FEN")
+        } else {
+            self.positions[ply].clone()
+        };
+        self.view_ply = ply;
+        self.cancel_selection();
+        true
+    }
+    pub fn latest(&mut self) {
+        if let Some(ply) = self.snapshot.as_ref().map(|s| s.ply) {
+            if self.view_history(ply) {
+                self.history_page = None;
+            }
+        }
+    }
+    pub fn history_page(&mut self, page: usize) {
+        if !self.in_flight() {
+            self.history_page = Some(page);
+        }
+    }
     pub fn worker_failed(&mut self) {
         if let Some((id, _)) = &self.pending {
             self.complete(*id, Err("HTTP worker stopped".into()));
@@ -308,6 +388,7 @@ impl PlayApp {
     }
     pub fn can_move(&self) -> bool {
         !self.in_flight()
+            && !self.viewing_history()
             && !self.needs_refresh
             && self
                 .snapshot
@@ -316,6 +397,7 @@ impl PlayApp {
     }
     pub fn can_new(&self) -> bool {
         !self.in_flight()
+            && !self.viewing_history()
             && !self.needs_refresh
             && self
                 .snapshot
@@ -450,6 +532,9 @@ impl PlayApp {
     }
     fn apply(&mut self, snapshot: Snapshot) {
         self.board = Board::from_fen(&snapshot.fen).expect("validated snapshot");
+        self.positions = replay_positions(&snapshot.moves).expect("validated history");
+        self.view_ply = snapshot.ply;
+        self.history_page = None;
         self.rating = snapshot.rating;
         self.player_color = snapshot.human_color();
         self.status = if snapshot.status == "finished" {
@@ -486,6 +571,9 @@ impl PlayApp {
             Ok(Response::Game(state)) => self.apply(state),
             Ok(Response::NoGame) => {
                 self.snapshot = None;
+                self.view_ply = 0;
+                self.history_page = None;
+                self.positions = vec![Board::starting_position()];
                 self.board = Board::starting_position();
                 self.status = UiStatus::Idle;
                 self.needs_refresh = false;

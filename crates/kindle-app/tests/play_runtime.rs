@@ -260,3 +260,60 @@ fn black_new_game_uses_server_side_and_keeps_canonical_move_intent() {
     poll_changed(&mut runtime);
     assert!(runtime.state().flipped());
 }
+
+#[test]
+fn history_navigation_never_writes_and_latest_submits_server_expected_ply() {
+    let (entered, requests) = mpsc::channel();
+    let (reply, replies) = mpsc::channel();
+    let mut runtime = PlayRuntime::with_client(Fake {
+        entered,
+        replies: std::sync::Mutex::new(replies),
+    });
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::Health
+    );
+    reply.send(Ok(Response::Health(true))).unwrap();
+    poll_changed(&mut runtime);
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::Current
+    );
+    let state = Snapshot::parse(
+        &serde_json::from_str(include_str!("../../../tests/fixtures/play/castle.json")).unwrap(),
+    )
+    .unwrap();
+    let ply = state.ply;
+    reply.send(Ok(Response::Game(state))).unwrap();
+    poll_changed(&mut runtime);
+    for target in [
+        PlayTarget::HistoryPly(0),
+        PlayTarget::HistoryNextPage(1),
+        PlayTarget::HistoryPreviousPage(0),
+        PlayTarget::HistoryPly(4),
+        PlayTarget::Resign,
+        PlayTarget::NewGame,
+        PlayTarget::Square(48),
+        PlayTarget::Square(40),
+    ] {
+        runtime.tap(HitTarget::Play(target));
+        assert!(requests.try_recv().is_err());
+    }
+    assert!(runtime.state().viewing_history());
+    runtime.tap(HitTarget::Play(PlayTarget::Latest));
+    assert!(!runtime.state().viewing_history());
+    runtime.tap(HitTarget::Play(PlayTarget::Square(48)));
+    runtime.tap(HitTarget::Play(PlayTarget::Square(40)));
+    assert_eq!(
+        requests.recv_timeout(Duration::from_secs(1)).unwrap(),
+        Request::Move {
+            uci: "a2a3".into(),
+            expected_ply: ply
+        }
+    );
+    // A response received after a pending-state history tap still returns to Latest.
+    runtime.tap(HitTarget::Play(PlayTarget::HistoryPly(0)));
+    reply.send(Err("Timeout".into())).unwrap();
+    poll_changed(&mut runtime);
+    assert!(!runtime.state().viewing_history());
+}

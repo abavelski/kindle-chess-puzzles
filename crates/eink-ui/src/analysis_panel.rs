@@ -1,10 +1,10 @@
 //! Deterministic paginated rendering for rich analysis browsing.
 
+use crate::move_list::{draw_move_chip, draw_page_control, PageWindow};
 use crate::{
     font::{
-        draw_text_bold_vertically_centered, draw_text_centered,
-        draw_text_regular_vertically_centered, measure_text_bold, measure_text_regular,
-        text_line_height,
+        draw_text_bold_vertically_centered, draw_text_regular_vertically_centered,
+        measure_text_bold, measure_text_regular, text_line_height,
     },
     Gray8, Rect,
 };
@@ -17,6 +17,7 @@ pub enum AnalysisHit {
     AnalysisNextPage,
 }
 
+#[cfg(test)]
 const WHITE: u8 = 255;
 const INK: u8 = 0;
 
@@ -380,7 +381,7 @@ pub fn draw_analysis_panel(
     let rows_per_page = usize::try_from(body.height / row_height)
         .unwrap_or(0)
         .max(1);
-    let page_count = document.lines.len().div_ceil(rows_per_page).max(1);
+    let page_count = PageWindow::new(document.lines.len(), rows_per_page, 0).page_count;
     let requested_page = view.page.min(page_count.saturating_sub(1));
     let page = view
         .focus
@@ -402,10 +403,9 @@ pub fn draw_analysis_panel(
         .unwrap_or(requested_page)
         .min(page_count.saturating_sub(1));
 
-    let start = page.saturating_mul(rows_per_page);
-    let end = start
-        .saturating_add(rows_per_page)
-        .min(document.lines.len());
+    let window = PageWindow::new(document.lines.len(), rows_per_page, page);
+    let start = window.range.start;
+    let end = window.range.end;
     let mut move_chips = Vec::new();
     for (slot, line) in document.lines[start..end].iter().enumerate() {
         let row_y = body.y.saturating_add(
@@ -653,12 +653,6 @@ fn padded_move_hit_rect(rect: Rect, row: Rect, scale: u32) -> Rect {
     Rect::new(x, row.y, right.saturating_sub(x), row.height)
 }
 
-fn draw_move_chip(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
-    let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
-    frame.fill_rect(rect, background);
-    draw_text_centered(frame, rect.inset(4), label, scale, foreground);
-}
-
 fn split_footer(rect: Rect, gap: u32) -> [Rect; 2] {
     let width = rect.width.saturating_sub(gap) / 2;
     let first = Rect::new(rect.x, rect.y, width, rect.height);
@@ -672,12 +666,6 @@ fn split_footer(rect: Rect, gap: u32) -> [Rect; 2] {
             rect.height,
         ),
     ]
-}
-
-fn draw_page_control(frame: &mut Gray8, rect: Rect, label: &str, scale: u32) {
-    frame.fill_rect(rect, WHITE);
-    frame.stroke_rect(rect, 2.min(rect.width).min(rect.height), INK);
-    draw_text_centered(frame, rect.inset(4), label, scale, INK);
 }
 
 #[cfg(test)]
