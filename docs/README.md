@@ -13,6 +13,9 @@
 
 ## Active contracts
 
+- [Low-token Codex CLI workflow](CODEX_PLAY_CLI.md): one-task runner, offline tests, pinned Play packaging and explicit deployment commands for Mac Terminal / Windows Git Bash.
+
+
 - [Kindle Chess Play improvements](KINDLE_PLAY_IMPROVEMENTS.md): staged close icon, both-color support, clickable move history, and required device acceptance. Companion [desktop server plan](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
 
 - Puzzles: [format](PUZZLE_FORMAT.md) and [collection updates](COLLECTION_UPDATES.md).
