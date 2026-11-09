@@ -13,6 +13,8 @@
 
 ## Active contracts
 
+- [Kindle Chess Play improvements](KINDLE_PLAY_IMPROVEMENTS.md): staged close icon, both-color support, clickable move history, and required device acceptance. Companion [desktop server plan](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
+
 - Puzzles: [format](PUZZLE_FORMAT.md) and [collection updates](COLLECTION_UPDATES.md).
 - Review: [behavior](GAME_REVIEW.md), [file format](GAME_REVIEW_FORMAT.md), [import/update](GAME_REVIEW_IMPORT.md).
 - UI settings: [settings](SETTINGS.md).
