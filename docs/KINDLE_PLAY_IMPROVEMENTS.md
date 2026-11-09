@@ -52,7 +52,7 @@ One task per branch/PR. Start the first **Ready** task with dependencies Done. F
 
 ### FKP-01 — close icon parity
 
-**Status: Waiting for human.** Owner: Codex implementation / human acceptance. Branch: `codex/fkp-01`. Started/automated verification: 2026-11-09.
+**Status: Waiting for human.** Owner: Codex implementation / human acceptance. Branch: `codex/fkp-01`. Started/automated verification: 2026-11-09. Implementation revision: `95eeabb`.
 
 Reuse: Play now calls the existing `draw_close_button` and `header_control_visual_rect` helpers used by Puzzles/Review. `Layout.exit`, `PlayTarget::Close` and the existing runtime exit path are unchanged. Extraction: none; the two existing helpers were made `pub(crate)` without changing their drawing bodies. New: a focused pixel-parity/X-endpoint and touch-boundary test in the existing Play render harness, because Play previously had no comparison against the other products' close chrome. No new production widget, state, geometry or network code.
 

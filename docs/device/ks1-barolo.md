@@ -2689,7 +2689,8 @@ needed for this documentation-only acceptance closeout.
 
 ### FKP-01 — prepared close icon parity, Waiting for human (2026-11-09)
 
-Status: **Waiting for human**. Branch: `codex/fkp-01`. Play now reuses the exact
+Status: **Waiting for human**. Branch: `codex/fkp-01`. Implementation revision:
+`95eeabb`. Play now reuses the exact
 Puzzles/Review X renderer and header visual inset, with its original close touch
 rectangle and runtime exit path. The new regression compares rendered close
 pixels against both older products at 1860×2480 and 1404×1872, verifies diagonal
