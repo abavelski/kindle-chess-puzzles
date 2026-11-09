@@ -38,6 +38,9 @@ No optimistic commit: 200/201 and GET update the authoritative board/history tog
 
 ## Codex task execution
 
+**Token-efficient CLI option:** use [`bash scripts/codex-play.sh`](CODEX_PLAY_CLI.md) from this repository. It invokes Codex on one Ready task with Sol 6.1/medium by default, then uses existing focused tests and pinned build/stage/artifact scripts outside the model. Use `verify` for a no-model check and `fix` to resume with only the relevant failing-log excerpt. Human/device verification is still required and is never automated. Do not duplicate the wrapper's full build/tests inside the Codex turn.
+
+
 One task per branch/PR. Start the first **Ready** task with dependencies Done. Follow the reuse-first rule above, and document reused/extracted/new components before handoff. Before coding, read AGENTS.md, README.md, docs/ARCHITECTURE.md, docs/TESTING.md, this plan and linked desktop contract. Change the row and detailed status to In progress (owner/branch/date). Add focused failing tests/snapshots first, implement that task only, then run focused tests and scripts/check.sh; build/stage/verify Play if package/runtime changes. Preserve old Puzzles and Review golden frames. Record commands + results and commit SHA in task details. Set **Waiting for human** after automated checks; **human verification is the last step** and is never inferred from passing tests. Only owner-confirmed device observations can mark Done; update both status locations together in one commit. Keep dependent tasks Blocked until accepted.
 
 | Order | Task | Depends on | Initial status | Deliverable |
