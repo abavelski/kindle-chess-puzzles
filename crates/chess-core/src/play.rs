@@ -266,6 +266,11 @@ impl Default for PlayApp {
     }
 }
 impl PlayApp {
+    pub fn worker_failed(&mut self) {
+        if let Some((id, _)) = &self.pending {
+            self.complete(*id, Err("HTTP worker stopped".into()));
+        }
+    }
     pub fn in_flight(&self) -> bool {
         self.pending.is_some()
     }

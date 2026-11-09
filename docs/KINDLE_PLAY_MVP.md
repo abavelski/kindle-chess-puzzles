@@ -76,8 +76,8 @@ Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess P
 | --- | --- | --- | --- |
 | PLAY-01 | — | Done | Pure Play state machine + mockable HTTP client/contract fixtures |
 | PLAY-02 | PLAY-01 | Done | Product-specific Play board, touch targets and status screens |
-| PLAY-03 | PLAY-01, PLAY-02 | Ready | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
-| PLAY-04 | PLAY-03 | Blocked | Third independent Cargo binary, staging/install/release matrix |
+| PLAY-03 | PLAY-01, PLAY-02 | Done | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
+| PLAY-04 | PLAY-03 | Ready | Third independent Cargo binary, staging/install/release matrix |
 | PLAY-05 | PLAY-04 | Blocked | Host regressions, pinned build and physical Scribe LAN acceptance |
 
 ### PLAY-01 — state/client tests first
@@ -102,10 +102,14 @@ Evidence (2026-11-09): `cargo test -p chess-render --test play` first failed on 
 
 ### PLAY-03 — PlayRuntime and device boundary
 
+Status: **Done**. Owner: Codex. Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09.
+
 - Use `kindle_app::runtime::Application` shared foreground framebuffer/input/power loop and supervisor lock. Worker owns socket/timeouts; screen thread checks completion in `poll` and re-renders. No blocking TCP during touch/power processing.
 - On startup load **only** Play's `config.json`; if valid, health/current GET. On move, send `expectedPly` from last server snapshot; after 200 replace FEN and history atomically. On 409 apply `state`; on 422 keep board + show rejection; after timeout show "Refresh server state" rather than automatically replaying POST.
 - Handle cancel selection, promotions q/r/b/n, Black reply update, checkmate/draw/resign and clean close. Test the worker against a mock server, including a server response after user sleeps/wakes; avoid stale UI overwrite (per-request sequence/generation).
 - No modifications to DATA-01/02 migration, legacy settings fallbacks, or Puzzles/Review persistence.
+
+Evidence (2026-11-09): `cargo test -p kindle-app --test play_runtime` failed before the adapter existed, then passed 3 tests with a controllable fake client and real loopback HTTP server. Covered nonblocking health/current/move completion, delayed completion over sleep, failure followed by GET reconciliation without POST replay, immediate close during a blocked request, config reload and preservation of malformed/future bytes. `PATH="$PWD/.venv/bin:$PATH" scripts/check.sh` passed. RETRY reloads config and fetches health/current; REFRESH retains the shared full-screen redraw. Pinned third-product builds follow in PLAY-04/05; no device deployment.
 
 ### PLAY-04 — independent app packaging
 
