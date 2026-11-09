@@ -2565,3 +2565,32 @@ deploy and launch logs, loader output, deployment attestation and inspected
 physical panel/ghosting assessment, touch-navigation retest or Bluetooth test is
 inferred from these runtime/framebuffer checks. No unrelated data cleanup or
 backup-system change was performed.
+
+
+### PLAY-05 — prepared host artifacts, Waiting for device (2026-11-09)
+
+Status: **Waiting for device**. Host source: `a1e5df2` on
+`feature/kindle-chess-play-mvp`. Play implementation and packaging (PLAY-01–04)
+are committed. Local focused state/HTTP/runtime/UI tests, `scripts/check.sh`, and
+pinned build/stage/artifact verification passed for **play, puzzles and review**.
+The [Play tracker](../KINDLE_PLAY_MVP.md#play-05--validation-and-human-checkpoint)
+records commands and all three prepared binary hashes. Existing product golden
+frames remain unchanged. These are host results, not device observations.
+
+Prepared Play artifact: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`.
+Binary SHA256:
+`c3a63ffd893b0daf6fce9aa6efb7f4e4a048802b118029a4edf420b3aed68b50`.
+KPM SHA256:
+`6252ae4045d903ae2d32e0be65ae8b840c158da4de03dd418fb190cdac04cb4a`.
+Target/toolchain verification: ARMv7 hard-float / glibc 2.35, Rust 1.85.1,
+Zig 0.13.0, FBInk `92e127008145b2a22fba7c59815d810d716310dd`.
+
+**No device connection, deployment, install or launch was attempted for this
+checkpoint.** The owner's go is required before deployment. Barolo / firmware
+5.19.6 is the previously recorded device baseline; it was not re-probed here.
+The desktop Maia server was not exercised. Configuration, two ratings, actual
+Maia reply, illegal move, promotion, disconnect/reconnect, resignation/finish,
+close, co-installation, input/display exclusion and unchanged older-app data all
+remain pending physical/LAN acceptance. Record the actual deployed version,
+firmware and observations here after that run; do not mark PLAY-05 Done from
+these host artifacts.

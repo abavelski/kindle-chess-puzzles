@@ -1,6 +1,6 @@
 # Kindle Chess Play — third app MVP
 
-Status: **In progress**. Started: 2026-11-09.
+Status: **Waiting for device**. Host implementation/validation completed: 2026-11-09.
 Repository: `abavelski/kindle-chess-puzzles`; default branch **main**.
 Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess Play**, to play White against Maia on a desktop reachable over trusted local Wi-Fi. This plan is standalone: the Kindle agent can implement everything with a fake HTTP server without checking out the desktop repo.
 
@@ -78,7 +78,7 @@ Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess P
 | PLAY-02 | PLAY-01 | Done | Product-specific Play board, touch targets and status screens |
 | PLAY-03 | PLAY-01, PLAY-02 | Done | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
 | PLAY-04 | PLAY-03 | Done | Third independent Cargo binary, staging/install/release matrix |
-| PLAY-05 | PLAY-04 | Ready | Host regressions, pinned build and physical Scribe LAN acceptance |
+| PLAY-05 | PLAY-04 | Waiting for device | Host regressions, pinned build and physical Scribe LAN acceptance |
 
 ### PLAY-01 — state/client tests first
 
@@ -122,6 +122,31 @@ Status: **Done**. Owner: Codex. Branch: `feature/kindle-chess-play-mvp`. Started
 Evidence (2026-11-09, local): packaging tests first failed for the missing Play product and CI matrix entry, then passed. `PATH="$PWD/.venv/bin:$PATH" scripts/app.sh build APP`, `scripts/app.sh stage APP` and `python3 tools/verify_app_artifacts.py --app APP` passed for each of `play`, `puzzles`, `review` against the final source. Each build ran `scripts/check.sh`, including all existing goldens and both older app targets. All three current receipts match their product-specific source digest; ARMv7 hard-float, glibc 2.35, Zig 0.13.0 and pinned FBInk checks passed. Play package/installer regressions cover isolated identity/launcher, foreign-asset rejection, update/uninstall/config preservation and cross-app root conflicts. Release review also added failing/passing regressions for unavailable Maia with no game, finished conflicts retaining results, and explicit socket timeout messages. No deployment or remote CI run claimed.
 
 ### PLAY-05 — validation and human checkpoint
+
+Status: **Waiting for device**. Owner: Codex (host preparation), owner (device acceptance). Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09. Host-tested source commit: `a1e5df2`.
+
+Host evidence (2026-11-09): focused `cargo test -p chess-core --test play` (7), `cargo test -p chess-render --test play` (4), and `cargo test -p kindle-app --test play_http --test play_runtime` (5) passed. The final unchanged-source matrix from PLAY-04 ran `scripts/check.sh` through each pinned build; all existing golden frames and all three app targets passed. Reused those successful builds rather than rebuilding unchanged code. All local build/stage/verify commands below succeeded; no remote CI or physical result is inferred:
+
+```sh
+# Use the existing host tooling environment.
+. .venv/bin/activate
+for app in play puzzles review; do
+    scripts/app.sh build "$app"
+    scripts/app.sh stage "$app"
+    python3 tools/verify_app_artifacts.py --app "$app"
+done
+```
+
+Prepared artifacts (under `target/kindle/APP/`, receipts and stage/tar/KPM verified):
+
+| App | Binary bytes | Binary SHA256 |
+| --- | ---: | --- |
+
+| play | 3087936 | `c3a63ffd893b0daf6fce9aa6efb7f4e4a048802b118029a4edf420b3aed68b50` |
+| puzzles | 3468744 | `e51a60425538c7d0c4dfe4a72d3e7ef4dfef1bb1f9971f69a7535197ecfdaae7` |
+| review | 3176572 | `4fc228b04c44b0d878e32258f6b9a1ffd5d3a2e9fffa397c42b2ef69c21f54eb` |
+
+**Human work pending:** no device connection, deployment, installation or launch was attempted for Play. The owner explicitly requires a go before deployment. The Scribe/desktop acceptance list below remains unrun; see the [waiting checkpoint record](device/ks1-barolo.md#play-05--prepared-host-artifacts-waiting-for-device-2026-11-09).
 
 - Run focused Rust state/client/UI tests then `scripts/check.sh`; build/stage/verify `puzzles`, `review`, and `play` using the pinned Scribe target. Record commands and results, and ensure old snapshot tests remain green.
 - With a physical jailbroken Scribe + desktop server on same trusted Wi-Fi, install Play and check: configure server URL; NEW game at two ratings; legal white move and Maia response; illegal move unchanged; promotion chooser via fixture or test position; disconnect/reconnect GET; resignation; finish message; close; and distinct co-installation with the other apps. Confirm input exclusivity and no extra files created in either older app's data root.
