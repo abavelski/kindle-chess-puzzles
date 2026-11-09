@@ -2494,3 +2494,74 @@ These commands have **not** been run. Record their results, deployed commit and
 package hashes, resulting game paths/count, retained Review settings/resume and
 unchanged puzzle progress. Then record owner observations of Review's library and
 saved position and Puzzles' collections/progress before marking DATA-02 Done.
+
+
+### App data separation — migration and deployment, 2026-11-09
+
+The owner explicitly authorized deployment and migration, superseding the
+host-preparation hold above. DATA-02 is **Done** on the device checks below.
+Device: first-generation Scribe / Barolo, ARMv7, firmware **5.19.6**;
+SSH: `root@192.168.1.20:2222`, verified existing host key and empty-password
+control connection. Both apps, app locks and shared display lock were absent
+before migration. No authentication configuration was persisted.
+
+Prepared version: `1d04599` on `task/data-02-migration-script`, with DATA-01
+implementation `69b0749` and migration implementation `15bc2e8`. Both existing
+packages passed `verify_app_artifacts.py` against the current source before use;
+no rebuild was needed for this documentation-only continuation.
+
+Commands run, using the existing SSH transport and authenticated control connection:
+
+```sh
+python3 tools/migrate_app_data.py --host root@192.168.1.20 --port 2222
+scripts/app.sh deploy review --host root@192.168.1.20 --port 2222
+scripts/app.sh deploy puzzles --host root@192.168.1.20 --port 2222
+python3 tools/migrate_app_data.py --host root@192.168.1.20 --port 2222
+```
+
+Migration moved **112** game files from `/mnt/us/kindle-chess/games/` to
+`/mnt/us/kindle-game-review/games/`; all destination hashes matched their original
+files and no source game files remained. No filename conflict or attention item
+was reported. Existing Review settings and resume stayed byte-identical. The
+valid superseded Puzzles-root `state/review-resume.json` was removed; Puzzles'
+settings, progress, collections, logs and runtime were unchanged by migration
+(49 other original files verified). The rerun reported zero moves, 112 Review
+files, zero Puzzles game files and zero attention items.
+
+Both existing deploy scripts completed successfully. Installed binaries,
+`build.json`, `source.tar` and library scriptlets matched the selected host
+stages; the dynamic loader resolved both binaries' dependencies. All **127**
+non-runtime files were unchanged through deployment.
+
+Installed binary SHA256 values:
+
+| App | SHA256 |
+| --- | --- |
+| Puzzles | `b8fa5ba6bb5aa43de20db2e39c3a9992fcd00d1faea163d83d3da25268a8cd4a` |
+| Review | `ffd06b5d9c3c1525cb097dac0371a13227c5babbd76a778512c9f6ced01dea43` |
+
+Actual device launch checks used each installed `runtime/launch.sh`, one app at
+a time. Review's framebuffer showed **Euwe, Max – Reshevsky, Samuel, 0–1,
+PLY 16 Nc6**, the retained Small board and analysis page. Its saved collection
+is `games-kasparov4-005.json`, game `game-f9aebbb7af66692e5d98`; the saved 16-ply
+move path and FEN were also checked against the migrated authored game tree.
+Puzzles showed the retained collection `puzzles-eink-book-002.json`, puzzle
+**506w (261/500), White to move**, without a storage warning.
+
+Each app received SIGTERM only after checking its recorded child PID and exact
+`/proc/PID/exe` path. Both flushed and exited cleanly with supervisor exit=0,
+resumed Xorg/awesome and requested the native repaint. Final app/display locks
+and processes were absent; Xorg and awesome were running in sleeping (`S`), not
+stopped, state. Final hashes confirmed all **123** library/state/identity files
+were unchanged after the launches (runtime and appended logs excluded).
+Puzzle progress SHA256 remained
+`6e8c344cf8b10fe69b289eef04077cd86093b2a8eab6e352cb5cd861c8b1e2ce`;
+Review settings and resume still matched their pre-migration bytes.
+
+Evidence is retained locally under ignored
+`probe-output/data-separation-20261109/`: migration/rerun logs, pre/post manifests,
+deploy and launch logs, loader output, deployment attestation and inspected
+`review-screen.png` / `puzzles-screen.png` framebuffer captures. No owner-reported
+physical panel/ghosting assessment, touch-navigation retest or Bluetooth test is
+inferred from these runtime/framebuffer checks. No unrelated data cleanup or
+backup-system change was performed.

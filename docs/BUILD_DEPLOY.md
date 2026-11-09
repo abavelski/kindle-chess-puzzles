@@ -286,7 +286,8 @@ supersession; malformed/future state stays untouched and is reported. Exit statu
 is zero on success and nonzero if attention is needed. Rerunning is supported.
 
 [DATA-02](DATA_SEPARATION_PLAN.md#data-02--implement-the-migration-script-and-verify-the-result)
-tracks device verification, which has not been performed. Migration leaves
+records the completed 2026-11-09 device migration and deployment; see the
+[device observations](device/ks1-barolo.md#app-data-separation--migration-and-deployment-2026-11-09). Migration leaves
 Puzzles progress, settings and unrelated data unchanged. Removing Review
 state no longer restores legacy state automatically.
 

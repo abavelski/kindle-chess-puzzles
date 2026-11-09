@@ -1,6 +1,6 @@
 # App data separation plan
 
-Date: 2026-11-08. Status: DATA-01 Done; DATA-02 Waiting for device. Device migration has not started.
+Updated: 2026-11-09. Status: DATA-01 and DATA-02 Done. Device migration and both deployments verified.
 Follow-up to the [completed app split](../archive/tasks/implemented/app-split.md).
 
 ## Goal and current state
@@ -28,7 +28,7 @@ protections against overwriting existing files or touching unrelated puzzle data
 | ID | Deliverable | Depends on | Status |
 | --- | --- | --- | --- |
 | DATA-01 | Independent app data access, tests and builds | — | Done |
-| DATA-02 | Device migration script and result verification | DATA-01 | Waiting for device |
+| DATA-02 | Device migration script and result verification | DATA-01 | Done |
 
 Use a task branch. Update the table and task status together, recording the
 implementation commit and test results. DATA-01 owner: Codex; branch: `task/data-01-independent-storage`; started 2026-11-08.
@@ -73,7 +73,7 @@ record the results. Once these pass, DATA-01 is Done. Device migration is DATA-0
 
 ## DATA-02 — Implement the migration script and verify the result
 
-**Status:** Waiting for device (2026-11-08). Owner: Codex; branch: `task/data-02-migration-script`; started 2026-11-08. Device access is explicitly deferred by the owner.
+**Status:** Done (2026-11-09). Owner: Codex; branch: `task/data-02-migration-script`; started 2026-11-08. Device migration/deployment authorized 2026-11-09.
 
 Implementation: `15bc2e8` (on top of DATA-01 `69b0749` and evidence `8c20e54`).
 The migration test initially failed because the tool was absent; all four focused
@@ -84,10 +84,18 @@ settings/resume parsers, and assert unrelated Puzzles bytes stay unchanged.
 `scripts/check.sh` passed, including these tests. Both apps were rebuilt, staged
 and verified again locally with the pinned toolchain because the new helper,
 tool, tests and check script change the source receipts. Final artifacts are in
-`target/kindle/{puzzles,review}`. No device command, SSH connection, migration,
-deployment or launch was performed. The remaining authorized work is complete;
-physical work awaits explicit owner authorization and the observations listed in
-[the device notes](device/ks1-barolo.md#app-data-separation--host-preparation-2026-11-08).
+`target/kindle/{puzzles,review}`. Host preparation on 2026-11-08 used no device
+access. On 2026-11-09 the owner authorized migration and deployment: all 112 games
+moved with matching hashes, newer Review settings/resume stayed unchanged, and
+the superseded legacy resume was removed. A rerun reported zero moves/issues.
+Both verified packages were installed and their runtime/scriptlet bytes checked.
+Device launches/framebuffer captures showed Review restored at Euwe–Reshevsky,
+ply 16 Nc6, and Puzzles at puzzle 506w (261/500). Both exited cleanly; all 123
+library/state/identity files were unchanged after launch, including puzzle
+progress and both apps' settings. Firmware: 5.19.6; prepared version: `1d04599`.
+See [deployment evidence and observations](device/ks1-barolo.md#app-data-separation--migration-and-deployment-2026-11-09).
+These are actual device runtime/framebuffer observations; physical panel quality,
+touch navigation and Bluetooth were not retested.
 
 Provide one host-run command, proposed as:
 
