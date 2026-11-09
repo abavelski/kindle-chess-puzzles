@@ -7,7 +7,7 @@
 Use `scripts/app.sh build puzzles` / `scripts/app.sh stage puzzles`, or select
 `review` or `play` for their independent builds/stages. Play is prepared for
 trusted-LAN Maia play and was deployed with owner approval on 2026-11-09;
-remaining physical Scribe acceptance is pending. See [Play configuration and launch](KINDLE_PLAY_MVP.md#operator-setup-prepared-physical-acceptance-pending). Legacy build-kindle.sh and
+the owner accepted the deployed MVP on the same day. See [Play configuration and launch](KINDLE_PLAY_MVP.md#operator-setup). Legacy build-kindle.sh and
 stage-kindle.sh select Puzzles, now built from kindle-puzzles and installed as
 kindle-chess to preserve the existing package/scriptlet identity. The combined
 entrypoint remains only a compatibility regression target. Select an app for deploy, for example `scripts/app.sh deploy review --host root@DEVICE_IP --port 2222`.

@@ -51,7 +51,7 @@ Kobo and other devices are a second axis. Only then introduce platform events su
 
 [Portability decisions](PORTABILITY_AND_APP_REUSE.md) | [Task sequence](../archive/tasks/implemented/app-split.md) | [Build/deploy](BUILD_DEPLOY.md)
 
-## Play MVP (physical acceptance pending)
+## Play MVP (owner accepted 2026-11-09)
 
 `chess-core::play` owns transient Play state and validated authoritative server
 snapshots. `chess-render::play` supplies a dedicated screen/hit path without

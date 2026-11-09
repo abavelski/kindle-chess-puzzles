@@ -3,6 +3,10 @@
 > **Split gate (2026-11-08):** scripts/check.sh runs the shared host suite, independent product startup/persistence tests and artifact/CI negative contracts. CI builds, stages and verifies Puzzles and Review separately with pinned ARMv7/glibc 2.35 jobs. The owner accepted physical dual-app behavior on 2026-11-08; see the [device record](device/ks1-barolo.md#split-13-owner-acceptance--2026-11-08) and [archived SPLIT-13](../archive/tasks/implemented/app-split.md).
 
 
+Play extends the pinned build/stage/verify matrix to `play`, `puzzles` and
+`review`. Its host regressions, deployed device observations and owner acceptance
+on 2026-11-09 are recorded in the [Play tracker](KINDLE_PLAY_MVP.md#play-05--validation-and-human-checkpoint).
+
 The app should be mostly testable without an e-reader.
 
 ## Principle

@@ -1,6 +1,6 @@
 # Kindle Chess Play — third app MVP
 
-Status: **Waiting for device acceptance**. Deployed/configured: 2026-11-09. Host implementation/validation completed: 2026-11-09.
+Status: **Done — owner accepted 2026-11-09**. Deployed/configured: 2026-11-09. Host implementation/validation completed: 2026-11-09.
 Repository: `abavelski/kindle-chess-puzzles`; default branch **main**.
 Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess Play**, to play White against Maia on a desktop reachable over trusted local Wi-Fi. This plan is standalone: the Kindle agent can implement everything with a fake HTTP server without checking out the desktop repo.
 
@@ -78,7 +78,7 @@ Goal: add a **third independently packaged Kindle Scribe app**, **Kindle Chess P
 | PLAY-02 | PLAY-01 | Done | Product-specific Play board, touch targets and status screens |
 | PLAY-03 | PLAY-01, PLAY-02 | Done | Kindle PlayRuntime wiring, worker-thread requests, reconnect |
 | PLAY-04 | PLAY-03 | Done | Third independent Cargo binary, staging/install/release matrix |
-| PLAY-05 | PLAY-04 | Waiting for device | Host regressions, pinned build and physical Scribe LAN acceptance |
+| PLAY-05 | PLAY-04 | Done | Host regressions, pinned build and physical Scribe LAN acceptance |
 
 ### PLAY-01 — state/client tests first
 
@@ -123,7 +123,7 @@ Evidence (2026-11-09, local): packaging tests first failed for the missing Play 
 
 ### PLAY-05 — validation and human checkpoint
 
-Status: **Waiting for device** (deployed; remaining acceptance checks pending). Owner: Codex (deployment), owner (device acceptance). Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09. Host-tested source commit: `a1e5df2`.
+Status: **Done**. Owner: Codex (deployment), owner (device acceptance). Accepted/completed: 2026-11-09. Branch: `feature/kindle-chess-play-mvp`. Started: 2026-11-09. Host-tested source commit: `a1e5df2`.
 
 Host evidence (2026-11-09): focused `cargo test -p chess-core --test play` (7), `cargo test -p chess-render --test play` (4), and `cargo test -p kindle-app --test play_http --test play_runtime` (5) passed. The final unchanged-source matrix from PLAY-04 ran `scripts/check.sh` through each pinned build; all existing golden frames and all three app targets passed. Reused those successful builds rather than rebuilding unchanged code. All local build/stage/verify commands below succeeded; no remote CI or physical result is inferred:
 
@@ -145,7 +145,7 @@ Prepared artifacts (under `target/kindle/APP/`, receipts and stage/tar/KPM verif
 | puzzles | 3468744 | `e51a60425538c7d0c4dfe4a72d3e7ef4dfef1bb1f9971f69a7535197ecfdaae7` |
 | review | 3176572 | `4fc228b04c44b0d878e32258f6b9a1ffd5d3a2e9fffa397c42b2ef69c21f54eb` |
 
-**Device deployment (2026-11-09):** the owner authorized deployment. Installed Play on Barolo / firmware 5.19.6 using the existing deploy script, verified installed hashes, and configured `http://192.168.1.15:8765`. Device-to-server health reported Maia available. Launch, exclusive finger input, framebuffer rendering, shared display-lock refusal, verified-PID SIGTERM cleanup/native-process recovery and relaunch passed. All 161 files in the older app roots retained their original paths and hashes. During owner interaction, a 1500-rated game reached ply 18 with nine legal White/Black exchanges, including White castling; server FEN and the captured framebuffer agreed. No game-changing API request was sent by the agent. Second rating, illegal rejection, promotion, disconnect/reconnect, resignation/finish, touchscreen Close and physical panel assessment remain pending; see the [waiting checkpoint record](device/ks1-barolo.md#play-05--prepared-host-artifacts-waiting-for-device-2026-11-09).
+**Device deployment (2026-11-09):** the owner authorized deployment. Installed Play on Barolo / firmware 5.19.6 using the existing deploy script, verified installed hashes, and configured `http://192.168.1.15:8765`. Device-to-server health reported Maia available. Launch, exclusive finger input, framebuffer rendering, shared display-lock refusal, verified-PID SIGTERM cleanup/native-process recovery and relaunch passed. All 161 files in the older app roots retained their original paths and hashes. During owner interaction, a 1500-rated game reached ply 18 with nine legal White/Black exchanges, including White castling; server FEN and the captured framebuffer agreed. No game-changing API request was sent by the agent. The owner subsequently reported “works great” and explicitly requested completion, reintegration into main and push. This closes the MVP human checkpoint. No separate device pass is asserted for edge cases without an individual recorded observation; their focused host coverage remains as documented. See the [owner acceptance record](device/ks1-barolo.md#play-05--owner-acceptance-2026-11-09).
 
 - Run focused Rust state/client/UI tests then `scripts/check.sh`; build/stage/verify `puzzles`, `review`, and `play` using the pinned Scribe target. Record commands and results, and ensure old snapshot tests remain green.
 - With a physical jailbroken Scribe + desktop server on same trusted Wi-Fi, install Play and check: configure server URL; NEW game at two ratings; legal white move and Maia response; illegal move unchanged; promotion chooser via fixture or test position; disconnect/reconnect GET; resignation; finish message; close; and distinct co-installation with the other apps. Confirm input exclusivity and no extra files created in either older app's data root.
@@ -155,15 +155,15 @@ Prepared artifacts (under `target/kindle/APP/`, receipts and stage/tar/KPM verif
 
 The third app installs and runs separately on Kindle Scribe without reading/writing any Puzzle or Review data. It starts an Elo-selected game, submits White's standard UCI move to the LAN server, shows Maia's **validated** reply from server FEN, rejects invalid moves without desynchronization, recovers by GET after connection problems, and ends on checkmate/draw/resign. Existing two apps and pending data separation tasks remain untouched.
 
-## Operator setup (prepared; physical acceptance pending)
+## Operator setup
 
 Use `scripts/app.sh build play`, `scripts/app.sh stage play` and
 `python3 tools/verify_app_artifacts.py --app play` on the host. Outputs are in
 `target/kindle/play/`, including `kindle_chess_play_0.1.0_kindlehf.kpkg` and the
 inspectable `stage/`. The same commands select `puzzles` and `review` for their
 independent artifacts. The owner authorized deployment on 2026-11-09; Play is
-installed and configured on the Scribe. Remaining physical acceptance is tracked
-in PLAY-05 above.
+installed and configured on the Scribe. The owner accepted the MVP; deployment
+and acceptance evidence are recorded in PLAY-05 above.
 
 Once Play is installed, create `/mnt/us/kindle-chess-play/config.json` via USB
 (the `kindle-chess-play` folder on the mounted Kindle) or SSH. Its entire content

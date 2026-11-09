@@ -2666,3 +2666,22 @@ move unchanged, promotion chooser, disconnect/reconnect by GET, resignation and
 finish message, touchscreen Close, library/co-install launch interaction and
 owner physical panel assessment. PLAY-05 remains Waiting for device until those
 checks are recorded; the current game is left untouched and Play remains open.
+
+
+### PLAY-05 — owner acceptance, 2026-11-09
+
+Status: **Done**. After using the deployed Play app, the owner reported
+“works great” and explicitly requested that the tasks be finished, the feature
+branch reintegrated into main and the result pushed to the remote. This owner
+acceptance supersedes the Waiting for device status in the preparation and
+deployment entries above and closes the MVP checkpoint.
+
+Accepted deployed source: `a1e5df2`, Play binary SHA256
+`c3a63ffd893b0daf6fce9aa6efb7f4e4a048802b118029a4edf420b3aed68b50`,
+on Barolo / firmware 5.19.6, configured for desktop
+`http://192.168.1.15:8765`. The preceding record retains the actual launch,
+network, game/castling, ownership, cleanup and data-preservation observations.
+The owner's report is overall MVP acceptance; it is not an invented per-item
+report for the remaining edge cases listed in the prior entry. Existing focused
+host fixtures cover those behaviors. No new device action or redeployment was
+needed for this documentation-only acceptance closeout.
