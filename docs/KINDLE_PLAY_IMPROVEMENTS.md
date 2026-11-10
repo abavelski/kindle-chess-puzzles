@@ -1,6 +1,6 @@
 # Kindle Chess Play — post-MVP improvements (Kindle)
 
-**All Kindle implementation complete — ready for owner testing (2026-11-10).** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
+**All Kindle implementation complete — deployed for owner testing (2026-11-10).** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
 
 ## Goal and existing architecture
 
@@ -50,7 +50,7 @@ Owner-directed batch workflow: keep every Kindle implementation commit on `featu
 | 1 | FKP-01 — match existing close icon | MVP | Implemented; ready for owner testing | Shared X-icon rendering, same close position/hit target |
 | 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Implemented; ready for owner testing | Side selector, rotated board/taps, server contract |
 | 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Implemented; ready for owner testing | Paged SAN move panel, historical FEN viewer, return-to-live |
-| 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Automatic verification complete; ready for owner testing | End-to-end human verification/evidence only |
+| 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Deployed for owner testing | End-to-end human verification/evidence only |
 
 ### FKP-01 — close icon parity
 
@@ -98,13 +98,13 @@ Final focused core tests (13), Play render tests (8) and HTTP/runtime tests (8) 
 
 ### FKP-04 — final cross-repository acceptance (human is the last step)
 
-**Status: Automatic verification complete; ready for owner testing.** Owner: Codex test prep / final owner acceptance. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
+**Status: Deployed for owner testing; automatic verification complete.** Owner: Codex test prep / final owner acceptance. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
 
 Final automated evidence (2026-11-10): `PATH="$PWD/.venv/bin:$PATH" bash scripts/codex-play.sh verify FKP-04` passed core (13), render (8), HTTP/runtime (8), and pinned build → stage → artifact verification for **play, puzzles and review**. Each build ran `scripts/check.sh`; old Puzzles/Review goldens remained unchanged. All three receipts match the final source, `6b077eb`, on `feature/kindle-play-improvements`. The earlier interrupted development run failed formatting while a test was being written; the final immutable-source run passed completely. Reused the existing wrapper and build/verification pipeline; no new test runner or deployment stack.
 
 Desktop baseline `12e52a27514757e6158216af23c6ec0d689a614d` (remote master) was checked in an isolated temporary worktree, with no changes to the user's checkout or real databases. `npm ci`, `npm test` (157 Node + 99 archive tests), `npm run build`, and `npm run test:desktop` passed. The first default Retina GUI run failed the existing minimum-window-size assertion; a targeted rerun with `--force-device-scale-factor=1` passed, then the full GUI suite passed using a temporary Electron launcher with that same flag. No desktop source change was needed. Separate fake-Maia Kindle server smoke and Personal Studies smoke also passed. The same-version local Electron 38.8.6 binary was reused in the isolated dependency directory after its initial install lacked the executable.
 
-This desktop revision is the existing White-only baseline, **not** acceptance of desktop BKP-01..04. Black play and SAN integration were validated against additive-contract fixtures; real Black/Maia and new My Studies integration require the upgraded desktop service during owner testing. White creation remains compatible with legacy servers. No new device deployment, live engine session or human acceptance is claimed.
+This desktop revision is the existing White-only baseline, **not** acceptance of desktop BKP-01..04. Black play and SAN integration were validated against additive-contract fixtures; real Black/Maia and new My Studies integration require the upgraded desktop service during owner testing. White creation remains compatible with legacy servers. Those automatic tests did not establish physical/live-engine acceptance. The owner subsequently authorized the deployment recorded below; final human acceptance is not inferred.
 
 Prepared artifacts:
 
@@ -115,6 +115,8 @@ Prepared artifacts:
 | review | 3176460 | `ce8f421f7ad20df50079accdec991d6d9093fc82da6bef2f17ab0037150e103a` |
 
 Play package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`. Package SHA256: `8cb811b4c0d36c3e8f2ca2d96c7ed88ccb25e2fb7b01a01eed0f629e0138e662`. Local logs and `handoff.json`: `.git/codex-play-runs/` via `latest-FKP-04`; desktop logs are in that run’s `desktop/` subdirectory. [Complete-build checkpoint](device/ks1-barolo.md#fkp-01fkp-04--complete-build-ready-for-owner-testing-2026-11-10).
+
+Deployment evidence (2026-11-10): owner requested Play installation for testing. Re-verified the current stage, then ran `scripts/app.sh deploy play --host root@192.168.1.20 --port 2222` using a temporary authenticated SSH control connection with the existing host key. Device: Barolo / ARMv7 / firmware 5.19.6. Installed binary, receipt, source archive and scriptlet matched the stage; loader dependencies resolved. Existing Play config (`http://192.168.1.15:8765`) and all 161 files in the older app roots remained byte-identical. Launched Play through its own runtime; exclusive input and first full frame succeeded (460 ms). The X, side selector and new history panel were inspected in a framebuffer capture. The app is left running for owner testing. The desktop returned health 200 / Maia available. Passive observations during owner input included a White-game resignation and a subsequent 1400 White game at ply 16 with SAN; host replay confirmed legal history and matching server placement. The agent sent no game-changing API request. Actual owner acceptance of the full feature set remains unclaimed. See [deployment record](device/ks1-barolo.md#fkp-04--complete-play-build-deployed-for-owner-testing-2026-11-10).
 
 1. Codex prepares automated verification only: desktop npm test, npm run build, npm run test:desktop; Kindle focused tests and scripts/check.sh; pinned scripts/app.sh build play, scripts/app.sh stage play, python3 tools/verify_app_artifacts.py --app play; confirm old two products still pass check.sh. Record exact actual pass/fail evidence and both source SHAs. This stage may be marked Waiting for human, **not Done**.
 2. Owner on real desktop + jailbroken Kindle Scribe on trusted Wi-Fi: manually Start/Stop in Maia tab; play both colors and at least two Elo settings; verify GUI game/last-move time; make several moves, leave Kindle, confirm matching dated/rated PGN in My Studies and update after next move; tap old plies and Latest on Scribe; verify resign result for each color, reconnect after timeout, and stop/restart listener. Confirm no writes to other Kindle apps, Games or Openings data, and no loss of user-edited studies. Record firmware, app binary/source revisions, dates, what was actually observed and any failed steps in docs/device/ks1-barolo.md.

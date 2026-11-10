@@ -2758,3 +2758,52 @@ including real upgraded-server Black/SAN play, history/Latest, both ratings,
 resign/reconnect, My Studies behavior and physical close/display behavior.
 No per-item pass is invented. Exact commands, hashes, baseline limitations and
 local logs are recorded in the [improvements plan](../KINDLE_PLAY_IMPROVEMENTS.md).
+
+
+### FKP-04 — complete Play build deployed for owner testing (2026-11-10)
+
+Status: **Deployed for owner testing**. The owner explicitly requested deployment
+of the complete Play improvements to the available reader. Branch:
+`feature/kindle-play-improvements`; application source `6b077eb`, preparation
+record `b7126f6` (documentation only). Play's existing stage passed the artifact
+verifier against current source before upload; no rebuild was needed.
+
+Actual device identification: ARMv7 Barolo / **firmware 5.19.6**, kernel
+`4.9.77-lab126`. Initially no chess process or shared display owner was active.
+Used the recorded SSH endpoint and host-key verification with a temporary
+control connection; no authentication configuration was saved. Command:
+
+```sh
+scripts/app.sh deploy play --host root@192.168.1.20 --port 2222
+```
+
+Installation completed. The installed binary, `build.json`, `source.tar` and
+library scriptlet matched the selected stage. Installed binary SHA256:
+`3471a980d83bfdd68f6fe1891a3da4a3d7f2dc578c02808b4c6849947296c759`.
+The native loader resolved all dependencies. Existing Play config was preserved
+byte-for-byte, retaining `http://192.168.1.15:8765`. **All 161 files** in the
+Puzzles and Review roots retained the same paths and SHA256 values, including
+runtimes, libraries, state, logs and identities. Neither older app was deployed.
+
+Launched `/mnt/us/kindle-chess-play/runtime/launch.sh`. Logs confirmed exclusive
+finger input, FBInk at 1860×2480 / stride 1872 / 8 bpp / rotation 3, and a first
+usable full frame at **460 ms**. App and shared display lock child PIDs matched
+and identified the Play binary. The inspected `play-screen.png` framebuffer
+showed the shared X, rating/White/Black controls, status and Start/Latest history
+panel. Play is intentionally left open for the owner; no automated termination,
+resignation, game creation or move submission was performed by the agent.
+
+The configured desktop reported health 200 / API v1 / Maia available and
+initially no game. During subsequent real owner input, logs and passive reads
+observed White-game creation/resignation. A later read captured a **1400-rated
+White game at ply 16**, with 16 SAN entries. Offline python-chess replay verified
+all 16 moves legal and resulting placement identical to server FEN. This is an
+observed session, not an assertion that every color/history/GUI acceptance item
+has passed. Black play, history selection/Latest, final physical close and the
+complete cross-repository owner acceptance remain for the owner's test report.
+
+Evidence is local under ignored `probe-output/play-improvements-20261110/`:
+deployment and loader logs, before/after older-app manifests and config hashes,
+installed payload hashes, lifecycle/owner-run logs, deployment attestation,
+passive game snapshots and the inspected framebuffer capture. No panel/ghosting,
+new desktop-source revision or final human approval is inferred.
