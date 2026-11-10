@@ -1,6 +1,6 @@
 # Kindle Chess Play — post-MVP improvements (Kindle)
 
-**All Kindle implementation complete — deployed for owner testing (2026-11-10).** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
+**Kindle implementation complete — latest UI follow-up ready, not deployed (2026-11-10).** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
 
 ## Goal and existing architecture
 
@@ -51,6 +51,7 @@ Owner-directed batch workflow: keep every Kindle implementation commit on `featu
 | 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Implemented; ready for owner testing | Side selector, rotated board/taps, server contract |
 | 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Implemented; ready for owner testing | Paged SAN move panel, historical FEN viewer, return-to-live |
 | 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Deployed for owner testing | End-to-end human verification/evidence only |
+| 5 | FKP-05 — refresh and movetext parity | FKP-03 | Implemented; ready for owner testing | Shared header refresh and inline analysis-style moves |
 
 ### FKP-01 — close icon parity
 
@@ -139,7 +140,8 @@ is generated. The desktop must implement the additive v1 color extension.
 Snapshots without `sanMoves` still work and display standard UCI instead.
 
 Tap any move to view the position after its ply, or START for the initial board.
-Use the numbered arrows to page through the entire record. While viewing the
+Use < PAGE / PAGE > to page through the inline move record. The top-left
+Refresh icon performs the same full-screen redraw as Puzzles and Game Review. While viewing the
 past, board input, promotions, resign and new-game mutations are disabled.
 LATEST / PLAY returns to the exact current server snapshot and enables live
 moves again. A server update/reconnect returns to Latest automatically.
@@ -147,3 +149,38 @@ moves again. A server update/reconnect returns to Latest automatically.
 The feature branch keeps all changes together under the owner's 2026-11-09
 override. All automatic Kindle checks and packaging are complete; the staged package is
 ready now. Owner testing happens once, on the complete feature set.
+
+
+### FKP-05 — refresh and movetext parity
+
+**Status: Implemented; ready for owner testing.** Owner: Codex / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-10.
+
+Owner follow-up: reuse the Puzzles/Review header Refresh icon and full-screen refresh action. Replace Play's two-column move cards with the exact shared analysis movetext flow, typography, spacing, selected-move chrome and paging style. Keep status, Start/Latest, SAN/UCI fallback, history safety and complete pagination. Extract neutral presentation only; no fabricated analysis tree or product persistence coupling. Test pixel parity, wrapping, pagination, focus and touch targets at both resolutions; preserve older product goldens.
+
+
+Reuse: Play now calls the existing `draw_refresh_button` in the same header
+rectangle as Puzzles/Review and retains the existing full-refresh runtime
+action, available even during a pending request or promotion. The former
+text toolbar button is removed. Extracted the original analysis flow builder,
+line painter, move-chip geometry and padded touch rectangles into generic
+`eink-ui::move_flow`; analysis and Play call the same implementation. Moves
+now flow inline with separate conventional White move numbers, SAN/UCI labels,
+identical spacing, font and selected-move highlight. Page controls use the
+existing analysis painter and labels; Start/Latest remain Play-owned.
+
+Evidence (2026-11-10): the new refresh-parity and inline-movetext regressions
+failed before implementation, then passed. A shared-widget test verifies
+pixel and hit-rectangle parity against real analysis at two widths, including
+selected moves and wrapping. `scripts/codex-play.sh verify FKP-03` passed:
+14 core, 11 Play render, 8 HTTP/runtime tests, full `scripts/check.sh` (including
+15 eink-ui tests and both standalone products), pinned Play build/stage/artifact
+verification. Existing Puzzles/Review goldens are unchanged. Reviewed the 12
+Play history frames at both resolutions (`target/play-style-preview.png`);
+updated only the 18 Play checksums. Long 108-ply records remain fully paged,
+with selected-ply focus, read-only past positions and SAN/UCI fallback intact.
+Log: `.git/codex-play-runs/FKP-03-20261110-185037-4GMs74/verify.log`.
+
+Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`;
+binary SHA256 `7bfeff36c2fdcb08e4f072fd01709d8c9e4cdf3754210532422a3557ad3ae34b`.
+No device deployment or physical acceptance: the owner explicitly requested
+waiting for their go before deployment.

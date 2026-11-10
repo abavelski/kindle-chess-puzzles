@@ -67,5 +67,7 @@ The post-MVP Play feature branch adds human-side selection and a transient
 read-only history cursor. Server snapshots remain the immutable live authority;
 Start/past-ply views reuse the same authored UCI replay as snapshot validation,
 and Latest restores the exact server FEN. Analysis and Play share neutral move
-chip/pager painting through `eink-ui::move_list`; no Review tree or persisted
+chip/pager painting through `eink-ui::move_list` and inline movetext flow through
+`eink-ui::move_flow`. Play uses the shared header refresh icon and existing
+full-refresh runtime action; no Review tree or persisted
 settings are reused for Play. See the [complete-build improvement tracker](KINDLE_PLAY_IMPROVEMENTS.md).

@@ -296,7 +296,8 @@ fn history_pages_expose_every_ply_san_fallback_and_latest_without_overlap() {
                 let output = render(&app, metrics).unwrap();
                 for chip in &history.chips {
                     seen.push(chip.ply);
-                    assert!(chip.rect.width >= 118 && chip.rect.height >= 118);
+                    assert!(chip.rect.width > 0 && chip.rect.height > 0);
+                    assert!(chip.hit_rect.contains_rect(chip.rect));
                     assert!(layout.base.status.contains_rect(chip.rect));
                     assert!(!chip.rect.intersects(history.message));
                     assert!(!chip.rect.intersects(history.latest));
@@ -420,5 +421,54 @@ fn pre_game_side_choice_rotates_the_finished_position_immediately() {
         );
         app.choose_color(chess_core::Color::White);
         assert_eq!(render(&app, metrics).unwrap().frame, white.frame);
+    }
+}
+
+#[test]
+fn refresh_icon_matches_review_and_remains_available_during_promotion() {
+    let review =
+        chess_core::review_app::ReviewApp::new(vec![], chess_core::WorkspaceSettings::default());
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = ready();
+        for promotion in [None, Some((8, 0))] {
+            app.promotion = promotion;
+            let play = render(&app, metrics).unwrap();
+            let reference = render(&review, metrics).unwrap();
+            let rect = reference.layout.refresh;
+            let visual = rect.inset(play.layout.header.height / 10);
+            for y in visual.y..visual.bottom() {
+                for x in visual.x..visual.right() {
+                    assert_eq!(play.frame.pixel(x, y), reference.frame.pixel(x, y));
+                }
+            }
+            assert_eq!(
+                play.hit_test_app(rect.x + rect.width / 2, rect.y + rect.height / 2, &app),
+                Some(HitTarget::Play(PlayTarget::FullRefresh))
+            );
+        }
+    }
+}
+
+#[test]
+fn move_record_uses_inline_analysis_spacing_and_separate_move_numbers() {
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = ready();
+        let mut state = app.snapshot.clone().unwrap();
+        state.moves = vec!["g1f3".into(), "g8f6".into(), "e2e4".into(), "e7e5".into()];
+        state.san_moves = Some(vec!["Nf3".into(), "Nf6".into(), "e4".into(), "e5".into()]);
+        state.ply = 4;
+        app.snapshot = Some(state);
+        app.view_ply = 4;
+        let history = PlayLayout::new(metrics).unwrap().history(&app);
+        assert_eq!(
+            history
+                .chips
+                .iter()
+                .map(|c| c.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Nf3", "Nf6", "e4", "e5"]
+        );
+        assert_eq!(history.chips[0].rect.y, history.chips[3].rect.y);
+        assert!(history.chips[0].rect.width < history.body.width / 4);
     }
 }

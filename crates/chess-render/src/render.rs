@@ -1059,7 +1059,7 @@ fn draw_workspace_button(frame: &mut Gray8, rect: Rect, selected: bool) {
     );
 }
 
-fn draw_refresh_button(frame: &mut Gray8, rect: Rect) {
+pub(crate) fn draw_refresh_button(frame: &mut Gray8, rect: Rect) {
     draw_button_chrome(frame, rect, WHITE, INK, false);
     let size = rect.width.min(rect.height);
     let icon = rect.inset(size / 4);

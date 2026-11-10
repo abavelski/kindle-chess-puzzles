@@ -2834,3 +2834,21 @@ agent. Physical orientation acceptance is pending the owner's report.
 Local evidence: `probe-output/play-orientation-20261110/` (deployment, hashes,
 loader, launch and attestation); host verification:
 `.git/codex-play-runs/FKP-02-20261110-183710-1HQU78/verify.log`.
+
+
+## Play refresh and movetext follow-up — prepared, not deployed (2026-11-10)
+
+The common `feature/kindle-play-improvements` branch now reuses the existing
+Puzzles/Review header Refresh icon and analysis inline movetext flow. Host
+pixel/hit-target parity, history pagination, existing product goldens and full
+`scripts/check.sh` passed, followed by pinned Play build/stage/artifact checks.
+Build binary SHA256:
+`7bfeff36c2fdcb08e4f072fd01709d8c9e4cdf3754210532422a3557ad3ae34b`.
+Package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`.
+
+**Not deployed:** owner requested waiting for an explicit go. The reader has
+not been contacted or changed for this follow-up. Physical checks remain:
+compare Refresh icon, confirm full-screen refresh, compare inline move display
+and selected highlight with Review, browse pages/Start/Latest and resume play.
+See FKP-05 in [the tracker](../KINDLE_PLAY_IMPROVEMENTS.md#fkp-05--refresh-and-movetext-parity)
+for automated evidence and exact local verification log.
