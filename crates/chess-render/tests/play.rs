@@ -393,3 +393,32 @@ fn history_visual_states_match_reviewed_snapshots() {
         include_str!("../../../tests/fixtures/play/history-snapshots.txt")
     );
 }
+
+#[test]
+fn pre_game_side_choice_rotates_the_finished_position_immediately() {
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = ready();
+        let mut state = app.snapshot.clone().unwrap();
+        state.status = "finished".into();
+        state.result = Some(chess_core::play::GameResult {
+            outcome: "black_win".into(),
+            reason: "resignation".into(),
+        });
+        let id = app.begin(Request::Resign).unwrap();
+        app.complete(id, Ok(Response::Game(state.clone())));
+        let white = render(&app, metrics).unwrap();
+        app.choose_color(chess_core::Color::Black);
+        let black = render(&app, metrics).unwrap();
+        assert!(chess_render::ScreenState::flipped(&app));
+        let board = black.layout.board;
+        assert!((board.y..board.bottom()).any(|y| (board.x..board.right())
+            .any(|x| black.frame.pixel(x, y) != white.frame.pixel(x, y))));
+        assert_eq!(app.snapshot.as_ref(), Some(&state));
+        assert_eq!(
+            app.board.placement(),
+            chess_core::Board::from_fen(&state.fen).unwrap().placement()
+        );
+        app.choose_color(chess_core::Color::White);
+        assert_eq!(render(&app, metrics).unwrap().frame, white.frame);
+    }
+}

@@ -416,10 +416,7 @@ impl PlayApp {
                 .is_none_or(|s| s.status == "finished")
     }
     pub fn flipped(&self) -> bool {
-        self.snapshot
-            .as_ref()
-            .map_or(self.player_color, Snapshot::human_color)
-            == Color::Black
+        self.player_color == Color::Black
     }
     pub fn choose_color(&mut self, color: Color) {
         if self.can_new() {

@@ -441,3 +441,37 @@ fn white_legacy_fallback_only_follows_confirmed_validation_rejection() {
     assert!(app.complete(id, Err("Timeout".into())).is_none());
     assert!(!app.can_new());
 }
+
+#[test]
+fn selected_human_color_rotates_finished_game_without_mutating_server_snapshot() {
+    let mut state = initial();
+    state.status = "finished".into();
+    state.result = Some(chess_core::play::GameResult {
+        outcome: "black_win".into(),
+        reason: "resignation".into(),
+    });
+    let mut app = PlayApp::default();
+    let id = app.begin(Request::Current).unwrap();
+    app.complete(id, Ok(Response::Game(state.clone())));
+    for color in [
+        chess_model::Color::Black,
+        chess_model::Color::White,
+        chess_model::Color::Black,
+    ] {
+        app.choose_color(color);
+        assert_eq!(app.flipped(), color == chess_model::Color::Black);
+        assert_eq!(app.snapshot.as_ref(), Some(&state));
+        assert_eq!(
+            app.new_game_request(),
+            Request::New {
+                rating: 1500,
+                player_color: color
+            }
+        );
+    }
+    let id = app.begin(app.new_game_request()).unwrap();
+    assert!(app.flipped());
+    app.complete(id, Ok(Response::Game(black_opening())));
+    app.choose_color(chess_model::Color::White);
+    assert!(app.flipped());
+}
