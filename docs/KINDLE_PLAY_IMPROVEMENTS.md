@@ -1,6 +1,6 @@
 # Kindle Chess Play — post-MVP improvements (Kindle)
 
-**Implementation in progress — common feature branch; owner tests the complete set.** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
+**All Kindle implementation complete — ready for owner testing (2026-11-10).** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
 
 ## Goal and existing architecture
 
@@ -43,18 +43,18 @@ Owner override (2026-11-09): implement all Kindle tasks on `feature/kindle-play-
 **Token-efficient CLI option:** use [`bash scripts/codex-play.sh`](CODEX_PLAY_CLI.md) from this repository. It invokes Codex on one Ready task with Sol 6.1/medium by default, then uses existing focused tests and pinned build/stage/artifact scripts outside the model. Use `verify` for a no-model check and `fix` to resume with only the relevant failing-log excerpt. Human/device verification is still required and is never automated. Do not duplicate the wrapper's full build/tests inside the Codex turn.
 
 
-One task per branch/PR. Start the first **Ready** task with dependencies Done. Follow the reuse-first rule above, and document reused/extracted/new components before handoff. Before coding, read AGENTS.md, README.md, docs/ARCHITECTURE.md, docs/TESTING.md, this plan and linked desktop contract. Change the row and detailed status to In progress (owner/branch/date). Add focused failing tests/snapshots first, implement that task only, then run focused tests and scripts/check.sh; build/stage/verify Play if package/runtime changes. Preserve old Puzzles and Review golden frames. Record commands + results and commit SHA in task details. Set **Waiting for human** after automated checks; **human verification is the last step** and is never inferred from passing tests. Only owner-confirmed device observations can mark Done; update both status locations together in one commit. Keep dependent tasks Blocked until accepted.
+Owner-directed batch workflow: keep every Kindle implementation commit on `feature/kindle-play-improvements`; implement all tasks and complete automatic verification before handing over once for owner testing. The original per-task human/dependency holds are superseded for implementation by the owner override above. Reuse existing primitives, work test-first, preserve old product goldens/data, and record actual commands, results and source revisions. Cross-repository dependencies still describe the server required for live acceptance; mocks and baseline desktop tests do not establish those extensions or physical acceptance. Mark the complete build ready for owner testing after automatic checks, and record final owner observations afterward.
 
-| Order | Task | Depends on | Initial status | Deliverable |
+| Order | Task | Depends on | Status | Deliverable |
 | --- | --- | --- | --- | --- |
-| 1 | FKP-01 — match existing close icon | MVP | **Implemented; final testing deferred** | Shared X-icon rendering, same close position/hit target |
-| 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Implemented; final verification pending | Side selector, rotated board/taps, server contract |
-| 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Implemented; final verification pending | Paged SAN move panel, historical FEN viewer, return-to-live |
-| 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | In progress (host verification) | End-to-end human verification/evidence only |
+| 1 | FKP-01 — match existing close icon | MVP | Implemented; ready for owner testing | Shared X-icon rendering, same close position/hit target |
+| 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Implemented; ready for owner testing | Side selector, rotated board/taps, server contract |
+| 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Implemented; ready for owner testing | Paged SAN move panel, historical FEN viewer, return-to-live |
+| 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Automatic verification complete; ready for owner testing | End-to-end human verification/evidence only |
 
 ### FKP-01 — close icon parity
 
-**Status: Implemented; owner testing deferred to the complete build.** Owner: Codex implementation / human acceptance. Branch: `feature/kindle-play-improvements`. Started/automated verification: 2026-11-09. Implementation revision: `95eeabb`.
+**Status: Implemented; ready for owner testing.** Owner: Codex implementation / human acceptance. Branch: `feature/kindle-play-improvements`. Started/automated verification: 2026-11-09. Implementation revision: `95eeabb`.
 
 Reuse: Play now calls the existing `draw_close_button` and `header_control_visual_rect` helpers used by Puzzles/Review. `Layout.exit`, `PlayTarget::Close` and the existing runtime exit path are unchanged. Extraction: none; the two existing helpers were made `pub(crate)` without changing their drawing bodies. New: a focused pixel-parity/X-endpoint and touch-boundary test in the existing Play render harness, because Play previously had no comparison against the other products' close chrome. No new production widget, state, geometry or network code.
 
@@ -63,15 +63,15 @@ Reuse: Play now calls the existing `draw_close_button` and `header_control_visua
 
 Automated evidence (2026-11-09, local): the new parity test first failed against the literal CLOSE button, then passed after reusing the existing helpers. `PATH="$PWD/.venv/bin:$PATH" bash scripts/codex-play.sh verify FKP-01` passed in full: Play render/touch tests (5), HTTP/runtime tests (5), pinned Play build including `scripts/check.sh`, stage and artifact verification. Existing Puzzles/Review goldens passed unchanged. Only the six Play golden checksums changed; all six close-icon crops and the ready full frame were visually inspected (`target/fkp-01-close-states.png`, `target/fkp-01-ready.png`). Verification log: `.git/codex-play-runs/` via `latest-FKP-01`.
 
-Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`. Binary SHA256: `2e82dc2680eef91f919824a6d2ee0657967cabf888ad3996f97f07c77b03c965` (3088568 bytes). Toolchain/target checks passed: Rust 1.85.1, Zig 0.13.0, ARMv7 hard-float/glibc 2.35 and pinned FBInk. No device connection/deployment or human pass is claimed. [Prepared checkpoint](device/ks1-barolo.md#fkp-01--prepared-close-icon-parity-waiting-for-human-2026-11-09). FKP-02 stays Blocked until this human acceptance and desktop BKP-03 are Done.
+Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`. Binary SHA256: `2e82dc2680eef91f919824a6d2ee0657967cabf888ad3996f97f07c77b03c965` (3088568 bytes). Toolchain/target checks passed: Rust 1.85.1, Zig 0.13.0, ARMv7 hard-float/glibc 2.35 and pinned FBInk. No device connection/deployment or human pass is claimed. [Prepared checkpoint](device/ks1-barolo.md#fkp-01--prepared-close-icon-parity-waiting-for-human-2026-11-09). This was the intermediate FKP-01 package; the complete verified package below supersedes it under the owner override.
 
 **Automated acceptance:** focused render/runtime tests and scripts/check.sh. **Human verification (last step):** on Scribe compare Play and Puzzles close icons visually; tap Play X and confirm reliable shutdown. Wait for owner approval before Done.
 
 ### FKP-02 — choose White/Black before New Game
 
-**Status: Implemented; final verification pending.** Owner: Codex implementation / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
+**Status: Implemented; ready for owner testing.** Owner: Codex implementation / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
 
-Reuse: existing Play state, worker/client, UCI/FEN validation, board geometry, board painter and button selection chrome. Extracted the existing canonical/display-square transform into `eink_ui::board::oriented_square` for board drawing, selection highlights and taps. New: side-selection target/state and color-neutral request/turn checks, because Play previously represented White only. Focused tests cover Black opening ply 1, White legacy snapshots, both orientations/all 64 squares, promotions, error/reconnect color and canonical move requests. White/Black previews were inspected. A confirmed 400 BAD_REQUEST on an explicit White creation permits one rating-only legacy attempt; no fallback occurs for Black or ambiguous transport failures. Its failing/passing regression also covers successful legacy creation and bounded retry. Full matrix verification follows after FKP-03 under the owner override.
+Reuse: existing Play state, worker/client, UCI/FEN validation, board geometry, board painter and button selection chrome. Extracted the existing canonical/display-square transform into `eink_ui::board::oriented_square` for board drawing, selection highlights and taps. New: side-selection target/state and color-neutral request/turn checks, because Play previously represented White only. Focused tests cover Black opening ply 1, White legacy snapshots, both orientations/all 64 squares, promotions, error/reconnect color and canonical move requests. White/Black previews were inspected. A confirmed 400 BAD_REQUEST on an explicit White creation permits one rating-only legacy attempt; no fallback occurs for Black or ambiguous transport failures. Its failing/passing regression also covers successful legacy creation and bounded retry. Final matrix verification passed on 2026-11-10 under the owner override (FKP-02 commit `173d8de`, compatibility follow-up `6b077eb`).
 
 1. Add a clear side selector (WHITE / BLACK) beside pre-game Elo controls, using existing button/selection visuals and Play's control layout rather than a new widget framework. Default White. Only editable when New Game is permitted; selecting after game start must not mutate the active session. Request::New sends {rating,playerColor}; retain a legacy White path only where appropriate. On GET reconnect, use snapshot.playerColor as source of truth rather than cached selection.
 2. Update Snapshot validation: accept both color strings; active side follows FEN and ply, while nonterminal states end **on the human turn** (White => even ply; Black => odd ply). Retain authoritative FEN, UCI history replay/consistency checks, terminal parity exception and error semantics; avoid simplistic White-only assumptions. Human Black 201 may contain one Maia opening move and must render that board immediately.
@@ -82,11 +82,11 @@ Reuse: existing Play state, worker/client, UCI/FEN validation, board geometry, b
 
 ### FKP-03 — paged move-history panel and read-only navigation
 
-**Status: Implemented; final verification pending.** Owner: Codex implementation / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
+**Status: Implemented; ready for owner testing.** Owner: Codex implementation / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
 
 Reuse: extracted the original Snapshot replay loop into `replay_positions`; validation and all browsing use that single castling/en-passant/promotion path. Added a generic `Board::from_squares` constructor without legality logic. Extracted existing analysis `draw_move_chip`, `draw_page_control` and shared `PageWindow` pagination into neutral `eink_ui::move_list`; the original analysis still uses those identical painters. Play opts into a shared board-height limit to reserve legible history space. New product-owned state/targets track view ply and page, preserve latest FEN/history, block writes in the past, and restore exact authoritative state with Latest. No fake Review/Puzzles trees or persistence.
 
-Focused core tests (12), Play render tests (8) and HTTP/runtime tests (8) pass; Clippy passed before the final focused additions and will run in the full gate. Covered 0/1/2/108 plies, SAN/UCI labels, both colors/orientations, Start/middle/latest, all pagination boundaries, all special-move fixtures, finished browsing, pending requests, no HTTP writes from browsing, reconnect-to-latest, pixel-damage reconstruction and legacy/additive wire data. Twelve history goldens at both resolutions were visually inspected; all older product golden files remain untouched.
+Final focused core tests (13), Play render tests (8) and HTTP/runtime tests (8) pass. The full matrix including Clippy and all older app targets passed on 2026-11-10. FKP-03 implementation: `2ffbf1b`; complete tested source: `6b077eb`. Covered 0/1/2/108 plies, SAN/UCI labels, both colors/orientations, Start/middle/latest, all pagination boundaries, all special-move fixtures, finished browsing, pending requests, no HTTP writes from browsing, reconnect-to-latest, pixel-damage reconstruction and legacy/additive wire data. Twelve history goldens at both resolutions were visually inspected; all older product golden files remain untouched.
 
 1. Rework the **existing** Play status area (currently a text box) to retain a clearly readable network/game-status message **and** show all committed moves in an e-ink-friendly, paginated move list. Reuse the neutral presentation, font, hit-test and pagination primitives behind the Puzzles/Review analysis panel where feasible; do not create fake analysis-tree data to force reuse. Reuse typography, border and controls consistent with the Puzzles/Review analysis panel; do not import those products' persisted trees or states. Display move numbers and SAN from optional sanMoves; if missing, fall back to UCI. Black's initial Maia White move is immediately visible. Highlight selected ply and expose page navigation; do not truncate older moves silently.
 2. Add Play-only hit targets: HistoryPly(n), HistoryPreviousPage, HistoryNextPage, Latest. Tapping a move displays **the position after that ply**, from the server-authoritative starting position and UCI sequence. **Refactor and reuse the existing replay loop in `chess-core/src/play.rs` `Snapshot::parse`** to obtain intermediate positions (castling, en passant and q/r/b/n promotions); keep one replay implementation for both validation and history rather than writing a second one. No on-device legality/search/PGN parsing. A tap on the current last move or **Latest** displays the exact snapshot.fen; the initial position is reachable (Start/ply 0).
@@ -98,7 +98,23 @@ Focused core tests (12), Play render tests (8) and HTTP/runtime tests (8) pass; 
 
 ### FKP-04 — final cross-repository acceptance (human is the last step)
 
-**Status: In progress (host verification; owner tests once the complete build is ready).** Owner: Codex test prep / final owner acceptance. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
+**Status: Automatic verification complete; ready for owner testing.** Owner: Codex test prep / final owner acceptance. Branch: `feature/kindle-play-improvements`. Started: 2026-11-09.
+
+Final automated evidence (2026-11-10): `PATH="$PWD/.venv/bin:$PATH" bash scripts/codex-play.sh verify FKP-04` passed core (13), render (8), HTTP/runtime (8), and pinned build → stage → artifact verification for **play, puzzles and review**. Each build ran `scripts/check.sh`; old Puzzles/Review goldens remained unchanged. All three receipts match the final source, `6b077eb`, on `feature/kindle-play-improvements`. The earlier interrupted development run failed formatting while a test was being written; the final immutable-source run passed completely. Reused the existing wrapper and build/verification pipeline; no new test runner or deployment stack.
+
+Desktop baseline `12e52a27514757e6158216af23c6ec0d689a614d` (remote master) was checked in an isolated temporary worktree, with no changes to the user's checkout or real databases. `npm ci`, `npm test` (157 Node + 99 archive tests), `npm run build`, and `npm run test:desktop` passed. The first default Retina GUI run failed the existing minimum-window-size assertion; a targeted rerun with `--force-device-scale-factor=1` passed, then the full GUI suite passed using a temporary Electron launcher with that same flag. No desktop source change was needed. Separate fake-Maia Kindle server smoke and Personal Studies smoke also passed. The same-version local Electron 38.8.6 binary was reused in the isolated dependency directory after its initial install lacked the executable.
+
+This desktop revision is the existing White-only baseline, **not** acceptance of desktop BKP-01..04. Black play and SAN integration were validated against additive-contract fixtures; real Black/Maia and new My Studies integration require the upgraded desktop service during owner testing. White creation remains compatible with legacy servers. No new device deployment, live engine session or human acceptance is claimed.
+
+Prepared artifacts:
+
+| App | Binary bytes | Binary SHA256 |
+| --- | ---: | --- |
+| play | 3108120 | `3471a980d83bfdd68f6fe1891a3da4a3d7f2dc578c02808b4c6849947296c759` |
+| puzzles | 3468728 | `7d824abcd55b88bbc5f492d7355d85f6092064cf7ed5dfea7d964c9d416d37cc` |
+| review | 3176460 | `ce8f421f7ad20df50079accdec991d6d9093fc82da6bef2f17ab0037150e103a` |
+
+Play package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`. Package SHA256: `8cb811b4c0d36c3e8f2ca2d96c7ed88ccb25e2fb7b01a01eed0f629e0138e662`. Local logs and `handoff.json`: `.git/codex-play-runs/` via `latest-FKP-04`; desktop logs are in that run’s `desktop/` subdirectory. [Complete-build checkpoint](device/ks1-barolo.md#fkp-01fkp-04--complete-build-ready-for-owner-testing-2026-11-10).
 
 1. Codex prepares automated verification only: desktop npm test, npm run build, npm run test:desktop; Kindle focused tests and scripts/check.sh; pinned scripts/app.sh build play, scripts/app.sh stage play, python3 tools/verify_app_artifacts.py --app play; confirm old two products still pass check.sh. Record exact actual pass/fail evidence and both source SHAs. This stage may be marked Waiting for human, **not Done**.
 2. Owner on real desktop + jailbroken Kindle Scribe on trusted Wi-Fi: manually Start/Stop in Maia tab; play both colors and at least two Elo settings; verify GUI game/last-move time; make several moves, leave Kindle, confirm matching dated/rated PGN in My Studies and update after next move; tap old plies and Latest on Scribe; verify resign result for each color, reconnect after timeout, and stop/restart listener. Confirm no writes to other Kindle apps, Games or Openings data, and no loss of user-edited studies. Record firmware, app binary/source revisions, dates, what was actually observed and any failed steps in docs/device/ks1-barolo.md.
@@ -106,7 +122,7 @@ Focused core tests (12), Play render tests (8) and HTTP/runtime tests (8) pass; 
 
 ## How to hand the next task to Codex
 
-“Read docs/KINDLE_PLAY_IMPROVEMENTS.md, AGENTS.md and the linked backend contract. Implement only the first Ready FKP task, tests first; update table and detailed status/evidence together; stop after automated tests at Waiting for human. Do not start dependent tasks before owner verification.”
+“Read docs/KINDLE_PLAY_IMPROVEMENTS.md, AGENTS.md and the linked backend contract. Complete all remaining Kindle implementation and automatic checks on the common feature branch. Commit implementation and evidence there, prepare one complete owner-test build, and do not stop at intermediate task gates. Never invent desktop-extension or physical-device acceptance.”
 
 The MVP is already accepted. This is a new queue and does not reopen PLAY-01..05 or the unrelated DATA-01/02 migration.
 
@@ -125,5 +141,5 @@ LATEST / PLAY returns to the exact current server snapshot and enables live
 moves again. A server update/reconnect returns to Latest automatically.
 
 The feature branch keeps all changes together under the owner's 2026-11-09
-override. The complete staged package will be handed over once automatic checks
-finish; owner testing happens once, after all Kindle implementation is ready.
+override. All automatic Kindle checks and packaging are complete; the staged package is
+ready now. Owner testing happens once, on the complete feature set.

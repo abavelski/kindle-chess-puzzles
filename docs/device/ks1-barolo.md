@@ -2711,3 +2711,50 @@ for this task. Firmware 5.19.6 / Barolo remains the previously observed baseline
 not a new probe. Required last step: deploy the verified Play package, compare
 its X icon with Puzzles on the Scribe, tap the X and confirm reliable shutdown,
 then record the owner's acceptance. Host tests do not supply that acceptance.
+
+
+### FKP-01–FKP-04 — complete build ready for owner testing (2026-11-10)
+
+Status: **All Kindle implementation and automated preparation complete; owner
+will test the complete set.** The owner explicitly superseded the per-task
+human holds and requested one common feature branch. Branch:
+`feature/kindle-play-improvements`; final tested code `6b077eb` (FKP-01 `95eeabb`,
+FKP-02 `173d8de`, FKP-03 `2ffbf1b`, compatibility follow-up `6b077eb`).
+
+Implemented: shared X close icon; White/Black selection and orientation/input;
+color-neutral authoritative state; additive SAN/metadata with UCI fallback;
+paged move history, Start and Latest; one shared replay path for validation and
+historical positions; no network writes or board mutations while viewing the
+past. White can fall back once to a legacy creation request only after a
+confirmed 400 validation rejection; transport failures still reconcile by GET.
+
+`PATH="$PWD/.venv/bin:$PATH" bash scripts/codex-play.sh verify FKP-04` passed the
+focused core/render/HTTP/runtime tests (13/8/8), all host checks including the
+unchanged Puzzles/Review goldens, and pinned build/stage/artifact verification
+for **all three apps**. Each receipt matches the final source. Shared generic
+helpers were extracted without changing older product frame output. Twelve
+history goldens were inspected at 1860×2480 and 1404×1872; previews are local
+`target/play-history-*.png` and `target/history-panels-*.png`.
+
+Prepared Play binary SHA256:
+`3471a980d83bfdd68f6fe1891a3da4a3d7f2dc578c02808b4c6849947296c759`.
+Prepared KPM: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`.
+KPM SHA256:
+`8cb811b4c0d36c3e8f2ca2d96c7ed88ccb25e2fb7b01a01eed0f629e0138e662`.
+Toolchain/target: Rust 1.85.1, Zig 0.13.0, ARMv7 hard-float/glibc 2.35 and pinned
+FBInk. The existing config format and independent runtime/data identities remain.
+
+Desktop baseline source `12e52a27514757e6158216af23c6ec0d689a614d` passed npm tests,
+production build and full desktop smoke in an isolated worktree. GUI smoke
+required `--force-device-scale-factor=1` after the default Retina run failed its
+minimum-window assertion. Separate fake-Maia Kindle smoke and Personal Studies
+smoke passed. This verifies that baseline, not the future BKP color/studies
+extensions. The user's desktop checkout and data were not modified.
+
+No new device connection, deployment or physical result was performed for this
+complete build. The previously observed device remains Barolo / firmware
+5.19.6; that is not a new probe. The owner will test the whole feature set,
+including real upgraded-server Black/SAN play, history/Latest, both ratings,
+resign/reconnect, My Studies behavior and physical close/display behavior.
+No per-item pass is invented. Exact commands, hashes, baseline limitations and
+local logs are recorded in the [improvements plan](../KINDLE_PLAY_IMPROVEMENTS.md).
