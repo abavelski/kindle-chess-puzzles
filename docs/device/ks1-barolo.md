@@ -2807,3 +2807,30 @@ deployment and loader logs, before/after older-app manifests and config hashes,
 installed payload hashes, lifecycle/owner-run logs, deployment attestation,
 passive game snapshots and the inspected framebuffer capture. No panel/ghosting,
 new desktop-source revision or final human approval is inferred.
+
+
+## Play orientation follow-up — 2026-11-10
+
+Deployed `feature/kindle-play-improvements` fix `12feea4` via the existing Play
+deploy script to `root@192.168.1.20:2222`. Choosing White/Black after a finished
+game now immediately changes orientation, using the selected human color rather
+than the prior snapshot color. Active games still restore their server color.
+The failing regression passed after the fix; 14 core, 9 render, 8 HTTP/runtime
+tests, full `scripts/check.sh`, pinned Play build/stage/artifact verification passed.
+
+Installed binary SHA256:
+`0c8e57e59b3acd9ae8a1fc0af502a703e23d845a8338403d4d0164b84065d3c7`.
+Installer verified binary, build receipt and source archive. Native loader
+resolved dependencies. Play config stayed byte-identical. Puzzles/Review
+runtimes, libraries and other files were unchanged, except Review lifecycle log
+and resume changed during a concurrent owner Review session; its clean exit was
+observed before launching Play. No user data was restored or overwritten.
+
+Launched the updated Play runtime after the display lock was released. Lock
+child PID 30229 matched the installed Play executable; first usable frame 662 ms,
+exclusive finger input and 1860×2480 FBInk confirmed. Left Play running for
+owner testing. No game creation, moves or resignation were submitted by the
+agent. Physical orientation acceptance is pending the owner's report.
+Local evidence: `probe-output/play-orientation-20261110/` (deployment, hashes,
+loader, launch and attestation); host verification:
+`.git/codex-play-runs/FKP-02-20261110-183710-1HQU78/verify.log`.
