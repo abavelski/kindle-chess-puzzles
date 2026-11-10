@@ -400,3 +400,44 @@ fn unsupported_black_start_is_actionable_and_does_not_commit() {
     assert!(app.snapshot.is_none());
     assert!(!app.can_new());
 }
+
+#[test]
+fn white_legacy_fallback_only_follows_confirmed_validation_rejection() {
+    let mut app = PlayApp::default();
+    let id = app.begin(app.new_game_request()).unwrap();
+    let next = app
+        .complete(
+            id,
+            Ok(Response::Error {
+                status: 400,
+                code: "BAD_REQUEST".into(),
+                message: "rating only".into(),
+                state: None,
+            }),
+        )
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&next.wire().2).unwrap(),
+        json!({"rating":1500})
+    );
+    let mut success = app.clone();
+    let success_id = success.begin(next.clone()).unwrap();
+    success.complete(success_id, Ok(Response::Game(initial())));
+    assert!(success.can_move());
+    let id = app.begin(next).unwrap();
+    assert!(app
+        .complete(
+            id,
+            Ok(Response::Error {
+                status: 400,
+                code: "BAD_REQUEST".into(),
+                message: "still bad".into(),
+                state: None
+            })
+        )
+        .is_none());
+    let mut app = PlayApp::default();
+    let id = app.begin(app.new_game_request()).unwrap();
+    assert!(app.complete(id, Err("Timeout".into())).is_none());
+    assert!(!app.can_new());
+}

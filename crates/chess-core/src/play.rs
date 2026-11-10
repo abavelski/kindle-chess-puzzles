@@ -211,6 +211,7 @@ pub fn replay_positions(moves: &[String]) -> Result<Vec<Board>, String> {
 pub enum Request {
     Health,
     Current,
+    LegacyWhiteNew { rating: u16 },
     New { rating: u16, player_color: Color },
     Move { uci: String, expected_ply: usize },
     Resign,
@@ -220,6 +221,11 @@ impl Request {
         match self {
             Self::Health => ("GET", "/api/v1/health", String::new()),
             Self::Current => ("GET", "/api/v1/games/current", String::new()),
+            Self::LegacyWhiteNew { rating } => (
+                "POST",
+                "/api/v1/games",
+                serde_json::json!({"rating":rating}).to_string(),
+            ),
             Self::New {
                 rating,
                 player_color,
@@ -261,9 +267,14 @@ pub fn parse_response(request: &Request, status: u16, bytes: &[u8]) -> Result<Re
                 .as_bool()
                 .map(Response::Health)
                 .ok_or("Invalid health response".into()),
-            (Request::New { .. }, 201)
+            (Request::New { .. } | Request::LegacyWhiteNew { .. }, 201)
             | (Request::Current | Request::Move { .. } | Request::Resign, 200) => {
                 let state = Snapshot::parse(&value)?;
+                if matches!(request, Request::LegacyWhiteNew { .. })
+                    && state.human_color() != Color::White
+                {
+                    return Err("Unexpected player side in legacy White response".into());
+                }
                 if let Request::New { player_color, .. } = request {
                     if state.human_color() != *player_color {
                         return Err("Selected side requires an updated desktop server".into());
@@ -504,6 +515,13 @@ impl PlayApp {
             {
                 return None
             }
+            Request::LegacyWhiteNew { rating }
+                if !self.can_new()
+                    || !rating_valid(*rating)
+                    || self.player_color != Color::White =>
+            {
+                return None
+            }
             Request::Move { uci, expected_ply }
                 if !self.can_move()
                     || parse_uci_move(uci).is_err()
@@ -598,6 +616,17 @@ impl PlayApp {
                 message,
                 state,
             }) => {
+                if status == 400 && code == "BAD_REQUEST" {
+                    if let Request::New {
+                        rating,
+                        player_color: Color::White,
+                    } = request
+                    {
+                        // A definite validation failure cannot have committed a game.
+                        // Retry once in legacy White format; never do this after transport failure.
+                        return Some(Request::LegacyWhiteNew { rating });
+                    }
+                }
                 if status == 409 {
                     if let Some(state) = state {
                         self.apply(state);
