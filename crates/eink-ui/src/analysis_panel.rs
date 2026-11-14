@@ -1,13 +1,7 @@
 //! Deterministic paginated rendering for rich analysis browsing.
 
-use crate::{
-    font::{
-        draw_text_bold_vertically_centered, draw_text_centered,
-        draw_text_regular_vertically_centered, measure_text_bold, measure_text_regular,
-        text_line_height,
-    },
-    Gray8, Rect,
-};
+use crate::move_list::{draw_page_control, PageWindow};
+use crate::{Gray8, Rect};
 use chess_model::{AnalysisNodeIndex, AnalysisTextSpan, AnalysisTree, Color};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -17,8 +11,8 @@ pub enum AnalysisHit {
     AnalysisNextPage,
 }
 
+#[cfg(test)]
 const WHITE: u8 = 255;
-const INK: u8 = 0;
 
 #[derive(Clone, Copy, Debug)]
 pub struct AnalysisView<'a> {
@@ -29,21 +23,9 @@ pub struct AnalysisView<'a> {
     pub focus: Option<AnalysisNodeIndex>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AnalysisMoveChipSource {
-    TreeMove,
-    InlineReference,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AnalysisMoveChip {
-    pub rect: Rect,
-    pub hit_rect: Rect,
-    pub node: AnalysisNodeIndex,
-    pub source: AnalysisMoveChipSource,
-    pub label: String,
-    pub selected: bool,
-}
+pub use crate::move_flow::{FlowChip as GenericMoveChip, MoveChipSource as AnalysisMoveChipSource};
+pub type AnalysisMoveChip = GenericMoveChip<AnalysisNodeIndex>;
+use crate::move_flow::{draw_line, FlowBuilder, FlowDocument, FlowFragmentKind};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AnalysisPanelOutput<T = AnalysisHit> {
@@ -115,234 +97,6 @@ fn hit_move_chips(chips: &[AnalysisMoveChip], x: u32, y: u32, padded: bool) -> M
     hit.map_or(MoveHit::None, MoveHit::Target)
 }
 
-#[derive(Clone, Debug)]
-struct FlowDocument {
-    lines: Vec<FlowLine>,
-    row_height: u32,
-    chip_height: u32,
-}
-
-#[derive(Clone, Debug)]
-struct FlowLine {
-    used: u32,
-    fragments: Vec<FlowFragment>,
-}
-
-#[derive(Clone, Debug)]
-struct FlowFragment {
-    x: u32,
-    width: u32,
-    kind: FlowFragmentKind,
-}
-
-#[derive(Clone, Debug)]
-enum FlowFragmentKind {
-    Text {
-        text: String,
-        bold: bool,
-    },
-    Chip {
-        node: AnalysisNodeIndex,
-        source: AnalysisMoveChipSource,
-        label: String,
-        selected: bool,
-    },
-}
-
-struct FlowBuilder {
-    width: u32,
-    scale: u32,
-    row_height: u32,
-    chip_height: u32,
-    chip_padding_x: u32,
-    space_width: u32,
-    lines: Vec<FlowLine>,
-    current: Option<FlowLine>,
-    pending_space: bool,
-}
-
-impl FlowBuilder {
-    fn new(width: u32, scale: u32) -> Self {
-        let line_height = text_line_height(scale).max(1);
-        let chip_height = line_height.saturating_add(8);
-        Self {
-            width: width.max(1),
-            scale,
-            row_height: chip_height.saturating_add(4),
-            chip_height,
-            chip_padding_x: scale.saturating_mul(4).max(8),
-            space_width: measure_text_regular(" ", scale).max(scale),
-            lines: Vec::new(),
-            current: None,
-            pending_space: false,
-        }
-    }
-
-    fn finish(mut self) -> FlowDocument {
-        self.force_break();
-        FlowDocument {
-            lines: self.lines,
-            row_height: self.row_height,
-            chip_height: self.chip_height,
-        }
-    }
-
-    fn force_break(&mut self) {
-        if let Some(line) = self.current.take() {
-            if !line.fragments.is_empty() {
-                self.lines.push(line);
-            }
-        }
-        self.pending_space = false;
-    }
-
-    fn push_text(&mut self, indent: u32, text: &str, bold: bool) {
-        let mut word = String::new();
-        for character in text.chars() {
-            if character == '\n' {
-                if !word.is_empty() {
-                    self.push_word(indent, &word, bold);
-                    word.clear();
-                }
-                self.force_break();
-            } else if character.is_whitespace() {
-                if !word.is_empty() {
-                    self.push_word(indent, &word, bold);
-                    word.clear();
-                }
-                self.pending_space = true;
-            } else {
-                word.push(character);
-            }
-        }
-        if !word.is_empty() {
-            self.push_word(indent, &word, bold);
-        }
-    }
-
-    fn push_word(&mut self, indent: u32, word: &str, bold: bool) {
-        let width = if bold {
-            measure_text_bold(word, self.scale)
-        } else {
-            measure_text_regular(word, self.scale)
-        }
-        .max(1);
-        // Long prose words (URLs, for example) must wrap instead of being
-        // assigned a clipped rectangle and silently losing their suffix.
-        if width > self.width.saturating_sub(indent) {
-            let available = self.width.saturating_sub(indent).max(1);
-            let mut chunk = String::new();
-            for character in word.chars() {
-                let candidate = format!("{chunk}{character}");
-                let measured = if bold {
-                    measure_text_bold(&candidate, self.scale)
-                } else {
-                    measure_text_regular(&candidate, self.scale)
-                };
-                if measured > available && !chunk.is_empty() {
-                    self.push_word(indent, &chunk, bold);
-                    self.force_break();
-                    chunk.clear();
-                }
-                chunk.push(character);
-            }
-            let final_width = if bold {
-                measure_text_bold(&chunk, self.scale)
-            } else {
-                measure_text_regular(&chunk, self.scale)
-            };
-            // A single glyph may exceed a very small viewport; don't recurse.
-            self.push_fragment(
-                indent,
-                final_width.min(available).max(1),
-                FlowFragmentKind::Text { text: chunk, bold },
-            );
-            return;
-        }
-        self.push_fragment(
-            indent,
-            width,
-            FlowFragmentKind::Text {
-                text: word.to_owned(),
-                bold,
-            },
-        );
-    }
-
-    fn push_chip(
-        &mut self,
-        indent: u32,
-        node: AnalysisNodeIndex,
-        label: &str,
-        source: AnalysisMoveChipSource,
-        selected: bool,
-    ) {
-        let width = measure_text_bold(label, self.scale)
-            .saturating_add(self.chip_padding_x.saturating_mul(2))
-            .max(self.chip_height);
-        self.push_fragment(
-            indent,
-            width,
-            FlowFragmentKind::Chip {
-                node,
-                source,
-                label: label.to_owned(),
-                selected,
-            },
-        );
-    }
-
-    fn push_fragment(&mut self, indent: u32, requested_width: u32, kind: FlowFragmentKind) {
-        let indent = indent.min(self.width.saturating_sub(1));
-        self.ensure_line(indent);
-
-        let has_fragments = self
-            .current
-            .as_ref()
-            .is_some_and(|line| !line.fragments.is_empty());
-        let space = if self.pending_space && has_fragments {
-            self.space_width
-        } else {
-            0
-        };
-        let used = self.current.as_ref().map_or(indent, |line| line.used);
-        let remaining = self.width.saturating_sub(used);
-        if has_fragments && space.saturating_add(requested_width) > remaining {
-            self.force_break();
-            self.ensure_line(indent);
-        }
-
-        let has_fragments = self
-            .current
-            .as_ref()
-            .is_some_and(|line| !line.fragments.is_empty());
-        let space = if self.pending_space && has_fragments {
-            self.space_width
-        } else {
-            0
-        };
-        let line = self.current.as_mut().expect("line was ensured");
-        let x = line.used.saturating_add(space).min(self.width);
-        let width = requested_width.min(self.width.saturating_sub(x));
-        if width == 0 {
-            self.pending_space = false;
-            return;
-        }
-        line.fragments.push(FlowFragment { x, width, kind });
-        line.used = x.saturating_add(width);
-        self.pending_space = false;
-    }
-
-    fn ensure_line(&mut self, indent: u32) {
-        if self.current.is_none() {
-            self.current = Some(FlowLine {
-                used: indent,
-                fragments: Vec::new(),
-            });
-        }
-    }
-}
-
 pub fn draw_analysis_panel(
     frame: &mut Gray8,
     view: AnalysisView<'_>,
@@ -380,7 +134,7 @@ pub fn draw_analysis_panel(
     let rows_per_page = usize::try_from(body.height / row_height)
         .unwrap_or(0)
         .max(1);
-    let page_count = document.lines.len().div_ceil(rows_per_page).max(1);
+    let page_count = PageWindow::new(document.lines.len(), rows_per_page, 0).page_count;
     let requested_page = view.page.min(page_count.saturating_sub(1));
     let page = view
         .focus
@@ -402,10 +156,9 @@ pub fn draw_analysis_panel(
         .unwrap_or(requested_page)
         .min(page_count.saturating_sub(1));
 
-    let start = page.saturating_mul(rows_per_page);
-    let end = start
-        .saturating_add(rows_per_page)
-        .min(document.lines.len());
+    let window = PageWindow::new(document.lines.len(), rows_per_page, page);
+    let start = window.range.start;
+    let end = window.range.end;
     let mut move_chips = Vec::new();
     for (slot, line) in document.lines[start..end].iter().enumerate() {
         let row_y = body.y.saturating_add(
@@ -451,7 +204,7 @@ fn build_document(
     selected: Option<AnalysisNodeIndex>,
     width: u32,
     scale: u32,
-) -> FlowDocument {
+) -> FlowDocument<AnalysisNodeIndex> {
     let mut builder = FlowBuilder::new(width, scale);
 
     if !description.is_empty() {
@@ -570,7 +323,7 @@ fn move_annotation(code: u64) -> Option<&'static str> {
 }
 
 fn push_spans(
-    builder: &mut FlowBuilder,
+    builder: &mut FlowBuilder<AnalysisNodeIndex>,
     indent: u32,
     spans: &[AnalysisTextSpan],
     analysis: &AnalysisTree,
@@ -601,64 +354,6 @@ fn push_spans(
     }
 }
 
-fn draw_line(
-    frame: &mut Gray8,
-    row: Rect,
-    line: &FlowLine,
-    chip_height: u32,
-    scale: u32,
-    move_chips: &mut Vec<AnalysisMoveChip>,
-) {
-    for fragment in &line.fragments {
-        let x = row.x.saturating_add(fragment.x);
-        match &fragment.kind {
-            FlowFragmentKind::Text { text, bold } => {
-                if *bold {
-                    draw_text_bold_vertically_centered(frame, x, row, text, scale, INK);
-                } else {
-                    draw_text_regular_vertically_centered(frame, x, row, text, scale, INK);
-                }
-            }
-            FlowFragmentKind::Chip {
-                node,
-                source,
-                label,
-                selected,
-            } => {
-                let rect = Rect::new(
-                    x,
-                    row.y
-                        .saturating_add(row.height.saturating_sub(chip_height) / 2),
-                    fragment.width,
-                    chip_height,
-                );
-                draw_move_chip(frame, rect, label, *selected, scale);
-                move_chips.push(AnalysisMoveChip {
-                    rect,
-                    hit_rect: padded_move_hit_rect(rect, row, scale),
-                    node: *node,
-                    source: *source,
-                    label: label.clone(),
-                    selected: *selected,
-                });
-            }
-        }
-    }
-}
-
-fn padded_move_hit_rect(rect: Rect, row: Rect, scale: u32) -> Rect {
-    let padding = scale.saturating_mul(2).max(4);
-    let x = rect.x.saturating_sub(padding).max(row.x);
-    let right = rect.right().saturating_add(padding).min(row.right());
-    Rect::new(x, row.y, right.saturating_sub(x), row.height)
-}
-
-fn draw_move_chip(frame: &mut Gray8, rect: Rect, label: &str, selected: bool, scale: u32) {
-    let (background, foreground) = if selected { (INK, WHITE) } else { (WHITE, INK) };
-    frame.fill_rect(rect, background);
-    draw_text_centered(frame, rect.inset(4), label, scale, foreground);
-}
-
 fn split_footer(rect: Rect, gap: u32) -> [Rect; 2] {
     let width = rect.width.saturating_sub(gap) / 2;
     let first = Rect::new(rect.x, rect.y, width, rect.height);
@@ -674,15 +369,10 @@ fn split_footer(rect: Rect, gap: u32) -> [Rect; 2] {
     ]
 }
 
-fn draw_page_control(frame: &mut Gray8, rect: Rect, label: &str, scale: u32) {
-    frame.fill_rect(rect, WHITE);
-    frame.stroke_rect(rect, 2.min(rect.width).min(rect.height), INK);
-    draw_text_centered(frame, rect.inset(4), label, scale, INK);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::font::measure_text_regular;
     // Read fixture data through the generic model rather than product parsers.
     struct Fixture {
         analysis: Option<AnalysisTree>,
@@ -722,7 +412,7 @@ mod tests {
 
     // Inspect the actual flow fragments consumed by drawing, including punctuation.
     // Spaces are normalized here so assertions are independent of physical wrapping.
-    fn notation(document: &FlowDocument) -> String {
+    fn notation(document: &FlowDocument<AnalysisNodeIndex>) -> String {
         document
             .lines
             .iter()
@@ -745,6 +435,113 @@ mod tests {
             .as_ref()
             .unwrap()
             .clone()
+    }
+
+    #[test]
+    fn plain_move_record_matches_analysis_pixels_and_hit_rectangles() {
+        let mut value: serde_json::Value = serde_json::from_slice(BOOK).unwrap();
+        let tree = parse_puzzle_file(BOOK)
+            .unwrap()
+            .puzzles
+            .remove(0)
+            .analysis
+            .unwrap();
+        let ids: Vec<_> = std::iter::once(tree.root().id.clone())
+            .chain(
+                tree.main_line_nodes()
+                    .iter()
+                    .map(|n| tree.node(*n).unwrap().id.clone()),
+            )
+            .collect();
+        let nodes = value["puzzles"][0]["analysis"]["nodes"]
+            .as_array_mut()
+            .unwrap();
+        nodes.retain(|n| ids.contains(&n["id"].as_str().unwrap().to_owned()));
+        for n in nodes {
+            n.as_object_mut().unwrap().remove("content");
+            n.as_object_mut().unwrap().remove("comment");
+            n.as_object_mut().unwrap().remove("nags");
+            if let Some(children) = n.get_mut("children").and_then(|c| c.as_array_mut()) {
+                children.retain(|c| ids.contains(&c.as_str().unwrap().to_owned()));
+            }
+        }
+        value["puzzles"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("description_content");
+        let tree = parse_puzzle_file(&serde_json::to_vec(&value).unwrap())
+            .unwrap()
+            .puzzles
+            .remove(0)
+            .analysis
+            .unwrap();
+        let labels: Vec<_> = tree
+            .main_line_nodes()
+            .iter()
+            .skip(1)
+            .map(|n| {
+                tree.node(*n)
+                    .unwrap()
+                    .movement
+                    .as_ref()
+                    .unwrap()
+                    .san
+                    .as_str()
+            })
+            .collect();
+        for width in [500, 1200] {
+            let document = build_document(&[], &tree, None, width, 3);
+            let body = Rect::new(
+                10,
+                10,
+                width,
+                document.lines.len() as u32 * document.row_height,
+            );
+            for selected in [0, 1, labels.len()] {
+                let record = crate::move_flow::layout_move_record(&labels, selected, None, body, 3);
+                let mut actual = Gray8::new(width + 20, body.bottom() + 10, WHITE);
+                record.draw(&mut actual);
+                let selected_node = selected
+                    .checked_sub(1)
+                    .and_then(|n| tree.main_line_nodes().get(n + 1))
+                    .copied();
+                let reference = build_document(&[], &tree, selected_node, width, 3);
+                let mut expected = Gray8::new(width + 20, body.bottom() + 10, WHITE);
+                let mut chips = Vec::new();
+                for (slot, line) in reference.lines.iter().enumerate() {
+                    draw_line(
+                        &mut expected,
+                        Rect::new(
+                            body.x,
+                            body.y + slot as u32 * reference.row_height,
+                            width,
+                            reference.row_height,
+                        ),
+                        line,
+                        reference.chip_height,
+                        3,
+                        &mut chips,
+                    );
+                }
+                assert_eq!(
+                    actual.checksum64(),
+                    expected.checksum64(),
+                    "width={width}, selected={selected}"
+                );
+                assert_eq!(record.chips.len(), chips.len());
+                for (actual, expected) in record.chips.iter().zip(chips) {
+                    assert_eq!(
+                        (actual.rect, actual.hit_rect, &actual.label, actual.selected),
+                        (
+                            expected.rect,
+                            expected.hit_rect,
+                            &expected.label,
+                            expected.selected
+                        )
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -915,7 +712,7 @@ mod tests {
         assert_eq!(text.matches('(').count(), 2);
         assert_eq!(text.matches(')').count(), 2);
         assert!(!text.contains(['{', '}']));
-        let mut builder = FlowBuilder::new(180, 3);
+        let mut builder = FlowBuilder::<AnalysisNodeIndex>::new(180, 3);
         let long_word = "explanation".repeat(20);
         builder.push_text(0, &long_word, false);
         let document = builder.finish();

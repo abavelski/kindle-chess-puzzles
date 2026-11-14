@@ -176,3 +176,299 @@ fn promotion_modal_is_exclusive_and_finished_board_is_read_only() {
     let r = layout.base.square_rect(52);
     assert!(output.hit_test_app(r.x + 5, r.y + 5, &app).is_none());
 }
+
+#[test]
+fn close_icon_matches_existing_products_and_keeps_its_touch_rectangle() {
+    use chess_core::{parse_puzzle_file, ActiveCollection, AppState, Progress, WorkspaceSettings};
+    let puzzles = AppState::new(
+        ActiveCollection::from_collection(
+            "puzzles.json",
+            parse_puzzle_file(include_bytes!("../../../tests/fixtures/puzzles.json")).unwrap(),
+        ),
+        Progress::new(),
+    );
+    let review = chess_core::review_app::ReviewApp::new(vec![], WorkspaceSettings::default());
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let app = PlayApp::default();
+        let play = render(&app, metrics).unwrap();
+        let exit = play.layout.exit;
+        let visual = exit.inset(play.layout.header.height / 10);
+        for reference in [
+            render(&puzzles, metrics).unwrap(),
+            render(&review, metrics).unwrap(),
+        ] {
+            assert_eq!(exit, reference.layout.exit);
+            for y in visual.y..visual.bottom() {
+                for x in visual.x..visual.right() {
+                    assert_eq!(play.frame.pixel(x,y), reference.frame.pixel(x,y),
+                        "Play close must contain the same X and chrome, without CLOSE text, at {x},{y} for {metrics:?}");
+                }
+            }
+        }
+        let icon = visual.inset(visual.width.min(visual.height) / 4);
+        for (x, y) in [
+            (icon.x, icon.y),
+            (icon.right() - 1, icon.y),
+            (icon.x, icon.bottom() - 1),
+            (icon.right() - 1, icon.bottom() - 1),
+        ] {
+            assert_eq!(play.frame.pixel(x, y), Some(0), "X diagonal endpoint");
+        }
+        for (x, y) in [
+            (exit.x, exit.y),
+            (exit.right() - 1, exit.bottom() - 1),
+            (exit.x + exit.width / 2, exit.y + exit.height / 2),
+        ] {
+            assert_eq!(
+                play.hit_test_app(x, y, &app),
+                Some(HitTarget::Play(PlayTarget::Close))
+            );
+        }
+        for (x, y) in [
+            (exit.x - 1, exit.y + exit.height / 2),
+            (exit.x + exit.width / 2, exit.bottom()),
+        ] {
+            assert_eq!(play.hit_test_app(x, y, &app), None);
+        }
+    }
+}
+
+#[test]
+fn black_orientation_maps_all_squares_and_color_controls_are_guarded() {
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = PlayApp::default();
+        app.choose_color(chess_core::Color::Black);
+        let value = serde_json::json!({"apiVersion":1,"rating":1500,"playerColor":"black","fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1","moves":["e2e4"],"ply":1,"status":"playing","result":null,"lastMove":"e2e4"});
+        let id = app.begin(Request::Current).unwrap();
+        app.complete(id, Ok(Response::Game(Snapshot::parse(&value).unwrap())));
+        let frame = render(&app, metrics).unwrap();
+        std::fs::write(
+            format!("../../target/play-black-{}.pgm", metrics.width),
+            frame.frame.to_pgm(),
+        )
+        .unwrap();
+        for displayed in 0..64 {
+            let r = frame.layout.square_rect(displayed);
+            assert_eq!(
+                frame.hit_test_app(r.x + r.width / 2, r.y + r.height / 2, &app),
+                Some(HitTarget::Play(PlayTarget::Square(63 - displayed)))
+            );
+        }
+        for (target, rect, enabled) in PlayLayout::new(metrics).unwrap().controls(&app) {
+            if matches!(target, PlayTarget::ChooseColor(_)) {
+                assert!(!enabled);
+                assert_eq!(
+                    frame.hit_test_app(rect.x + rect.width / 2, rect.y + rect.height / 2, &app),
+                    None
+                );
+            }
+        }
+        assert!(chess_render::ScreenState::flipped(&app));
+    }
+}
+
+#[test]
+fn history_pages_expose_every_ply_san_fallback_and_latest_without_overlap() {
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = ready();
+        for count in [0, 1, 2, 108] {
+            let mut state = app.snapshot.clone().unwrap();
+            state.moves = (0..count)
+                .map(|n| ["g1f3", "g8f6", "f3g1", "f6g8"][n % 4].to_owned())
+                .collect();
+            state.ply = count;
+            // Renderer view fixture only: core replay/contract legality is tested separately.
+            state.san_moves = Some(
+                (0..count)
+                    .map(|n| ["Nf3", "Nf6", "Ng1", "Ng8"][n % 4].to_owned())
+                    .collect(),
+            );
+            app.snapshot = Some(state);
+            app.view_ply = count;
+            app.history_page = None;
+            let layout = PlayLayout::new(metrics).unwrap();
+            let mut seen = vec![];
+            let first = layout.history(&app);
+            assert!(first.body.height >= 120);
+            for page in 0..first.window.page_count {
+                app.history_page = Some(page);
+                let history = layout.history(&app);
+                let output = render(&app, metrics).unwrap();
+                for chip in &history.chips {
+                    seen.push(chip.ply);
+                    assert!(chip.rect.width > 0 && chip.rect.height > 0);
+                    assert!(chip.hit_rect.contains_rect(chip.rect));
+                    assert!(layout.base.status.contains_rect(chip.rect));
+                    assert!(!chip.rect.intersects(history.message));
+                    assert!(!chip.rect.intersects(history.latest));
+                    assert_eq!(
+                        output.hit_test_app(
+                            chip.rect.x + chip.rect.width / 2,
+                            chip.rect.y + chip.rect.height / 2,
+                            &app
+                        ),
+                        Some(HitTarget::Play(PlayTarget::HistoryPly(chip.ply)))
+                    );
+                    assert!(chip.label.contains('N')); // SAN, not g1f3.
+                }
+                assert_eq!(
+                    output.hit_test_app(
+                        history.latest.x + history.latest.width / 2,
+                        history.latest.y + history.latest.height / 2,
+                        &app
+                    ),
+                    Some(HitTarget::Play(PlayTarget::Latest))
+                );
+            }
+            assert_eq!(seen, (1..=count).collect::<Vec<_>>());
+            app.snapshot.as_mut().unwrap().san_moves = None;
+            let history = layout.history(&app);
+            assert!(history.chips.iter().all(|chip| chip.label.contains('1')
+                || chip.label.contains('6')
+                || chip.label.contains('8')));
+        }
+    }
+}
+
+#[test]
+fn history_visual_states_match_reviewed_snapshots() {
+    let mut hashes = Vec::new();
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut castle: serde_json::Value =
+            serde_json::from_str(include_str!("../../../tests/fixtures/play/castle.json")).unwrap();
+        castle["sanMoves"] =
+            serde_json::json!(["Nf3", "Nf6", "e3", "e6", "Be2", "Be7", "O-O", "O-O"]);
+        let black = serde_json::json!({"apiVersion":1,"rating":1500,"playerColor":"black","fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1","moves":["e2e4"],"sanMoves":["e4"],"ply":1,"status":"playing","result":null,"lastMove":"e2e4"});
+        let long: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/play/history-long.json"
+        ))
+        .unwrap();
+        for (name, value, view) in [
+            ("white-live", castle.clone(), 8),
+            ("white-past", castle, 3),
+            ("black-live", black.clone(), 1),
+            ("black-start", black, 0),
+            ("long-san", long.clone(), 100),
+            (
+                "long-uci",
+                {
+                    let mut v = long;
+                    v.as_object_mut().unwrap().remove("sanMoves");
+                    v
+                },
+                100,
+            ),
+        ] {
+            let mut app = PlayApp::default();
+            let state = Snapshot::parse(&value).unwrap();
+            let id = app.begin(Request::Current).unwrap();
+            app.complete(id, Ok(Response::Game(state)));
+            app.view_history(view);
+            let output = render(&app, metrics).unwrap();
+            std::fs::write(
+                format!("../../target/play-history-{name}-{}.pgm", metrics.width),
+                output.frame.to_pgm(),
+            )
+            .unwrap();
+            hashes.push(format!(
+                "{name}-{} {:016x}",
+                metrics.width,
+                output.frame.checksum64()
+            ));
+            // Replaying pixel damage must reconstruct the past view and returning to Latest.
+            app.latest();
+            let latest = render(&app, metrics).unwrap();
+            let mut replay = output.frame.clone();
+            for rect in chess_render::calculate_damage(Some(&output.frame), &latest.frame) {
+                for y in rect.y..rect.bottom() {
+                    for x in rect.x..rect.right() {
+                        replay.set_pixel(x as i32, y as i32, latest.frame.pixel(x, y).unwrap());
+                    }
+                }
+            }
+            assert_eq!(replay, latest.frame);
+        }
+    }
+    assert_eq!(
+        hashes.join("\n") + "\n",
+        include_str!("../../../tests/fixtures/play/history-snapshots.txt")
+    );
+}
+
+#[test]
+fn pre_game_side_choice_rotates_the_finished_position_immediately() {
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = ready();
+        let mut state = app.snapshot.clone().unwrap();
+        state.status = "finished".into();
+        state.result = Some(chess_core::play::GameResult {
+            outcome: "black_win".into(),
+            reason: "resignation".into(),
+        });
+        let id = app.begin(Request::Resign).unwrap();
+        app.complete(id, Ok(Response::Game(state.clone())));
+        let white = render(&app, metrics).unwrap();
+        app.choose_color(chess_core::Color::Black);
+        let black = render(&app, metrics).unwrap();
+        assert!(chess_render::ScreenState::flipped(&app));
+        let board = black.layout.board;
+        assert!((board.y..board.bottom()).any(|y| (board.x..board.right())
+            .any(|x| black.frame.pixel(x, y) != white.frame.pixel(x, y))));
+        assert_eq!(app.snapshot.as_ref(), Some(&state));
+        assert_eq!(
+            app.board.placement(),
+            chess_core::Board::from_fen(&state.fen).unwrap().placement()
+        );
+        app.choose_color(chess_core::Color::White);
+        assert_eq!(render(&app, metrics).unwrap().frame, white.frame);
+    }
+}
+
+#[test]
+fn refresh_icon_matches_review_and_remains_available_during_promotion() {
+    let review =
+        chess_core::review_app::ReviewApp::new(vec![], chess_core::WorkspaceSettings::default());
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = ready();
+        for promotion in [None, Some((8, 0))] {
+            app.promotion = promotion;
+            let play = render(&app, metrics).unwrap();
+            let reference = render(&review, metrics).unwrap();
+            let rect = reference.layout.refresh;
+            let visual = rect.inset(play.layout.header.height / 10);
+            for y in visual.y..visual.bottom() {
+                for x in visual.x..visual.right() {
+                    assert_eq!(play.frame.pixel(x, y), reference.frame.pixel(x, y));
+                }
+            }
+            assert_eq!(
+                play.hit_test_app(rect.x + rect.width / 2, rect.y + rect.height / 2, &app),
+                Some(HitTarget::Play(PlayTarget::FullRefresh))
+            );
+        }
+    }
+}
+
+#[test]
+fn move_record_uses_inline_analysis_spacing_and_separate_move_numbers() {
+    for metrics in [metrics(1860, 2480), metrics(1404, 1872)] {
+        let mut app = ready();
+        let mut state = app.snapshot.clone().unwrap();
+        state.moves = vec!["g1f3".into(), "g8f6".into(), "e2e4".into(), "e7e5".into()];
+        state.san_moves = Some(vec!["Nf3".into(), "Nf6".into(), "e4".into(), "e5".into()]);
+        state.ply = 4;
+        app.snapshot = Some(state);
+        app.view_ply = 4;
+        let history = PlayLayout::new(metrics).unwrap().history(&app);
+        assert_eq!(
+            history
+                .chips
+                .iter()
+                .map(|c| c.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Nf3", "Nf6", "e4", "e5"]
+        );
+        assert_eq!(history.chips[0].rect.y, history.chips[3].rect.y);
+        assert!(history.chips[0].rect.width < history.body.width / 4);
+    }
+}

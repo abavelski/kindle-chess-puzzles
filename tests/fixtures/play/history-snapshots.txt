@@ -1,0 +1,12 @@
+white-live-1860 3bc627c0f06b5810
+white-past-1860 1fa737bf7fc34e65
+black-live-1860 6143473c8007e401
+black-start-1860 518ac4009e9089f0
+long-san-1860 610df4b23c64b03e
+long-uci-1860 e15a953026c32627
+white-live-1404 67b7c204edcfe202
+white-past-1404 f30c33cb566f70c3
+black-live-1404 218a9a320d65535f
+black-start-1404 24ef69dc742614c2
+long-san-1404 dc4510aced62e1a7
+long-uci-1404 4ea39394faed0ea0

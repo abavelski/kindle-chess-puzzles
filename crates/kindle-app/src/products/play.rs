@@ -159,15 +159,29 @@ impl Application for PlayRuntime {
                 self.state.change_rating(100);
                 None
             }
-            PlayTarget::NewGame => Some(Request::New {
-                rating: self.state.rating,
-            }),
+            PlayTarget::NewGame => Some(self.state.new_game_request()),
+            PlayTarget::ChooseColor(color) => {
+                self.state.choose_color(color);
+                None
+            }
             PlayTarget::Resign => Some(Request::Resign),
             PlayTarget::Retry => {
                 self.reconnect();
                 None
             }
             PlayTarget::FullRefresh => None,
+            PlayTarget::HistoryPly(ply) => {
+                self.state.view_history(ply);
+                None
+            }
+            PlayTarget::HistoryPreviousPage(page) | PlayTarget::HistoryNextPage(page) => {
+                self.state.history_page(page);
+                None
+            }
+            PlayTarget::Latest => {
+                self.state.latest();
+                None
+            }
         };
         if let Some(request) = request {
             self.request(request);

@@ -2685,3 +2685,201 @@ The owner's report is overall MVP acceptance; it is not an invented per-item
 report for the remaining edge cases listed in the prior entry. Existing focused
 host fixtures cover those behaviors. No new device action or redeployment was
 needed for this documentation-only acceptance closeout.
+
+
+### FKP-01 — prepared close icon parity, Waiting for human (2026-11-09)
+
+Status: **Waiting for human**. Branch: `codex/fkp-01`. Implementation revision:
+`95eeabb`. Play now reuses the exact
+Puzzles/Review X renderer and header visual inset, with its original close touch
+rectangle and runtime exit path. The new regression compares rendered close
+pixels against both older products at 1860×2480 and 1404×1872, verifies diagonal
+X endpoints and checks inside/outside touch boundaries.
+
+`PATH="$PWD/.venv/bin:$PATH" bash scripts/codex-play.sh verify FKP-01` passed all
+focused render/HTTP/runtime tests and the pinned Play build (including
+`scripts/check.sh`), stage and artifact verification. Existing Puzzles/Review
+goldens remained unchanged. Six Play snapshots were updated after visual review;
+inspectable previews are in `target/fkp-01-ready.png` and
+`target/fkp-01-close-states.png`.
+
+Prepared binary SHA256:
+`2e82dc2680eef91f919824a6d2ee0657967cabf888ad3996f97f07c77b03c965`.
+Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`.
+No device connection, installation, launch or physical observation was performed
+for this task. Firmware 5.19.6 / Barolo remains the previously observed baseline,
+not a new probe. Required last step: deploy the verified Play package, compare
+its X icon with Puzzles on the Scribe, tap the X and confirm reliable shutdown,
+then record the owner's acceptance. Host tests do not supply that acceptance.
+
+
+### FKP-01–FKP-04 — complete build ready for owner testing (2026-11-10)
+
+Status: **All Kindle implementation and automated preparation complete; owner
+will test the complete set.** The owner explicitly superseded the per-task
+human holds and requested one common feature branch. Branch:
+`feature/kindle-play-improvements`; final tested code `6b077eb` (FKP-01 `95eeabb`,
+FKP-02 `173d8de`, FKP-03 `2ffbf1b`, compatibility follow-up `6b077eb`).
+
+Implemented: shared X close icon; White/Black selection and orientation/input;
+color-neutral authoritative state; additive SAN/metadata with UCI fallback;
+paged move history, Start and Latest; one shared replay path for validation and
+historical positions; no network writes or board mutations while viewing the
+past. White can fall back once to a legacy creation request only after a
+confirmed 400 validation rejection; transport failures still reconcile by GET.
+
+`PATH="$PWD/.venv/bin:$PATH" bash scripts/codex-play.sh verify FKP-04` passed the
+focused core/render/HTTP/runtime tests (13/8/8), all host checks including the
+unchanged Puzzles/Review goldens, and pinned build/stage/artifact verification
+for **all three apps**. Each receipt matches the final source. Shared generic
+helpers were extracted without changing older product frame output. Twelve
+history goldens were inspected at 1860×2480 and 1404×1872; previews are local
+`target/play-history-*.png` and `target/history-panels-*.png`.
+
+Prepared Play binary SHA256:
+`3471a980d83bfdd68f6fe1891a3da4a3d7f2dc578c02808b4c6849947296c759`.
+Prepared KPM: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`.
+KPM SHA256:
+`8cb811b4c0d36c3e8f2ca2d96c7ed88ccb25e2fb7b01a01eed0f629e0138e662`.
+Toolchain/target: Rust 1.85.1, Zig 0.13.0, ARMv7 hard-float/glibc 2.35 and pinned
+FBInk. The existing config format and independent runtime/data identities remain.
+
+Desktop baseline source `12e52a27514757e6158216af23c6ec0d689a614d` passed npm tests,
+production build and full desktop smoke in an isolated worktree. GUI smoke
+required `--force-device-scale-factor=1` after the default Retina run failed its
+minimum-window assertion. Separate fake-Maia Kindle smoke and Personal Studies
+smoke passed. This verifies that baseline, not the future BKP color/studies
+extensions. The user's desktop checkout and data were not modified.
+
+No new device connection, deployment or physical result was performed for this
+complete build. The previously observed device remains Barolo / firmware
+5.19.6; that is not a new probe. The owner will test the whole feature set,
+including real upgraded-server Black/SAN play, history/Latest, both ratings,
+resign/reconnect, My Studies behavior and physical close/display behavior.
+No per-item pass is invented. Exact commands, hashes, baseline limitations and
+local logs are recorded in the [improvements plan](../KINDLE_PLAY_IMPROVEMENTS.md).
+
+
+### FKP-04 — complete Play build deployed for owner testing (2026-11-10)
+
+Status: **Deployed for owner testing**. The owner explicitly requested deployment
+of the complete Play improvements to the available reader. Branch:
+`feature/kindle-play-improvements`; application source `6b077eb`, preparation
+record `b7126f6` (documentation only). Play's existing stage passed the artifact
+verifier against current source before upload; no rebuild was needed.
+
+Actual device identification: ARMv7 Barolo / **firmware 5.19.6**, kernel
+`4.9.77-lab126`. Initially no chess process or shared display owner was active.
+Used the recorded SSH endpoint and host-key verification with a temporary
+control connection; no authentication configuration was saved. Command:
+
+```sh
+scripts/app.sh deploy play --host root@192.168.1.20 --port 2222
+```
+
+Installation completed. The installed binary, `build.json`, `source.tar` and
+library scriptlet matched the selected stage. Installed binary SHA256:
+`3471a980d83bfdd68f6fe1891a3da4a3d7f2dc578c02808b4c6849947296c759`.
+The native loader resolved all dependencies. Existing Play config was preserved
+byte-for-byte, retaining `http://192.168.1.15:8765`. **All 161 files** in the
+Puzzles and Review roots retained the same paths and SHA256 values, including
+runtimes, libraries, state, logs and identities. Neither older app was deployed.
+
+Launched `/mnt/us/kindle-chess-play/runtime/launch.sh`. Logs confirmed exclusive
+finger input, FBInk at 1860×2480 / stride 1872 / 8 bpp / rotation 3, and a first
+usable full frame at **460 ms**. App and shared display lock child PIDs matched
+and identified the Play binary. The inspected `play-screen.png` framebuffer
+showed the shared X, rating/White/Black controls, status and Start/Latest history
+panel. Play is intentionally left open for the owner; no automated termination,
+resignation, game creation or move submission was performed by the agent.
+
+The configured desktop reported health 200 / API v1 / Maia available and
+initially no game. During subsequent real owner input, logs and passive reads
+observed White-game creation/resignation. A later read captured a **1400-rated
+White game at ply 16**, with 16 SAN entries. Offline python-chess replay verified
+all 16 moves legal and resulting placement identical to server FEN. This is an
+observed session, not an assertion that every color/history/GUI acceptance item
+has passed. Black play, history selection/Latest, final physical close and the
+complete cross-repository owner acceptance remain for the owner's test report.
+
+Evidence is local under ignored `probe-output/play-improvements-20261110/`:
+deployment and loader logs, before/after older-app manifests and config hashes,
+installed payload hashes, lifecycle/owner-run logs, deployment attestation,
+passive game snapshots and the inspected framebuffer capture. No panel/ghosting,
+new desktop-source revision or final human approval is inferred.
+
+
+## Play orientation follow-up — 2026-11-10
+
+Deployed `feature/kindle-play-improvements` fix `12feea4` via the existing Play
+deploy script to `root@192.168.1.20:2222`. Choosing White/Black after a finished
+game now immediately changes orientation, using the selected human color rather
+than the prior snapshot color. Active games still restore their server color.
+The failing regression passed after the fix; 14 core, 9 render, 8 HTTP/runtime
+tests, full `scripts/check.sh`, pinned Play build/stage/artifact verification passed.
+
+Installed binary SHA256:
+`0c8e57e59b3acd9ae8a1fc0af502a703e23d845a8338403d4d0164b84065d3c7`.
+Installer verified binary, build receipt and source archive. Native loader
+resolved dependencies. Play config stayed byte-identical. Puzzles/Review
+runtimes, libraries and other files were unchanged, except Review lifecycle log
+and resume changed during a concurrent owner Review session; its clean exit was
+observed before launching Play. No user data was restored or overwritten.
+
+Launched the updated Play runtime after the display lock was released. Lock
+child PID 30229 matched the installed Play executable; first usable frame 662 ms,
+exclusive finger input and 1860×2480 FBInk confirmed. Left Play running for
+owner testing. No game creation, moves or resignation were submitted by the
+agent. Physical orientation acceptance is pending the owner's report.
+Local evidence: `probe-output/play-orientation-20261110/` (deployment, hashes,
+loader, launch and attestation); host verification:
+`.git/codex-play-runs/FKP-02-20261110-183710-1HQU78/verify.log`.
+
+
+## Play refresh and movetext follow-up — prepared, not deployed (2026-11-10)
+
+The common `feature/kindle-play-improvements` branch now reuses the existing
+Puzzles/Review header Refresh icon and analysis inline movetext flow. Host
+pixel/hit-target parity, history pagination, existing product goldens and full
+`scripts/check.sh` passed, followed by pinned Play build/stage/artifact checks.
+Build binary SHA256:
+`7bfeff36c2fdcb08e4f072fd01709d8c9e4cdf3754210532422a3557ad3ae34b`.
+Package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`.
+
+**Not deployed:** owner requested waiting for an explicit go. The reader has
+not been contacted or changed for this follow-up. Physical checks remain:
+compare Refresh icon, confirm full-screen refresh, compare inline move display
+and selected highlight with Review, browse pages/Start/Latest and resume play.
+See FKP-05 in [the tracker](../KINDLE_PLAY_IMPROVEMENTS.md#fkp-05--refresh-and-movetext-parity)
+for automated evidence and exact local verification log.
+
+
+## Play latest build deployment and main reintegration — 2026-11-14
+
+Owner explicitly authorized latest deployment, feature-branch reintegration
+into main and push to origin. Deployed source `b1d9f9b` from
+`feature/kindle-play-improvements`, including orientation fix and the shared
+header Refresh icon / inline analysis move display. The 2026-11-10 full host
+suite and pinned build evidence remains applicable: unchanged code, clean
+working tree and artifact verification passed again immediately before deploy.
+No rebuild or test result is claimed for a different source.
+
+Used `scripts/app.sh deploy play --host root@192.168.1.20 --port 2222`
+with empty-password SSH authentication and the existing host key. Installer
+verified installed binary, build receipt and source archive. Native loader
+resolved dependencies; installed binary SHA256:
+`7bfeff36c2fdcb08e4f072fd01709d8c9e4cdf3754210532422a3557ad3ae34b`.
+Package SHA256:
+`67dfe3721e854afa60d321e61b12e2ee2fdd1ad00f28560383f27c7341eedfa2`.
+Before/after hashes matched for 161 files in the Puzzles/Review roots plus
+Play config; retained server URL `http://192.168.1.15:8765`.
+
+No chess app was active before deployment. Launched Play via its own runtime,
+with display lock child PID 26132 matching the installed Play executable.
+Exclusive finger input and FBInk 1860×2480 / stride 1872 / 8 bpp / rotation 3
+confirmed; first usable frame 476 ms. Left Play open for the owner. No game
+creation, move, resignation or synthetic tap was submitted by the agent.
+Physical acceptance of refresh/movetext and the final end-to-end feature matrix
+remains pending owner observation; merge authorization is recorded separately.
+Local evidence: `probe-output/play-release-20261114/` (deploy log, installed
+receipt/loader, preserved-file hashes and launch log).

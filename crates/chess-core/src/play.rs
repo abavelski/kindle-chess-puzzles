@@ -22,11 +22,41 @@ pub struct Snapshot {
     pub status: String,
     pub result: Option<GameResult>,
     pub last_move: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub san_moves: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub game_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_move_at: Option<String>,
 }
 fn rating_valid(rating: u16) -> bool {
     (600..=2600).contains(&rating) && rating % 100 == 0
 }
+pub fn color_name(color: Color) -> &'static str {
+    match color {
+        Color::White => "white",
+        Color::Black => "black",
+    }
+}
 impl Snapshot {
+    pub fn move_label(&self, ply: usize) -> Option<&str> {
+        let index = ply.checked_sub(1)?;
+        self.san_moves
+            .as_ref()
+            .unwrap_or(&self.moves)
+            .get(index)
+            .map(String::as_str)
+    }
+
+    pub fn human_color(&self) -> Color {
+        if self.player_color == "black" {
+            Color::Black
+        } else {
+            Color::White
+        }
+    }
     pub fn parse(value: &Value) -> Result<Self, String> {
         // Null fields are part of the frozen contract, not optional omissions.
         for field in ["result", "lastMove"] {
@@ -38,7 +68,7 @@ impl Snapshot {
         let position = parse_fen(&state.fen).map_err(|e| e.to_string())?;
         if state.api_version != 1
             || !rating_valid(state.rating)
-            || state.player_color != "white"
+            || !matches!(state.player_color.as_str(), "white" | "black")
             || state.ply != state.moves.len()
             || state.last_move.as_ref() != state.moves.last()
             || position.fullmove_number() as usize != state.ply / 2 + 1
@@ -49,7 +79,8 @@ impl Snapshot {
                     Color::Black
                 }
             || !matches!(state.status.as_str(), "playing" | "finished")
-            || (state.status == "playing" && (state.result.is_some() || state.ply % 2 != 0))
+            || (state.status == "playing"
+                && (state.result.is_some() || position.active_color() != state.human_color()))
             || (state.status == "finished" && state.result.is_none())
         {
             return Err("Inconsistent server game state".into());
@@ -62,7 +93,13 @@ impl Snapshot {
                 )
                 || (matches!(result.reason.as_str(), "stalemate" | "draw")
                     && result.outcome != "draw")
-                || (result.reason == "resignation" && result.outcome != "black_win")
+                || (result.reason == "resignation"
+                    && result.outcome
+                        != if state.human_color() == Color::White {
+                            "black_win"
+                        } else {
+                            "white_win"
+                        })
             {
                 return Err("Invalid game result".into());
             }
@@ -83,50 +120,20 @@ impl Snapshot {
         for movement in &state.moves {
             parse_uci_move(movement).map_err(|e| e.to_string())?;
         }
-        // Reconstruct placement from already-authored UCI records. This is not a
-        // legality checker: no move generation, check detection or rules engine.
-        let initial = Board::starting_position();
-        let mut pieces: Vec<_> = (0..64).map(|sq| initial.piece_at(sq)).collect();
-        for (ply, record) in state.moves.iter().enumerate() {
-            let movement = parse_uci_move(record).map_err(|e| e.to_string())?;
-            let mut piece = pieces[movement.from]
-                .take()
-                .ok_or("History origin is empty")?;
-            if piece.color
-                != if ply % 2 == 0 {
-                    Color::White
-                } else {
-                    Color::Black
-                }
+        if let Some(san) = &state.san_moves {
+            if san.len() != state.ply
+                || san.iter().any(|label| {
+                    label.trim().is_empty()
+                        || label.len() > 64
+                        || label.chars().any(char::is_control)
+                })
             {
-                return Err("History color mismatch".into());
+                return Err("Invalid SAN history".into());
             }
-            if piece.kind == PieceKind::Pawn
-                && movement.from % 8 != movement.to % 8
-                && pieces[movement.to].is_none()
-            {
-                // Standard UCI en-passant records omit the captured pawn square.
-                let captured = movement.from / 8 * 8 + movement.to % 8;
-                pieces[captured] = None;
-            }
-            if piece.kind == PieceKind::King {
-                let rook = match (movement.from, movement.to) {
-                    (60, 62) => Some((63, 61)),
-                    (60, 58) => Some((56, 59)),
-                    (4, 6) => Some((7, 5)),
-                    (4, 2) => Some((0, 3)),
-                    _ => None,
-                };
-                if let Some((from, to)) = rook {
-                    pieces[to] = pieces[from].take();
-                }
-            }
-            if let Some(kind) = movement.promotion {
-                piece.kind = kind;
-            }
-            pieces[movement.to] = Some(piece);
         }
-        if (0..64).any(|sq| pieces[sq] != position.piece_at(sq)) {
+        let positions = replay_positions(&state.moves)?;
+        let pieces = positions.last().expect("initial position");
+        if (0..64).any(|sq| pieces.piece_at(sq) != position.piece_at(sq)) {
             return Err("History placement disagrees with FEN".into());
         }
         if state.ply == 0 && state.fen != START_FEN {
@@ -149,11 +156,63 @@ impl Snapshot {
         Ok(state)
     }
 }
+/// Replay authored placements once for validation and read-only browsing; no legality engine.
+pub fn replay_positions(moves: &[String]) -> Result<Vec<Board>, String> {
+    // Reconstruct placement from already-authored UCI records. This is not a
+    // legality checker: no move generation, check detection or rules engine.
+    let initial = Board::starting_position();
+    let mut pieces: [Option<chess_model::Piece>; 64] =
+        std::array::from_fn(|sq| initial.piece_at(sq));
+    let mut positions = vec![initial];
+    for (ply, record) in moves.iter().enumerate() {
+        let movement = parse_uci_move(record).map_err(|e| e.to_string())?;
+        let mut piece = pieces[movement.from]
+            .take()
+            .ok_or("History origin is empty")?;
+        if piece.color
+            != if ply % 2 == 0 {
+                Color::White
+            } else {
+                Color::Black
+            }
+        {
+            return Err("History color mismatch".into());
+        }
+        if piece.kind == PieceKind::Pawn
+            && movement.from % 8 != movement.to % 8
+            && pieces[movement.to].is_none()
+        {
+            // Standard UCI en-passant records omit the captured pawn square.
+            let captured = movement.from / 8 * 8 + movement.to % 8;
+            pieces[captured] = None;
+        }
+        if piece.kind == PieceKind::King {
+            let rook = match (movement.from, movement.to) {
+                (60, 62) => Some((63, 61)),
+                (60, 58) => Some((56, 59)),
+                (4, 6) => Some((7, 5)),
+                (4, 2) => Some((0, 3)),
+                _ => None,
+            };
+            if let Some((from, to)) = rook {
+                pieces[to] = pieces[from].take();
+            }
+        }
+        if let Some(kind) = movement.promotion {
+            piece.kind = kind;
+        }
+        pieces[movement.to] = Some(piece);
+        positions.push(Board::from_squares(pieces));
+    }
+    Ok(positions)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Request {
     Health,
     Current,
-    New { rating: u16 },
+    LegacyWhiteNew { rating: u16 },
+    New { rating: u16, player_color: Color },
     Move { uci: String, expected_ply: usize },
     Resign,
 }
@@ -162,10 +221,19 @@ impl Request {
         match self {
             Self::Health => ("GET", "/api/v1/health", String::new()),
             Self::Current => ("GET", "/api/v1/games/current", String::new()),
-            Self::New { rating } => (
+            Self::LegacyWhiteNew { rating } => (
                 "POST",
                 "/api/v1/games",
                 serde_json::json!({"rating":rating}).to_string(),
+            ),
+            Self::New {
+                rating,
+                player_color,
+            } => (
+                "POST",
+                "/api/v1/games",
+                serde_json::json!({"rating":rating,"playerColor":color_name(*player_color)})
+                    .to_string(),
             ),
             Self::Move { uci, expected_ply } => (
                 "POST",
@@ -199,9 +267,20 @@ pub fn parse_response(request: &Request, status: u16, bytes: &[u8]) -> Result<Re
                 .as_bool()
                 .map(Response::Health)
                 .ok_or("Invalid health response".into()),
-            (Request::New { .. }, 201)
+            (Request::New { .. } | Request::LegacyWhiteNew { .. }, 201)
             | (Request::Current | Request::Move { .. } | Request::Resign, 200) => {
-                Snapshot::parse(&value).map(Response::Game)
+                let state = Snapshot::parse(&value)?;
+                if matches!(request, Request::LegacyWhiteNew { .. })
+                    && state.human_color() != Color::White
+                {
+                    return Err("Unexpected player side in legacy White response".into());
+                }
+                if let Request::New { player_color, .. } = request {
+                    if state.human_color() != *player_color {
+                        return Err("Selected side requires an updated desktop server".into());
+                    }
+                }
+                Ok(Response::Game(state))
             }
             _ => Err("Unexpected HTTP success status".into()),
         };
@@ -236,6 +315,10 @@ pub enum UiStatus {
 }
 #[derive(Clone, Debug)]
 pub struct PlayApp {
+    pub player_color: Color,
+    pub view_ply: usize,
+    pub history_page: Option<usize>,
+    positions: Vec<Board>,
     pub rating: u16,
     pub maia_available: bool,
     pub snapshot: Option<Snapshot>,
@@ -251,6 +334,10 @@ pub struct PlayApp {
 impl Default for PlayApp {
     fn default() -> Self {
         Self {
+            player_color: Color::White,
+            view_ply: 0,
+            history_page: None,
+            positions: vec![Board::starting_position()],
             rating: 1500,
             maia_available: true,
             snapshot: None,
@@ -266,6 +353,42 @@ impl Default for PlayApp {
     }
 }
 impl PlayApp {
+    pub fn viewing_history(&self) -> bool {
+        self.snapshot
+            .as_ref()
+            .is_some_and(|s| self.view_ply < s.ply)
+    }
+    pub fn view_history(&mut self, ply: usize) -> bool {
+        if self.in_flight() {
+            return false;
+        }
+        let Some(snapshot) = &self.snapshot else {
+            return false;
+        };
+        if ply > snapshot.ply {
+            return false;
+        }
+        self.board = if ply == snapshot.ply {
+            Board::from_fen(&snapshot.fen).expect("validated FEN")
+        } else {
+            self.positions[ply].clone()
+        };
+        self.view_ply = ply;
+        self.cancel_selection();
+        true
+    }
+    pub fn latest(&mut self) {
+        if let Some(ply) = self.snapshot.as_ref().map(|s| s.ply) {
+            if self.view_history(ply) {
+                self.history_page = None;
+            }
+        }
+    }
+    pub fn history_page(&mut self, page: usize) {
+        if !self.in_flight() {
+            self.history_page = Some(page);
+        }
+    }
     pub fn worker_failed(&mut self) {
         if let Some((id, _)) = &self.pending {
             self.complete(*id, Err("HTTP worker stopped".into()));
@@ -276,6 +399,7 @@ impl PlayApp {
     }
     pub fn can_move(&self) -> bool {
         !self.in_flight()
+            && !self.viewing_history()
             && !self.needs_refresh
             && self
                 .snapshot
@@ -284,11 +408,37 @@ impl PlayApp {
     }
     pub fn can_new(&self) -> bool {
         !self.in_flight()
+            && !self.viewing_history()
             && !self.needs_refresh
             && self
                 .snapshot
                 .as_ref()
                 .is_none_or(|s| s.status == "finished")
+    }
+    pub fn flipped(&self) -> bool {
+        self.player_color == Color::Black
+    }
+    pub fn choose_color(&mut self, color: Color) {
+        if self.can_new() {
+            self.player_color = color;
+            if self.snapshot.is_none() {
+                self.message = format!(
+                    "New Game to play {}",
+                    if color == Color::White {
+                        "White"
+                    } else {
+                        "Black"
+                    }
+                );
+            }
+            self.cancel_selection();
+        }
+    }
+    pub fn new_game_request(&self) -> Request {
+        Request::New {
+            rating: self.rating,
+            player_color: self.player_color,
+        }
     }
     pub fn change_rating(&mut self, delta: i16) {
         if self.can_new() && matches!(delta, -100 | 100) {
@@ -310,13 +460,19 @@ impl PlayApp {
         if self
             .board
             .piece_at(square)
-            .is_some_and(|p| p.color == Color::White)
+            .is_some_and(|p| p.color == self.player_color)
         {
             self.selected = Some(square);
             return None;
         }
         let from = self.selected?;
-        if self.board.piece_at(from)?.kind == PieceKind::Pawn && square < 8 {
+        if self.board.piece_at(from)?.kind == PieceKind::Pawn
+            && if self.player_color == Color::White {
+                square < 8
+            } else {
+                square >= 56
+            }
+        {
             self.promotion = Some((from, square));
             return None;
         }
@@ -347,7 +503,22 @@ impl PlayApp {
             return None;
         }
         match &request {
-            Request::New { rating } if !self.can_new() || !rating_valid(*rating) => return None,
+            Request::New {
+                rating,
+                player_color,
+            } if !self.can_new()
+                || !rating_valid(*rating)
+                || *player_color != self.player_color =>
+            {
+                return None
+            }
+            Request::LegacyWhiteNew { rating }
+                if !self.can_new()
+                    || !rating_valid(*rating)
+                    || self.player_color != Color::White =>
+            {
+                return None
+            }
             Request::Move { uci, expected_ply }
                 if !self.can_move()
                     || parse_uci_move(uci).is_err()
@@ -376,7 +547,11 @@ impl PlayApp {
     }
     fn apply(&mut self, snapshot: Snapshot) {
         self.board = Board::from_fen(&snapshot.fen).expect("validated snapshot");
+        self.positions = replay_positions(&snapshot.moves).expect("validated history");
+        self.view_ply = snapshot.ply;
+        self.history_page = None;
         self.rating = snapshot.rating;
+        self.player_color = snapshot.human_color();
         self.status = if snapshot.status == "finished" {
             UiStatus::Finished
         } else {
@@ -384,7 +559,12 @@ impl PlayApp {
         };
         self.message = match &snapshot.result {
             Some(r) => format!("{}: {}", r.outcome.replace('_', " "), r.reason),
-            None => "White to move".into(),
+            None => if self.player_color == Color::White {
+                "White to move"
+            } else {
+                "Black to move"
+            }
+            .into(),
         };
         if !self.maia_available && snapshot.status == "playing" {
             self.message = "Maia unavailable. Refresh server state".into();
@@ -397,7 +577,7 @@ impl PlayApp {
         if self.pending.as_ref().map(|p| p.0) != Some(id) {
             return None;
         }
-        self.pending = None;
+        let request = self.pending.take().expect("matching pending request").1;
         match response {
             Ok(Response::Health(available)) => {
                 self.maia_available = available;
@@ -406,11 +586,18 @@ impl PlayApp {
             Ok(Response::Game(state)) => self.apply(state),
             Ok(Response::NoGame) => {
                 self.snapshot = None;
+                self.view_ply = 0;
+                self.history_page = None;
+                self.positions = vec![Board::starting_position()];
                 self.board = Board::starting_position();
                 self.status = UiStatus::Idle;
                 self.needs_refresh = false;
                 self.message = if self.maia_available {
-                    "No game. New Game to play White"
+                    if self.player_color == Color::White {
+                        "No game. New Game to play White"
+                    } else {
+                        "No game. New Game to play Black"
+                    }
                 } else {
                     "Maia unavailable. Refresh server state"
                 }
@@ -426,6 +613,17 @@ impl PlayApp {
                 message,
                 state,
             }) => {
+                if status == 400 && code == "BAD_REQUEST" {
+                    if let Request::New {
+                        rating,
+                        player_color: Color::White,
+                    } = request
+                    {
+                        // A definite validation failure cannot have committed a game.
+                        // Retry once in legacy White format; never do this after transport failure.
+                        return Some(Request::LegacyWhiteNew { rating });
+                    }
+                }
                 if status == 409 {
                     if let Some(state) = state {
                         self.apply(state);
@@ -437,7 +635,17 @@ impl PlayApp {
                     }
                 }
                 self.status = UiStatus::Error;
-                self.message = if status == 422 {
+                self.message = if matches!(
+                    request,
+                    Request::New {
+                        player_color: Color::Black,
+                        ..
+                    }
+                ) && status == 400
+                {
+                    self.needs_refresh = true;
+                    "Black play requires an updated desktop server. Refresh server state".into()
+                } else if status == 422 {
                     "Illegal move".into()
                 } else if status == 409 && !self.needs_refresh {
                     "Server state updated; select your move again".into()
