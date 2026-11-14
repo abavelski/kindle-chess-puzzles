@@ -1,6 +1,6 @@
 # Kindle Chess Play — post-MVP improvements (Kindle)
 
-**Kindle implementation complete — latest UI follow-up ready, not deployed (2026-11-10).** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
+**Kindle implementation complete — latest UI follow-up deployed (2026-11-14); owner authorized main reintegration and remote push.** Created 2026-11-09. Repository: abavelski/kindle-chess-puzzles, integration branch **main**. Baseline: [KINDLE_PLAY_MVP.md](KINDLE_PLAY_MVP.md). Companion desktop plan: [IMPROVEMENTS_PLAN.md](https://github.com/abavelski/chess-games-db/blob/master/docs/tasks/kindle-play-server/IMPROVEMENTS_PLAN.md).
 
 ## Goal and existing architecture
 
@@ -51,7 +51,7 @@ Owner-directed batch workflow: keep every Kindle implementation commit on `featu
 | 2 | FKP-02 — choose human side | FKP-01 + desktop BKP-03 Done | Implemented; ready for owner testing | Side selector, rotated board/taps, server contract |
 | 3 | FKP-03 — clickable move record and Latest | FKP-02 + desktop BKP-03 Done | Implemented; ready for owner testing | Paged SAN move panel, historical FEN viewer, return-to-live |
 | 4 | FKP-04 — combined physical-device acceptance | FKP-03 + desktop BKP-04 Done | Deployed for owner testing | End-to-end human verification/evidence only |
-| 5 | FKP-05 — refresh and movetext parity | FKP-03 | Implemented; ready for owner testing | Shared header refresh and inline analysis-style moves |
+| 5 | FKP-05 — refresh and movetext parity | FKP-03 | Deployed for owner testing | Shared header refresh and inline analysis-style moves |
 
 ### FKP-01 — close icon parity
 
@@ -153,7 +153,7 @@ ready now. Owner testing happens once, on the complete feature set.
 
 ### FKP-05 — refresh and movetext parity
 
-**Status: Implemented; ready for owner testing.** Owner: Codex / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-10.
+**Status: Deployed for owner testing (2026-11-14).** Owner: Codex / final owner testing. Branch: `feature/kindle-play-improvements`. Started: 2026-11-10.
 
 Owner follow-up: reuse the Puzzles/Review header Refresh icon and full-screen refresh action. Replace Play's two-column move cards with the exact shared analysis movetext flow, typography, spacing, selected-move chrome and paging style. Keep status, Start/Latest, SAN/UCI fallback, history safety and complete pagination. Extract neutral presentation only; no fabricated analysis tree or product persistence coupling. Test pixel parity, wrapping, pagination, focus and touch targets at both resolutions; preserve older product goldens.
 
@@ -182,5 +182,11 @@ Log: `.git/codex-play-runs/FKP-03-20261110-185037-4GMs74/verify.log`.
 
 Prepared package: `target/kindle/play/kindle_chess_play_0.1.0_kindlehf.kpkg`;
 binary SHA256 `7bfeff36c2fdcb08e4f072fd01709d8c9e4cdf3754210532422a3557ad3ae34b`.
-No device deployment or physical acceptance: the owner explicitly requested
-waiting for their go before deployment.
+The owner authorized deployment, main reintegration and remote push on
+2026-11-14. Deployed implementation `b1d9f9b` using the existing Play installer,
+with installed binary/receipt/source checks and native loader validation.
+Puzzles/Review files and Play config stayed byte-identical. Play is running
+with exclusive display/input ownership; first usable frame 476 ms. See
+[device notes](device/ks1-barolo.md#play-latest-build-deployment-and-main-reintegration--2026-11-14).
+Merge authorization does not establish final physical acceptance of FKP-04/05;
+those observations remain pending the owner’s report.

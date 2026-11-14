@@ -2852,3 +2852,34 @@ compare Refresh icon, confirm full-screen refresh, compare inline move display
 and selected highlight with Review, browse pages/Start/Latest and resume play.
 See FKP-05 in [the tracker](../KINDLE_PLAY_IMPROVEMENTS.md#fkp-05--refresh-and-movetext-parity)
 for automated evidence and exact local verification log.
+
+
+## Play latest build deployment and main reintegration — 2026-11-14
+
+Owner explicitly authorized latest deployment, feature-branch reintegration
+into main and push to origin. Deployed source `b1d9f9b` from
+`feature/kindle-play-improvements`, including orientation fix and the shared
+header Refresh icon / inline analysis move display. The 2026-11-10 full host
+suite and pinned build evidence remains applicable: unchanged code, clean
+working tree and artifact verification passed again immediately before deploy.
+No rebuild or test result is claimed for a different source.
+
+Used `scripts/app.sh deploy play --host root@192.168.1.20 --port 2222`
+with empty-password SSH authentication and the existing host key. Installer
+verified installed binary, build receipt and source archive. Native loader
+resolved dependencies; installed binary SHA256:
+`7bfeff36c2fdcb08e4f072fd01709d8c9e4cdf3754210532422a3557ad3ae34b`.
+Package SHA256:
+`67dfe3721e854afa60d321e61b12e2ee2fdd1ad00f28560383f27c7341eedfa2`.
+Before/after hashes matched for 161 files in the Puzzles/Review roots plus
+Play config; retained server URL `http://192.168.1.15:8765`.
+
+No chess app was active before deployment. Launched Play via its own runtime,
+with display lock child PID 26132 matching the installed Play executable.
+Exclusive finger input and FBInk 1860×2480 / stride 1872 / 8 bpp / rotation 3
+confirmed; first usable frame 476 ms. Left Play open for the owner. No game
+creation, move, resignation or synthetic tap was submitted by the agent.
+Physical acceptance of refresh/movetext and the final end-to-end feature matrix
+remains pending owner observation; merge authorization is recorded separately.
+Local evidence: `probe-output/play-release-20261114/` (deploy log, installed
+receipt/loader, preserved-file hashes and launch log).
